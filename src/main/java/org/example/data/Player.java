@@ -3,16 +3,23 @@ package org.example.data;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Getter
 @Setter
 public class Player {
-	public String nickName;
-	public int hp;
-	public int luck;
-	public int money;
-	public int reputation;
-	public int strength;
-	public String location;
+	private String nickName;
+	private int hp;
+	private int luck;
+	private int money;
+	private int reputation;
+	private int strength;
+	private String location;
+	private int level;
+	private int exp;
+	private int expToNextLvl;
+	private List<Items> inventory;
 
 	public Player(String nickName) {
 		this.nickName = nickName;
@@ -21,18 +28,24 @@ public class Player {
 		this.money = 50;
 		this.reputation = 0;
 		this.strength = 5;
-		this.location = null;
+		this.location = "респаун";
+		this.level = 1;
+		this.exp = 0;
+		this.expToNextLvl = 100;
+		this.inventory = new ArrayList<>();
 	}
 
 	@Override
 	public String toString() {
-		return "Вот твои характристики, игрок" +
+		return "Вот твои характристики, игрок\n" +
 						"Имя - " + nickName + "\n" +
+						"Уровень - " + level + "\n" +
+						"Опыт - " + exp + "/" + expToNextLvl + "\n" +
 						"Здоровье - " + hp + "\n" +
 						"Удача - " + luck + "\n" +
 						"Деньги - " + money + "\n" +
 						"Репутация - " + reputation + "\n" +
 						"Сила - " + strength + "\n" +
-						"Локация - " + location;
+						"Локация - " + location+ "\n";
 	}
 }

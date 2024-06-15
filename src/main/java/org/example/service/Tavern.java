@@ -1,4 +1,4 @@
-package org.example.eventHandlers;
+package org.example.service;
 
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import org.apache.ignite.IgniteCache;
@@ -7,35 +7,36 @@ import org.example.data.Player;
 import java.util.Random;
 
 public class Tavern {
-	private final IgniteCache<String, Player> cache;
+	private final IgniteCache<String, Player> playerCache;
 	private final Random random = new Random();
 
-	public Tavern(IgniteCache<String, Player> cache) {
-		this.cache = cache;
+	public Tavern(IgniteCache<String, Player> playerCache) {
+		this.playerCache = playerCache;
 	}
 
-	public String dieCast(MessageReceivedEvent event) {
-		Player player = cache.get(event.getMessage().getAuthor().getName());
-		if (!player.location.equals("Таверна")) {
-			return "Как ты собрался бросить кости если ты не в таверне пидор? Метнись кабанчиком сначала туда потом проси";
+	public void dieCast(MessageReceivedEvent event) {
+		Player player = playerCache.get(event.getMessage().getAuthor().getName());
+		if (!player.getLocation().equals("таверна")) {
+			event.getChannel().sendMessage("Как ты собрался бросить кости если ты не в таверне? Метнись кабанчиком сначала туда").submit();
 		}
 		String bidText = event.getMessage().getContentDisplay().substring(7);
 		int bid;
 		try {
 			bid = Integer.parseInt(bidText);
 		} catch (Exception e) {
-			return "Ну и что я с твоим " + bidText + " должен делать? Нахер он мне нужен, я только на деньги играю";
+			event.getChannel().sendMessage("Ну и что я с твоим " + bidText + " должен делать? Нахер он мне нужен, я только на деньги играю").submit();
+			return;
 		}
 		if (bid < 0) {
-			return "Ты тестировщик или просто давно по хлебопечке не получал? Ставь нормально";
+			event.getChannel().sendMessage("Ты тестировщик или просто давно по хлебопечке не получал? Ставь нормально").submit();
+			return;
 		} else if (bid > 100) {
-			return "Ого к нам мсье мажор пожаловал и давай выёбуваться ставками, не так не пойдет, давай не больше 100";
+			event.getChannel().sendMessage("Ого к нам мсье мажор пожаловал и давай выёбуваться ставками, не так не пойдет, давай не больше 100").submit();
 		}
-		if (player.money < bid) {
-			return "Я ж вижу, что у тебя таких денег отродясь не было, а нанимать ябыса трясти с тебя долг я не хочу";
+		if (player.getMoney() < bid) {
+			event.getChannel().sendMessage("Я ж вижу, что у тебя таких денег отродясь не было, а нанимать ябыса трясти с тебя долг я не хочу").submit();
 		} else {
 			diceStart(event, player, bid);
-			return "";
 		}
 	}
 
@@ -54,7 +55,7 @@ public class Tavern {
 			die1 = random.nextInt(7);
 			die2 = random.nextInt(7);
 			event.getChannel().sendMessage("Выпало - ".concat(Integer.toString(die2)).concat(" и ").concat(Integer.toString(die1))).submit();
-			if (player.luck > 5) {
+			if (player.getLuck() > 5) {
 				if (die1 < 6) {
 					die1++;
 					event.getChannel().sendMessage("Благодаря вашей прокаченной удачи кубик делает дополнительный поворот и становится на 1 очко больше").submit();
@@ -76,6 +77,7 @@ public class Tavern {
 				event.getChannel().sendMessage("Зачем за мной повторяешь, попугай что-ли?").submit();
 				event.getChannel().sendMessage("* У вас осталось ".concat(Integer.toString(player.getMoney())).concat(" денег")).submit();
 			}
+			playerCache.put(player.getNickName(), player);
 		} catch (InterruptedException e) {
 			throw new RuntimeException(e);
 		}

@@ -6,6 +6,7 @@ import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.configuration.DataRegionConfiguration;
 import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
+import org.example.data.Items;
 import org.example.data.Location;
 import org.example.data.Player;
 
@@ -32,7 +33,12 @@ public class IgniteConfigurator {
 		playersCfg.setCacheMode(CacheMode.PARTITIONED);
 
 		// Конфигурируем кэш с играками
-		CacheConfiguration<String, Location> locCfg = new CacheConfiguration<>("location");
+		CacheConfiguration<String, Items> itemsCfg = new CacheConfiguration<>("items");
+		itemsCfg.setDataRegionName("Default_Region");
+		itemsCfg.setCacheMode(CacheMode.PARTITIONED);
+
+		// Конфигурируем кэш с играками
+		CacheConfiguration<String, Location> locCfg = new CacheConfiguration<>("locations");
 		locCfg.setDataRegionName("Default_Region");
 		locCfg.setCacheMode(CacheMode.PARTITIONED);
 		igniteCfg.setCacheConfiguration(locCfg, playersCfg);
