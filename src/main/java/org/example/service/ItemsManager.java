@@ -1,5 +1,6 @@
 package org.example.service;
 
+import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import org.apache.ignite.IgniteCache;
 import org.example.data.Items;
 import org.example.data.Player;
@@ -78,6 +79,16 @@ public class ItemsManager {
 
 		if (itemsCache != null) {
 			map.forEach(itemsCache::put);
+		}
+	}
+
+	public void getItemInfo(MessageReceivedEvent event) {
+		String message = event.getMessage().getContentDisplay().substring(8).trim().toLowerCase();
+		var item = itemsCache.get(message);
+		if (item != null) {
+			event.getChannel().sendMessage(item.toString()).submit();
+		} else {
+			event.getChannel().sendMessage("Такого предмета не существует, но ты можешь обратиться к разработчикам с помощью команды +идея и мы подумаем о его добавлении за умеренную плату").submit();
 		}
 	}
 }

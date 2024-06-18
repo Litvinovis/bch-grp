@@ -41,7 +41,11 @@ public class PlayersManager {
 		var player = playerCache.get(nickname);
 		String item = event.getMessage().getContentDisplay().substring(10).trim();
 		if (item.isEmpty()) {
-			event.getChannel().sendMessage(player.getInventory().toString()).submit();
+			if (player.getInventory().isEmpty()) {
+				event.getChannel().sendMessage("Ваш инвентарь ~~пожрал лаб~~ пуст, милорд").submit();
+			} else {
+				event.getChannel().sendMessage(player.getInventory().toString()).submit();
+			}
 		} else {
 			List<Items> filteredItems = player.getInventory().stream().filter(i -> i.getName().equals(item)).toList();
 			if (filteredItems.isEmpty()) {

@@ -6,13 +6,11 @@ import net.dv8tion.jda.api.hooks.ListenerAdapter;
 
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
+import org.example.data.Idea;
 import org.example.data.Items;
 import org.example.data.Location;
 import org.example.data.Player;
-import org.example.service.ItemsManager;
-import org.example.service.LocationManager;
-import org.example.service.PlayersManager;
-import org.example.service.Tavern;
+import org.example.service.*;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,21 +20,25 @@ import static org.example.Constants.*;
 @Slf4j
 public class MessageHandler extends ListenerAdapter {
 	private static final String HELP_MESSAGE = helpMessageCreate();
+	private static final String INFO_MESSAGE = infoMessageCreate();
 	private static IgniteCache<String, Player> playerCache;
 	private final Logger logger = LoggerFactory.getLogger("default-logger");
 	private final ItemsManager itemsManager;
 	private final PlayersManager playersManager;
 	private final LocationManager locationManager;
+	private final IdeasManager ideasManager;
 	private final Tavern tavern;
 
 	public MessageHandler(Ignite ignite) {
 		playerCache = ignite.cache("players");
+		IgniteCache<Integer, Idea> ideasCache = ignite.cache("ideas");
 		IgniteCache<String, Location> locationCache = ignite.cache("locations");
 		IgniteCache<String, Items> itemsCache = ignite.cache("items");
 		this.itemsManager = new ItemsManager(playerCache, itemsCache);
 		this.locationManager = new LocationManager(locationCache, playerCache);
 		this.playersManager = new PlayersManager(playerCache);
 		this.tavern = new Tavern(playerCache);
+		this.ideasManager = new IdeasManager(ideasCache);
 	}
 
 	@Override
@@ -63,6 +65,27 @@ public class MessageHandler extends ListenerAdapter {
 					locationManager.move(event);
 				} else if (content.startsWith("+инвентарь")) {
 					playersManager.getInventoryInfo(event);
+				} else if (content.startsWith("+предмет")) {
+					itemsManager.getItemInfo(event);
+				} else if (content.startsWith("+инфо")) {
+					event.getChannel().sendMessage(INFO_MESSAGE).submit();
+
+
+
+				// Админские команды
+				} else if (content.startsWith("+всеидеи") && isAdmin(event)) {
+					ideasManager.getAllIdeas(event);
+				} else if (content.startsWith("+новыеидеи") && isAdmin(event)) {
+					ideasManager.getNewIdeas(event);
+				} else if (content.startsWith("+идеяномер") && isAdmin(event)) {
+					ideasManager.getIdea(event);
+				} else if (content.startsWith("+идеястатус") && isAdmin(event)) {
+					ideasManager.changeIdeaStatus(event);
+
+
+				// Обычные запросы которые должны быть ниже
+				} else if (content.startsWith("+идея")) {
+					ideasManager.putIdea(event);
 				} else {
 					event.getChannel().sendMessage(UNKNOWN_COMMAND).submit();
 				}
@@ -76,6 +99,15 @@ public class MessageHandler extends ListenerAdapter {
 		return event.getMessage().getContentDisplay().startsWith("+") && event.getChannel().asTextChannel().getName().equals("бч-грп");
 	}
 
+	private boolean isAdmin(MessageReceivedEvent event) {
+		if (!event.getMessage().getAuthor().getName().equals("l4rover")) {
+			event.getChannel().sendMessage(ACCESS_DENIED).submit();
+			return false;
+		} else {
+			return true;
+		}
+	}
+
 	private static String helpMessageCreate() {
 		return """
 						Для игры доступны следующие команды:
@@ -86,7 +118,38 @@ public class MessageHandler extends ListenerAdapter {
 						+локация (название локации) - подробная информация об указанной локации
 						+карта - карта бч-грп
 						+инвентарь - список ваших предметов без подробного описания
-						+инвентарь (название предмета) - подробная информация о предмете, не обязательно из вашего инвенторя
+						+инвентарь (название предмета) - подробная информация о предмете в вашем инвентаре
+						+предмет (название предмета) - подробная информация о любом предмете в игре
+						+инфо - общая информация об игре и создателях
+						+идея (текст) - добавить идею, предложение, замечание и багрепорт.
+						""";
+	}
+
+	private static String infoMessageCreate() {
+		return """
+						БЧ-ГРП - онлайн ММА PVP MIX FIGHT UFC COOP
+						RPG ShitGame, созданная по мотивам легендарной
+						(хотя ещё и не вышедшей) ЧБ-РПГ. В ней вы
+						можете грабить ~~корованы~~ чебешников,
+						победить Boss of the gym, овладеть хуем вущъта,
+						фармить мобов гордона и даже приобрести цикорий
+						холодец.
+						
+						В игре полная свобода действий и перемещений
+						||пушта мне влом придумывать сюжет||
+						реалистичная боевая система и серверные ивенты
+						(когда нибудь будут).
+						Погрузитесь в великолепный мир Чатика безумия,
+						создайте свой отряд для рейда на босса,
+						заработайте 100 лвл и нагибайте ньюфагов.
+
+						                         СОЗДАТЕЛИ:
+						 Исполнительный директор             Ровер
+						 Руководитель разработки               Ровер
+						 Джун-макака                                Ровер
+						 Арт-директор                               Чегоб
+						 Лидер тестирования                      Чегоб
+						 Директор по маркетингу                 Фражуз
 						""";
 	}
 }
