@@ -1,4 +1,4 @@
-package org.example;
+package ru.chebe.litvinov;
 
 import junit.framework.Test;
 import junit.framework.TestCase;

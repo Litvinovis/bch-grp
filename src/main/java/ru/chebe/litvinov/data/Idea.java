@@ -1,4 +1,4 @@
-package org.example.data;
+package ru.chebe.litvinov.data;
 
 import lombok.Builder;
 import lombok.Getter;

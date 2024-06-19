@@ -1,4 +1,4 @@
-package org.example;
+package ru.chebe.litvinov;
 
 import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.JDA;
@@ -7,7 +7,7 @@ import net.dv8tion.jda.api.entities.Activity;
 import net.dv8tion.jda.api.requests.GatewayIntent;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.cluster.ClusterState;
-import org.example.eventHandlers.MessageHandler;
+import ru.chebe.litvinov.eventHandlers.MessageHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

@@ -1,4 +1,4 @@
-package org.example.service;
+package ru.chebe.litvinov.service;
 
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.entities.MessageEmbed;
@@ -6,8 +6,9 @@ import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.utils.FileUpload;
 import org.apache.ignite.IgniteCache;
 import org.apache.logging.log4j.util.Strings;
-import org.example.data.Location;
-import org.example.data.Player;
+import ru.chebe.litvinov.data.Location;
+import ru.chebe.litvinov.data.Player;
+
 
 import java.io.File;
 import java.util.ArrayList;
@@ -81,7 +82,7 @@ public class LocationManager {
 		player.setLocation(nextLocation.getName());
 		playerCache.put(player.getNickName(), player);
 		event.getChannel().sendMessage("Ты успешно переместился в локацию - " + nextLocation.getName()
-						+ "\nВ этой локации находятся следующие игроки: " + currentLocation.getPopulation().toString()).submit();
+						+ "\nВ этой локации находятся следующие игроки: " + nextLocation.getPopulation().toString()).submit();
 	}
 
 	public void locationInfo(MessageReceivedEvent event) {
@@ -103,5 +104,16 @@ public class LocationManager {
 		event.getChannel().sendMessageEmbeds(embed) // send the embed
 						.addFiles(file)
 						.queue();
+	}
+
+	public void movePerson(Player player, String location) {
+		var loc = locationCache.get(player.getLocation());
+		loc.getPopulation().remove(player.getNickName());
+		var nextLoc = locationCache.get(location);
+		nextLoc.getPopulation().add(player.getNickName());
+		locationCache.put(nextLoc.getName(), nextLoc);
+		locationCache.put(loc.getName(), loc);
+		player.setLocation(location);
+		playerCache.put(player.getNickName(), player);
 	}
 }

@@ -1,8 +1,8 @@
-package org.example.service;
+package ru.chebe.litvinov.service;
 
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import org.apache.ignite.IgniteCache;
-import org.example.data.Player;
+import ru.chebe.litvinov.data.Player;
 
 import java.util.Random;
 

@@ -1,4 +1,4 @@
-package org.example;
+package ru.chebe.litvinov;
 
 import org.apache.ignite.Ignite;
 import org.apache.ignite.cache.CacheMode;
@@ -6,10 +6,7 @@ import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.configuration.DataRegionConfiguration;
 import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
-import org.example.data.Idea;
-import org.example.data.Items;
-import org.example.data.Location;
-import org.example.data.Player;
+import ru.chebe.litvinov.data.*;
 
 
 import static org.apache.ignite.Ignition.start;
@@ -35,6 +32,12 @@ public class IgniteConfigurator {
 		ideaCfg.setCacheMode(CacheMode.PARTITIONED);
 		ideaCfg.setBackups(0);
 
+		// Конфигурируем кэш с боссами
+		CacheConfiguration<Integer, Boss> bossCfg = new CacheConfiguration<>("bosses");
+		ideaCfg.setDataRegionName("Default_Region");
+		ideaCfg.setCacheMode(CacheMode.PARTITIONED);
+		ideaCfg.setBackups(0);
+
 		// Конфигурируем кэш с игроками
 		CacheConfiguration<String, Player> playersCfg = new CacheConfiguration<>("players");
 		playersCfg.setDataRegionName("Default_Region");
@@ -47,12 +50,12 @@ public class IgniteConfigurator {
 		itemsCfg.setCacheMode(CacheMode.PARTITIONED);
 		itemsCfg.setBackups(0);
 
-		// Конфигурируем кэш с играками
+		// Конфигурируем кэш с локациями
 		CacheConfiguration<String, Location> locCfg = new CacheConfiguration<>("locations");
 		locCfg.setDataRegionName("Default_Region");
 		locCfg.setCacheMode(CacheMode.PARTITIONED);
 		locCfg.setBackups(0);
-		igniteCfg.setCacheConfiguration(locCfg, playersCfg, itemsCfg, ideaCfg);
+		igniteCfg.setCacheConfiguration(locCfg, playersCfg, itemsCfg, ideaCfg, bossCfg);
 
 		// Start the node.
 		return start(igniteCfg);

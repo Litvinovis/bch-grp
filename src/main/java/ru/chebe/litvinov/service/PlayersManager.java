@@ -1,10 +1,9 @@
-package org.example.service;
+package ru.chebe.litvinov.service;
 
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import org.apache.ignite.IgniteCache;
-import org.example.data.Items;
-import org.example.data.Player;
-import org.jetbrains.annotations.NotNull;
+import ru.chebe.litvinov.data.Items;
+import ru.chebe.litvinov.data.Player;
 
 import java.util.HashMap;
 import java.util.List;
@@ -14,11 +13,13 @@ import java.util.Random;
 public class PlayersManager {
 	private final IgniteCache<String, Player> playerCache;
 	private static final Map<Integer, Integer> xPmap = generateXpMap();
+	private final LocationManager locationManager;
 	List<String> words1 = List.of("Унылый", "Гейский", "Стрёмный", "Тупой", "Дрищавый", "Жирный");
 	List<String> words2 = List.of("Пидор", "Мудила", "Хуй", "Гей", "Лох", "Шлюха");
 
-	public PlayersManager(IgniteCache<String, Player> playerCache) {
+	public PlayersManager(IgniteCache<String, Player> playerCache, LocationManager locationManager) {
 		this.playerCache = playerCache;
+		this.locationManager = locationManager;
 	}
 
 	public void getPlayerInfo(MessageReceivedEvent event) {
@@ -26,13 +27,13 @@ public class PlayersManager {
 		event.getChannel().sendMessage(playerCache.get(nickname).toString()).submit();
 	}
 
-	public void changeHp(String nickname, int hp, boolean increase) {
+	public int getXp(Player player) {
+		return xPmap.get(player.getLevel() + 1);
+	}
+
+	public void changeHp(String nickname, int hp) {
 		var player = playerCache.get(nickname);
-		if (increase) {
-			player.setHp(player.getHp() + hp);
-		} else {
-			player.setHp(player.getHp() - hp);
-		}
+		player.setHp(hp);
 		playerCache.put(nickname, player);
 	}
 
@@ -47,11 +48,11 @@ public class PlayersManager {
 				event.getChannel().sendMessage(player.getInventory().toString()).submit();
 			}
 		} else {
-			List<Items> filteredItems = player.getInventory().stream().filter(i -> i.getName().equals(item)).toList();
+			List<String> filteredItems = player.getInventory().stream().filter(i -> i.equals(item)).toList();
 			if (filteredItems.isEmpty()) {
 				event.getChannel().sendMessage("Такого предмета у вас нет, посмотрите список имеющихся с помощью команды +инвентарь").submit();
 			} else {
-				event.getChannel().sendMessage(filteredItems.get(0).toString()).submit();
+				event.getChannel().sendMessage(filteredItems.get(0)).submit();
 			}
 		}
 	}
@@ -117,5 +118,18 @@ public class PlayersManager {
 		int index2 = random.nextInt(words2.size());
 		int index3 = random.nextInt(100);
 		return words1.get(index1) + words2.get(index2) + index3;
+	}
+
+	public void addNewItem(String nickName, String item) {
+		var player = playerCache.get(nickName);
+		player.getInventory().add(item);
+		playerCache.put(nickName, player);
+	}
+
+	public void deathOfPlayer(Player dead) {
+		var player = playerCache.get(dead.getNickName());
+		player.setMoney((int) (player.getMoney() * 0.9));
+		playerCache.put(player.getNickName(), player);
+		locationManager.movePerson(player, "респаун");
 	}
 }

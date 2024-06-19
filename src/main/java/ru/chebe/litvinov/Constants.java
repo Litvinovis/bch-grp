@@ -1,4 +1,4 @@
-package org.example;
+package ru.chebe.litvinov;
 
 public class Constants {
     public static final String MESSAGE_PROCESS_FAILED = "Ошибка при обработке сообщения - {}";

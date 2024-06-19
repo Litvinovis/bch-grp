@@ -1,11 +1,11 @@
-package org.example.service;
+package ru.chebe.litvinov.service;
 
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.cache.query.QueryCursor;
 import org.apache.ignite.cache.query.ScanQuery;
 import org.apache.ignite.lang.IgniteBiPredicate;
-import org.example.data.Idea;
+import ru.chebe.litvinov.data.Idea;
 
 import javax.cache.Cache;
 

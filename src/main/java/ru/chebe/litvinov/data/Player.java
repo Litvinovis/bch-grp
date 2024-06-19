@@ -1,4 +1,4 @@
-package org.example.data;
+package ru.chebe.litvinov.data;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -18,8 +18,9 @@ public class Player {
 	private String location;
 	private int level;
 	private int exp;
+	private int armor;
 	private int expToNextLvl;
-	private List<Items> inventory;
+	private List<String> inventory;
 
 	public Player(String nickName) {
 		this.nickName = nickName;
@@ -27,6 +28,7 @@ public class Player {
 		this.luck = 5;
 		this.money = 50;
 		this.reputation = 0;
+		this.armor = 0;
 		this.strength = 5;
 		this.location = "респаун";
 		this.level = 1;
