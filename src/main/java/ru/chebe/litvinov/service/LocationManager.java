@@ -70,7 +70,11 @@ public class LocationManager {
 		String message = event.getMessage().getContentDisplay().substring(5).trim().toLowerCase();
 		var player = playerCache.get(event.getAuthor().getName());
 		var currentLocation = locationCache.get(player.getLocation());
-		if (!Strings.isEmpty(message) && !currentLocation.getPaths().contains(message)) {
+		if (Strings.isEmpty(message)) {
+			event.getChannel().sendMessage("Для перемещения нужно указать желаемую локацию, введи \"+идти локация\" вместо локация, подставь любую из доступных: \n" + currentLocation.getPaths().toString()).submit();
+			return;
+		}
+		if (!currentLocation.getPaths().contains(message)) {
 			event.getChannel().sendMessage("Ты не можешь переместится в эту локацию, выбери что-нибудь из доступных путей: \n" + currentLocation.getPaths().toString()).submit();
 			return;
 		}

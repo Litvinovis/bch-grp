@@ -12,14 +12,16 @@ import java.util.Random;
 
 public class PlayersManager {
 	private final IgniteCache<String, Player> playerCache;
+	private final IgniteCache<String, Items> itemsCache;
 	private static final Map<Integer, Integer> xPmap = generateXpMap();
 	private final LocationManager locationManager;
 	List<String> words1 = List.of("Унылый", "Гейский", "Стрёмный", "Тупой", "Дрищавый", "Жирный");
 	List<String> words2 = List.of("Пидор", "Мудила", "Хуй", "Гей", "Лох", "Шлюха");
 
-	public PlayersManager(IgniteCache<String, Player> playerCache, LocationManager locationManager) {
+	public PlayersManager(IgniteCache<String, Player> playerCache, LocationManager locationManager, IgniteCache<String, Items> itemsCache) {
 		this.playerCache = playerCache;
 		this.locationManager = locationManager;
+		this.itemsCache = itemsCache;
 	}
 
 	public void getPlayerInfo(MessageReceivedEvent event) {
@@ -104,7 +106,7 @@ public class PlayersManager {
 		if (playerCache.get(nickName) == null) {
 			playerCache.put(nickName, new Player(nickName));
 			event.getChannel().sendMessage("Добро пожаловать в игру, мы внимательно проанализировали твой профиль и решили, что ник " + getCringeName() + " отлично тебе подходит \n\n" +
-							"Впрочем если ты хочешь использовать ник " + nickName + " мы отнесемся к этому с пониманием, для применения этого ника сделай вдох \n" +
+							"Впрочем если ты хочешь использовать ник " + nickName + " мы отнесемся к этому с пониманием, для применения этого используй любую команду \n" +
 							"Теперь ты готов к сражениям и кринжу, скорее ко второму да, для продолжения набери +помощь чтобы отобразить доступные команды или " +
 							"+карта для отображения информации куда тебе надо сходить").submit();
 		} else {
@@ -122,7 +124,25 @@ public class PlayersManager {
 
 	public void addNewItem(String nickName, String item) {
 		var player = playerCache.get(nickName);
+		Items newItem = itemsCache.get(item);
+		player.setReputation(newItem.getReputation() > 0 ? player.getReputation() + newItem.getReputation() : player.getReputation());
+		player.setHp(newItem.getHealth() > 0 ? player.getHp() + newItem.getHealth() : player.getHp());
+		player.setArmor(newItem.getArmor() > 0 ? player.getArmor() + newItem.getArmor() : player.getArmor());
+		player.setLuck(newItem.getLuck() > 0 ? player.getLuck() + newItem.getLuck() : player.getLuck());
+		player.setStrength(newItem.getStrength() > 0 ? player.getStrength() + newItem.getStrength() : player.getStrength());
 		player.getInventory().add(item);
+		playerCache.put(nickName, player);
+	}
+
+	public void deleteItem(String nickName, String item) {
+		var player = playerCache.get(nickName);
+		Items deleteItem = itemsCache.get(item);
+		player.setReputation(deleteItem.getReputation() > 0 ? player.getReputation() - deleteItem.getReputation() : player.getReputation());
+		player.setHp(deleteItem.getHealth() > 0 ? player.getHp() - deleteItem.getHealth() : player.getHp());
+		player.setArmor(deleteItem.getArmor() > 0 ? player.getArmor() - deleteItem.getArmor() : player.getArmor());
+		player.setLuck(deleteItem.getLuck() > 0 ? player.getLuck() - deleteItem.getLuck() : player.getLuck());
+		player.setStrength(deleteItem.getStrength() > 0 ? player.getStrength() - deleteItem.getStrength() : player.getStrength());
+		player.getInventory().remove(item);
 		playerCache.put(nickName, player);
 	}
 

@@ -46,7 +46,7 @@ public class IdeasManager {
 		String status = message.trim().substring(message.indexOf("\"") + 1, message.trim().lastIndexOf("\""));
 		idea.setResolution(status);
 		ideaCache.put(idea.getId(), idea);
-		event.getChannel().sendMessage("Статус идеи № " + idea.getId() + " успешно изменён на " + status).submit();
+		event.getChannel().sendMessage("Статус идеи № " + idea.getId() + " успешно изменён на " + status).queue();
 	}
 
 	public void getAllIdeas(MessageReceivedEvent event) {
