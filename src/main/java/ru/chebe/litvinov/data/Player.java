@@ -22,6 +22,7 @@ public class Player {
 	private int expToNextLvl;
 	private List<String> inventory;
 	private String answer;
+	private Event activeEvent;
 
 	public Player(String nickName) {
 		this.nickName = nickName;
@@ -37,6 +38,7 @@ public class Player {
 		this.expToNextLvl = 100;
 		this.inventory = new ArrayList<>();
 		this.answer = "";
+		this.activeEvent = null;
 	}
 
 	@Override
