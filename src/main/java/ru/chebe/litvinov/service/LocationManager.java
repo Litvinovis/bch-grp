@@ -1,5 +1,6 @@
 package ru.chebe.litvinov.service;
 
+import lombok.Getter;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.entities.MessageEmbed;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
@@ -11,15 +12,13 @@ import ru.chebe.litvinov.data.Player;
 
 
 import java.io.File;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class LocationManager {
 
 	private final IgniteCache<String, Location> locationCache;
 	private final IgniteCache<String, Player> playerCache;
+	public static final List<String> locationList = new ArrayList<>(50);
 
 
 	public LocationManager(IgniteCache<String, Location> locationCache, IgniteCache<String, Player> playerCache) {
@@ -64,6 +63,8 @@ public class LocationManager {
 				}
 			});
 		}
+
+		locationList.addAll(map.keySet());
 	}
 
 	public void move(MessageReceivedEvent event) {
@@ -119,5 +120,9 @@ public class LocationManager {
 		locationCache.put(loc.getName(), loc);
 		player.setLocation(location);
 		playerCache.put(player.getNickName(), player);
+	}
+
+	public List<String> getLocationList() {
+		return locationList;
 	}
 }

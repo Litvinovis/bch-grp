@@ -51,10 +51,7 @@ public class IdeasManager {
 
 	public void getAllIdeas(MessageReceivedEvent event) {
 		try (QueryCursor<Cache.Entry<Integer, Idea>> qryCursor = ideaCache.query(new ScanQuery<>())) {
-			qryCursor.forEach(
-							entry -> {
-								event.getChannel().sendMessage(entry.getValue().toString()).submit();
-							});
+			qryCursor.forEach(entry -> event.getChannel().sendMessage(entry.getValue().toString()).submit());
 		}
 	}
 

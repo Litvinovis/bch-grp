@@ -43,6 +43,7 @@ public class Player {
 
 	@Override
 	public String toString() {
+		String quest = activeEvent == null ? "" : "Квест - " + activeEvent.getDescription() + "\n";
 		return "Вот твои характристики, игрок\n" +
 						"Имя - " + nickName + "\n" +
 						"Уровень - " + level + "\n" +
@@ -52,6 +53,7 @@ public class Player {
 						"Деньги - " + money + "\n" +
 						"Репутация - " + reputation + "\n" +
 						"Сила - " + strength + "\n" +
-						"Локация - " + location+ "\n";
+						"Локация - " + location + "\n" +
+						quest;
 	}
 }

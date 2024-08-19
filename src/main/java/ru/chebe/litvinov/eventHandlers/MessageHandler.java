@@ -25,6 +25,7 @@ public class MessageHandler extends ListenerAdapter {
 	private final IdeasManager ideasManager;
 	private final BattleManager battleManager;
 	private final Tavern tavern;
+	private final EventsManager eventsManager;
 
 	public MessageHandler(Ignite ignite) {
 		playerCache = ignite.cache("players");
@@ -38,6 +39,7 @@ public class MessageHandler extends ListenerAdapter {
 		this.tavern = new Tavern(playerCache);
 		this.ideasManager = new IdeasManager(ideasCache);
 		this.battleManager = new BattleManager(locationCache, playerCache, bossCache, playersManager);
+		this.eventsManager = new EventsManager(locationCache, playerCache, locationManager, playersManager);
 	}
 
 	@Override
@@ -72,6 +74,10 @@ public class MessageHandler extends ListenerAdapter {
 					battleManager.bossFight(event);
 				} else if (content.startsWith("+пвп")) {
 					battleManager.playersFight(event);
+				} else if (content.startsWith("+взять квест")) {
+					eventsManager.assignEvent(event);
+				} else if (content.startsWith("+выполнить квест")) {
+					eventsManager.checkEvent(event);
 
 
 
