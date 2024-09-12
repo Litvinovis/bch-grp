@@ -92,6 +92,11 @@ public class BattleManager {
 		}
 	}
 
+	public void mobFight(MessageReceivedEvent event, Player player) {
+		Boss mob = Boss.builder().name("mob").hp(rand.nextInt(15,35)).strength(3).defeat(0).win(0).bossItem(null).build();
+		battleMechanic(player, null, mob, event.getChannel());
+	}
+
 
 	private void battleMechanic(Player player1, Player player2, Boss boss, MessageChannelUnion channel) {
 		if (boss == null) {
@@ -125,12 +130,21 @@ public class BattleManager {
 				boss.setWin(boss.getWin() + 1);
 				bossCache.put(boss.getName(), boss);
 			} else {
-				channel.sendMessage("Поздравляю ты победил босса этой локации " + boss.getName()).submit();
-				channel.sendMessage("В твой инвентарь добавлен предмет " + boss.getBossItem()).submit();
-				playersManager.changeXp(player1.getNickName(), 1000);
-				playersManager.changeMoney(player1.getNickName(), 1000, true);
-				playersManager.changeXp(player1.getNickName(), player1.getHp());
-				playersManager.addNewItem(player1.getNickName(), boss.getBossItem());
+				if (boss.getName().equals("mob")) {
+					channel.sendMessage("Поздравляю ты победил тупого засланца при переходе локации").submit();
+					playersManager.changeXp(player1.getNickName(), 10);
+					playersManager.changeMoney(player1.getNickName(), 10, true);
+					playersManager.changeXp(player1.getNickName(), player1.getHp());
+				} else {
+					channel.sendMessage("Поздравляю ты победил босса этой локации " + boss.getName()).submit();
+					playersManager.changeXp(player1.getNickName(), 1000);
+					playersManager.changeMoney(player1.getNickName(), 1000, true);
+					playersManager.changeXp(player1.getNickName(), player1.getHp());
+				}
+				if (boss.getBossItem() != null) {
+					playersManager.addNewItem(player1.getNickName(), boss.getBossItem());
+					channel.sendMessage("В твой инвентарь добавлен предмет " + boss.getBossItem()).submit();
+				}
 			}
 		} else {
 			Player defeat = player1.getHp() > 0 ? player1 : player2;

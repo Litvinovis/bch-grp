@@ -1,6 +1,5 @@
 package ru.chebe.litvinov.service;
 
-import lombok.Getter;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.entities.MessageEmbed;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
@@ -67,17 +66,17 @@ public class LocationManager {
 		locationList.addAll(map.keySet());
 	}
 
-	public void move(MessageReceivedEvent event) {
+	public boolean move(MessageReceivedEvent event) {
 		String message = event.getMessage().getContentDisplay().substring(5).trim().toLowerCase();
 		var player = playerCache.get(event.getAuthor().getName());
 		var currentLocation = locationCache.get(player.getLocation());
 		if (Strings.isEmpty(message)) {
 			event.getChannel().sendMessage("Для перемещения нужно указать желаемую локацию, введи \"+идти локация\" вместо локация, подставь любую из доступных: \n" + currentLocation.getPaths().toString()).submit();
-			return;
+			return false;
 		}
 		if (!currentLocation.getPaths().contains(message)) {
 			event.getChannel().sendMessage("Ты не можешь переместится в эту локацию, выбери что-нибудь из доступных путей: \n" + currentLocation.getPaths().toString()).submit();
-			return;
+			return false;
 		}
 		Location nextLocation = locationCache.get(message.toLowerCase());
 		nextLocation.getPopulation().add(player.getNickName());
@@ -88,6 +87,7 @@ public class LocationManager {
 		playerCache.put(player.getNickName(), player);
 		event.getChannel().sendMessage("Ты успешно переместился в локацию - " + nextLocation.getName()
 						+ "\nВ этой локации находятся следующие игроки: " + nextLocation.getPopulation().toString()).submit();
+		return true;
 	}
 
 	public void locationInfo(MessageReceivedEvent event) {

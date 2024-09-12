@@ -19,12 +19,15 @@ public class EventsManager {
 	private final Random rand = new Random();
 	LocationManager locationManager;
 	PlayersManager playersManager;
+	BattleManager battleManager;
 
-	public EventsManager(IgniteCache<String, Location> locationCache, IgniteCache<String, Player> playerCache, LocationManager locationManager, PlayersManager playersManager) {
+	public EventsManager(IgniteCache<String, Location> locationCache, IgniteCache<String, Player> playerCache,
+	                     LocationManager locationManager, PlayersManager playersManager, BattleManager battleManager) {
 		this.playerCache = playerCache;
 		this.locationCache = locationCache;
 		this.locationManager = locationManager;
 		this.playersManager = playersManager;
+		this.battleManager = battleManager;
 		init();
 	}
 
@@ -61,6 +64,15 @@ public class EventsManager {
 		}
 	}
 
+	public void transferEvent(MessageReceivedEvent event) {
+		var player = playerCache.get(event.getAuthor().getName());
+		var activeEvent = player.getActiveEvent();
+		if (activeEvent == null && rand.nextInt(100) > locationCache.get(player.getLocation()).getDangerous()) {
+			event.getChannel().sendMessage("Во время перемещения ты наткнулся на зомбака из руин...тебе придётся сразится с ним").submit();
+			battleManager.mobFight(event, player);
+		}
+	}
+
 	private Event createPathFinderEvent() {
 		String endLocation = locationManager.getLocationList().get(rand.nextInt(locationManager.getLocationList().size() - 1));
 		return Event.builder()
@@ -81,6 +93,19 @@ public class EventsManager {
 						.type("Загадка")
 						.correctAnswer("лаб")
 						.description("Самый неудачный игродел в истории")
+						.itemReward(null)
+						.moneyReward(rand.nextInt(50, 100))
+						.timeEnd(null)
+						.xpReward(rand.nextInt(50, 100))
+						.build();
+	}
+
+	private Event createBattle() {
+		return Event.builder()
+						.locationEnd(null)
+						.type("Битва")
+						.correctAnswer(null)
+						.description("Тебе встретился противник...битва неизбежна...приготовься")
 						.itemReward(null)
 						.moneyReward(rand.nextInt(50, 100))
 						.timeEnd(null)

@@ -13,8 +13,13 @@ import org.slf4j.LoggerFactory;
 import ru.chebe.litvinov.Constants;
 import ru.chebe.litvinov.service.*;
 
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+
 @Slf4j
 public class MessageHandler extends ListenerAdapter {
+	private static final int NUM_THREADS = 4; // Количество потоков в пуле
 	private static final String HELP_MESSAGE = helpMessageCreate();
 	private static final String INFO_MESSAGE = infoMessageCreate();
 	private static IgniteCache<String, Player> playerCache;
@@ -26,6 +31,7 @@ public class MessageHandler extends ListenerAdapter {
 	private final BattleManager battleManager;
 	private final Tavern tavern;
 	private final EventsManager eventsManager;
+	private final ThreadPoolExecutor executor = new ThreadPoolExecutor(NUM_THREADS, NUM_THREADS, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>());;
 
 	public MessageHandler(Ignite ignite) {
 		playerCache = ignite.cache("players");
@@ -39,11 +45,15 @@ public class MessageHandler extends ListenerAdapter {
 		this.tavern = new Tavern(playerCache);
 		this.ideasManager = new IdeasManager(ideasCache);
 		this.battleManager = new BattleManager(locationCache, playerCache, bossCache, playersManager);
-		this.eventsManager = new EventsManager(locationCache, playerCache, locationManager, playersManager);
+		this.eventsManager = new EventsManager(locationCache, playerCache, locationManager, playersManager, battleManager);
 	}
 
 	@Override
 	public void onMessageReceived(@NotNull MessageReceivedEvent event) {
+		executor.submit(() -> chooseAction(event));
+	}
+
+	private void chooseAction(MessageReceivedEvent event) {
 		try {
 			if (isBotAsking(event)) {
 				String content = event.getMessage().getContentDisplay();
@@ -63,7 +73,9 @@ public class MessageHandler extends ListenerAdapter {
 				} else if (content.startsWith("+карта")) {
 					locationManager.map(event);
 				} else if (content.startsWith("+идти")) {
-					locationManager.move(event);
+					if (locationManager.move(event)) {
+						eventsManager.transferEvent(event);
+					}
 				} else if (content.startsWith("+инвентарь")) {
 					playersManager.getInventoryInfo(event);
 				} else if (content.startsWith("+предмет")) {
@@ -81,9 +93,7 @@ public class MessageHandler extends ListenerAdapter {
 
 
 
-
-
-				// Админские команды
+					// Админские команды
 				} else if (content.startsWith("+всеидеи") && isAdmin(event)) {
 					ideasManager.getAllIdeas(event);
 				} else if (content.startsWith("+новыеидеи") && isAdmin(event)) {
@@ -94,7 +104,7 @@ public class MessageHandler extends ListenerAdapter {
 					ideasManager.changeIdeaStatus(event);
 
 
-				// Обычные запросы которые должны быть ниже
+					// Обычные запросы которые должны быть ниже
 				} else if (content.startsWith("+идея")) {
 					ideasManager.putIdea(event);
 				} else {
@@ -107,7 +117,7 @@ public class MessageHandler extends ListenerAdapter {
 	}
 
 	private boolean isBotAsking(MessageReceivedEvent event) {
-		return event.getMessage().getContentDisplay().startsWith("+") && event.getChannel().asTextChannel().getName().equals("бч-грп");
+		return event.getMessage().getContentDisplay().startsWith("+") && (event.getChannel().getType().toString().equals("PRIVATE") || event.getChannel().asTextChannel().getName().equals("бч-грп"));
 	}
 
 	private boolean isAdmin(MessageReceivedEvent event) {
