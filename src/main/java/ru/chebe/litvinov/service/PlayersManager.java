@@ -25,23 +25,33 @@ public class PlayersManager {
 	}
 
 	public void getPlayerInfo(MessageReceivedEvent event) {
-		String nickname = event.getMessage().getAuthor().getName();
-		event.getChannel().sendMessage(playerCache.get(nickname).toString()).submit();
+		String id = event.getMessage().getAuthor().getId();
+		event.getChannel().sendMessage(playerCache.get(id).toString()).submit();
 	}
 
 	public int getXp(Player player) {
 		return xPmap.get(player.getLevel() + 1);
 	}
 
-	public void changeHp(String nickname, int hp) {
-		var player = playerCache.get(nickname);
+	public void changeHp(String id, int hp) {
+		var player = playerCache.get(id);
 		player.setHp(hp);
-		playerCache.put(nickname, player);
+		playerCache.put(id, player);
+	}
+
+	public void changeHp(String id, int hp, boolean increase) {
+		var player = playerCache.get(id);
+		if (increase) {
+			player.setHp(player.getHp() + hp);
+		} else {
+			player.setHp(player.getHp() - hp);
+		}
+		playerCache.put(id, player);
 	}
 
 	public void getInventoryInfo(MessageReceivedEvent event) {
-		String nickname = event.getMessage().getAuthor().getName();
-		var player = playerCache.get(nickname);
+		String id = event.getMessage().getAuthor().getId();
+		var player = playerCache.get(id);
 		String item = event.getMessage().getContentDisplay().substring(10).trim();
 		if (item.isEmpty()) {
 			if (player.getInventory().isEmpty()) {
@@ -59,28 +69,28 @@ public class PlayersManager {
 		}
 	}
 
-	public void changeMoney(String nickname, int money, boolean increase) {
-		var player = playerCache.get(nickname);
+	public void changeMoney(String id, int money, boolean increase) {
+		var player = playerCache.get(id);
 		if (increase) {
 			player.setMoney(player.getMoney() + money);
 		} else {
 			player.setMoney(player.getMoney() - money);
 		}
-		playerCache.put(nickname, player);
+		playerCache.put(id, player);
 	}
 
-	public void changeReputation(String nickname, int reputation, boolean increase) {
-		var player = playerCache.get(nickname);
+	public void changeReputation(String id, int reputation, boolean increase) {
+		var player = playerCache.get(id);
 		if (increase) {
 			player.setReputation(player.getReputation() + reputation);
 		} else {
 			player.setReputation(player.getReputation() - reputation);
 		}
-		playerCache.put(nickname, player);
+		playerCache.put(id, player);
 	}
 
-	public void changeXp(String nickname, int xp) {
-		var player = playerCache.get(nickname);
+	public void changeXp(String id, int xp) {
+		var player = playerCache.get(id);
 		if (player.getExp() + xp >= player.getExpToNextLvl()) {
 			player.setExp(player.getExp() + xp % player.getExpToNextLvl());
 			player.setLevel(player.getLevel() + 1);
@@ -88,7 +98,7 @@ public class PlayersManager {
 		} else {
 			player.setExp(player.getExp() + xp);
 		}
-		playerCache.put(nickname, player);
+		playerCache.put(id, player);
 	}
 
 	private static Map<Integer, Integer> generateXpMap() {
@@ -102,9 +112,10 @@ public class PlayersManager {
 	}
 
 	public void createPlayer(MessageReceivedEvent event) {
-		String nickName = event.getMessage().getAuthor().getName();
-		if (playerCache.get(nickName) == null) {
-			playerCache.put(nickName, new Player(nickName));
+		String id = event.getMessage().getAuthor().getId();
+		if (playerCache.get(id) == null) {
+			String nickName = event.getMessage().getAuthor().getName();
+			playerCache.put(id, new Player(nickName, id));
 			event.getChannel().sendMessage("Добро пожаловать в игру, мы внимательно проанализировали твой профиль и решили, что ник " + getCringeName() + " отлично тебе подходит \n\n" +
 							"Впрочем если ты хочешь использовать ник " + nickName + " мы отнесемся к этому с пониманием, для применения этого используй любую команду \n" +
 							"Теперь ты готов к сражениям и кринжу, скорее ко второму да, для продолжения набери +помощь чтобы отобразить доступные команды или " +
@@ -122,8 +133,8 @@ public class PlayersManager {
 		return words1.get(index1) + words2.get(index2) + index3;
 	}
 
-	public void addNewItem(String nickName, String item) {
-		var player = playerCache.get(nickName);
+	public void addNewItem(String id, String item) {
+		var player = playerCache.get(id);
 		Item newItem = itemsCache.get(item);
 		player.setReputation(newItem.getReputation() > 0 ? player.getReputation() + newItem.getReputation() : player.getReputation());
 		player.setHp(newItem.getHealth() > 0 ? player.getHp() + newItem.getHealth() : player.getHp());
@@ -131,55 +142,57 @@ public class PlayersManager {
 		player.setLuck(newItem.getLuck() > 0 ? player.getLuck() + newItem.getLuck() : player.getLuck());
 		player.setStrength(newItem.getStrength() > 0 ? player.getStrength() + newItem.getStrength() : player.getStrength());
 		player.getInventory().add(item);
-		playerCache.put(nickName, player);
+		playerCache.put(id, player);
 	}
 
-	public void deleteItem(String nickName, String item) {
-		var player = playerCache.get(nickName);
+	public void deleteItem(String id, String item) {
+		var player = playerCache.get(id);
 		Item deleteItem = itemsCache.get(item);
-		player.setReputation(deleteItem.getReputation() > 0 ? player.getReputation() - deleteItem.getReputation() : player.getReputation());
-		player.setHp(deleteItem.getHealth() > 0 ? player.getHp() - deleteItem.getHealth() : player.getHp());
-		player.setArmor(deleteItem.getArmor() > 0 ? player.getArmor() - deleteItem.getArmor() : player.getArmor());
-		player.setLuck(deleteItem.getLuck() > 0 ? player.getLuck() - deleteItem.getLuck() : player.getLuck());
-		player.setStrength(deleteItem.getStrength() > 0 ? player.getStrength() - deleteItem.getStrength() : player.getStrength());
+		if (!deleteItem.isAction()) {
+			player.setReputation(deleteItem.getReputation() > 0 ? player.getReputation() - deleteItem.getReputation() : player.getReputation());
+			player.setHp(deleteItem.getHealth() > 0 ? player.getHp() - deleteItem.getHealth() : player.getHp());
+			player.setArmor(deleteItem.getArmor() > 0 ? player.getArmor() - deleteItem.getArmor() : player.getArmor());
+			player.setLuck(deleteItem.getLuck() > 0 ? player.getLuck() - deleteItem.getLuck() : player.getLuck());
+			player.setStrength(deleteItem.getStrength() > 0 ? player.getStrength() - deleteItem.getStrength() : player.getStrength());
+		}
 		player.getInventory().remove(item);
-		playerCache.put(nickName, player);
+		playerCache.put(id, player);
 	}
 
 	public void deathOfPlayer(Player dead) {
-		var player = playerCache.get(dead.getNickName());
+		var player = playerCache.get(dead.getId());
 		player.setMoney((int) (player.getMoney() * 0.9));
-		playerCache.put(player.getNickName(), player);
+		playerCache.put(player.getId(), player);
 		locationManager.movePerson(player, "респаун");
 	}
 
 	public void useItem(MessageReceivedEvent event) {
-		var player = playerCache.get(event.getAuthor().getName());
+		var player = playerCache.get(event.getAuthor().getId());
 		String message = event.getMessage().getContentDisplay().substring(13).trim().toLowerCase();
 		if (player.getInventory().contains(message.toLowerCase())) {
 			Item item = itemsCache.get(message);
 			if (item.isAction()) {
 				if (item.getHealth() > 0) {
-					changeHp(player.getNickName(), item.getHealth());
-					event.getChannel().sendMessage("Теперь у тебя " + item.getHealth() + " здоровья").submit();
+					changeHp(player.getId(), item.getHealth(), true);
+					event.getChannel().sendMessage("Теперь у тебя " + (item.getHealth() + player.getHp()) + " здоровья").submit();
 				}
 				if (item.getArmor() > 0) {
-					changeArmor(player.getNickName(), item.getArmor(), true);
-					event.getChannel().sendMessage("Теперь у тебя " + item.getArmor() + " брони").submit();
+					changeArmor(player.getId(), item.getArmor(), true);
+					event.getChannel().sendMessage("Теперь у тебя " + (item.getArmor() + player.getArmor()) + " брони").submit();
 				}
 				if (item.getLuck() > 0) {
-					changeLuck(player.getNickName(), item.getLuck(), true);
-					event.getChannel().sendMessage("Теперь у тебя " + item.getLuck() + " удачи").submit();
+					changeLuck(player.getId(), item.getLuck(), true);
+					event.getChannel().sendMessage("Теперь у тебя " + (item.getLuck() + player.getLuck()) + " удачи").submit();
 				}
 				if (item.getStrength() > 0) {
-					changeStrength(player.getNickName(), item.getStrength(), true);
-					event.getChannel().sendMessage("Теперь у тебя " + item.getStrength() + " силы").submit();
+					changeStrength(player.getId(), item.getStrength(), true);
+					event.getChannel().sendMessage("Теперь у тебя " + (item.getStrength() + player.getStrength()) + " силы").submit();
 				}
 				if (item.getReputation() > 0) {
-					changeReputation(player.getNickName(), item.getReputation(), true);
-					event.getChannel().sendMessage("Теперь у тебя " + item.getReputation() + " репутации").submit();
+					changeReputation(player.getId(), item.getReputation(), true);
+					event.getChannel().sendMessage("Теперь у тебя " + (item.getReputation() + player.getReputation()) + " репутации").submit();
 				}
-				deleteItem(player.getNickName(), item.getName());
+				deleteItem(player.getId(), item.getName());
 			} else {
 				event.getChannel().sendMessage("Этот предмет нельзя использовать").submit();
 			}
@@ -188,44 +201,45 @@ public class PlayersManager {
 		}
 	}
 
-	private void changeArmor(String nickName, int armor, boolean increase) {
-		var player = playerCache.get(nickName);
+	private void changeArmor(String id, int armor, boolean increase) {
+		var player = playerCache.get(id);
 		if (increase) {
 			player.setReputation(player.getReputation() + armor);
 		} else {
 			player.setReputation(player.getReputation() - armor);
 		}
-		playerCache.put(nickName, player);
+		playerCache.put(id, player);
 	}
 
-	public void changeLuck(String nickName, int luck, boolean increase) {
-		var player = playerCache.get(nickName);
+	public void changeLuck(String id, int luck, boolean increase) {
+		var player = playerCache.get(id);
 		if (increase) {
 			player.setReputation(player.getReputation() + luck);
 		} else {
 			player.setReputation(player.getReputation() - luck);
 		}
-		playerCache.put(nickName, player);
+		playerCache.put(id, player);
 	}
 
-	public void changeStrength(String nickName, int strength, boolean increase) {
-		var player = playerCache.get(nickName);
+	public void changeStrength(String id, int strength, boolean increase) {
+		var player = playerCache.get(id);
 		if (increase) {
 			player.setReputation(player.getReputation() + strength);
 		} else {
 			player.setReputation(player.getReputation() - strength);
 		}
-		playerCache.put(nickName, player);
+		playerCache.put(id, player);
 	}
 
 	public void sellItem(MessageReceivedEvent event) {
-		var player = playerCache.get(event.getAuthor().getName());
+		var player = playerCache.get(event.getAuthor().getId());
 		String message = event.getMessage().getContentDisplay().substring(8).trim().toLowerCase();
 		if (player.getInventory().contains(message.toLowerCase())) {
 			Item item = itemsCache.get(message);
-			changeMoney(player.getNickName(), item.getPrice() / (2 - player.getReputation() / 10), true);
-			deleteItem(player.getNickName(), item.getName());
-			event.getChannel().sendMessage("Теперь у тебя " + player.getMoney() + " денег").submit();
+			int sellPrice = item.getPrice() / (2 - player.getReputation() / 10);
+			changeMoney(player.getId(), sellPrice, true);
+			deleteItem(player.getId(), item.getName());
+			event.getChannel().sendMessage("Теперь у тебя " + (player.getMoney() + sellPrice) + " денег").submit();
 		} else {
 			event.getChannel().sendMessage("Такого предмета нет в твоём инвентаре").submit();
 		}

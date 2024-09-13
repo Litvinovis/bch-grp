@@ -24,8 +24,10 @@ public class Event {
 	public String toString() {
 		String time = timeEnd == null ? "" : "Время выполенния - " + timeLost() + "\n";
 		String item = itemReward == null ? "" : "Награждаемый предмет - " + itemReward + "\n";
-		return "Описание - " + description + "\n" +
-						"Локация выполнения - " + locationEnd + "\n" +
+		String location = locationEnd == null ? "" : "Локация выполнения - " + locationEnd + "\n";
+		String start = type.equalsIgnoreCase("загадка") ? "Вопрос - " : "Описание - ";
+		return start + description + "\n" +
+						location +
 						"Тип - " + type + "\n" +
 						time +
 						"Награда в монетах - " + moneyReward + "\n" +

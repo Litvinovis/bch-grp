@@ -64,7 +64,7 @@ public class BattleManager {
 	}
 
 	public void bossFight(MessageReceivedEvent event) {
-		Player player = playerCache.get(event.getAuthor().getName());
+		Player player = playerCache.get(event.getAuthor().getId());
 		var loc = locationCache.get(player.getLocation());
 		if (loc.getBoss() == null) {
 			event.getChannel().sendMessage("В этой локации нет босса, перейди в другую если хочешь присесть на бутылку").submit();
@@ -75,7 +75,7 @@ public class BattleManager {
 	}
 
 	public void playersFight(MessageReceivedEvent event) {
-		Player player = playerCache.get(event.getAuthor().getName());
+		Player player = playerCache.get(event.getAuthor().getId());
 		var loc = locationCache.get(player.getLocation());
 		if (!loc.isPvp()) {
 			event.getChannel().sendMessage("В этой локации нельзя драться, я щас милицию вызову!!!").submit();
@@ -99,32 +99,42 @@ public class BattleManager {
 
 
 	private void battleMechanic(Player player1, Player player2, Boss boss, MessageChannelUnion channel) {
+		StringBuilder sb = new StringBuilder();
 		if (boss == null) {
 			while (player1.getHp() > 0 && player2.getHp() > 0) {
+				if (sb.length() > 1800) {
+					channel.sendMessage(sb.toString()).submit();
+					sb.setLength(0);
+				}
 				int damage = randomizeDamage(player1.getStrength() - player2.getArmor());
 				player2.setHp(player2.getHp() - damage);
-				channel.sendMessage("Игрок " + player1.getNickName() + " наносит " + damage + " урона противнику, у него остаётся " + player2.getHp() + " HP").submit();
+				sb.append("Игрок ").append(player1.getNickName()).append(" наносит ").append(damage).append(" урона противнику, у него остаётся ").append(player2.getHp()).append(" HP\n");
 				if (player2.getHp() < 0) {
 					continue;
 				}
 				damage = randomizeDamage(player2.getStrength() - player1.getArmor());
 				player1.setHp(player1.getHp() - damage);
-				channel.sendMessage("Игрок " + player2.getNickName() + " наносит " + damage + " урона противнику, у него остаётся " + player1.getHp() + " HP").submit();
+				sb.append("Игрок ").append(player2.getNickName()).append(" наносит ").append(damage).append(" урона противнику, у него остаётся ").append(player1.getHp()).append(" HP\n");
 			}
 		} else {
 			while (player1.getHp() > 0 && boss.getHp() > 0) {
+				if (sb.length() > 1800) {
+					channel.sendMessage(sb.toString()).submit();
+					sb.setLength(0);
+				}
 				int damage = randomizeDamage(player1.getStrength());
 				boss.setHp(boss.getHp() - damage);
-				channel.sendMessage("Игрок " + player1.getNickName() + " наносит " + damage + " урона противнику, у него остаётся " + boss.getHp() + " HP").submit();
+				sb.append("Игрок ").append(player1.getNickName()).append(" наносит ").append(damage).append(" урона противнику, у него остаётся ").append(boss.getHp()).append(" HP\n");
 				damage = randomizeDamage(boss.getStrength() - player1.getArmor());
 				player1.setHp(player1.getHp() - damage);
-				channel.sendMessage("Босс " + boss.getName() + " наносит " + damage + " урона противнику, у него остаётся " + player1.getHp() + " HP").submit();
+				sb.append("Босс ").append(boss.getName()).append(" наносит ").append(damage).append(" урона противнику, у него остаётся ").append(player1.getHp()).append(" HP\n");
 			}
 		}
+		channel.sendMessage(sb.toString()).submit();
 		if (boss != null) {
 			if (boss.getHp() > 0) {
-				channel.sendMessage("Штош нужно быть очень глупым чтобы залупаться на " + boss.getName() + " с твоими характеристиками").submit();
-				channel.sendMessage("Ты умер и был воскрешен на Респауне, ты потерял 10% монет и возможно кое-что из предметов").submit();
+				channel.sendMessage("Штош нужно быть очень глупым чтобы залупаться на " + boss.getName() + " с твоими характеристиками" +
+												"Ты умер и был воскрешен на Респауне, ты потерял 10% монет и возможно кое-что из предметов").queue();
 				playersManager.deathOfPlayer(player1);
 				boss = bossCache.get(boss.getName());
 				boss.setWin(boss.getWin() + 1);
@@ -132,17 +142,17 @@ public class BattleManager {
 			} else {
 				if (boss.getName().equals("mob")) {
 					channel.sendMessage("Поздравляю ты победил тупого засланца при переходе локации").submit();
-					playersManager.changeXp(player1.getNickName(), 10);
-					playersManager.changeMoney(player1.getNickName(), 10, true);
-					playersManager.changeXp(player1.getNickName(), player1.getHp());
+					playersManager.changeXp(player1.getId(), 10);
+					playersManager.changeMoney(player1.getId(), 10, true);
+					playersManager.changeHp(player1.getId(), player1.getHp());
 				} else {
 					channel.sendMessage("Поздравляю ты победил босса этой локации " + boss.getName()).submit();
-					playersManager.changeXp(player1.getNickName(), 1000);
-					playersManager.changeMoney(player1.getNickName(), 1000, true);
-					playersManager.changeXp(player1.getNickName(), player1.getHp());
+					playersManager.changeXp(player1.getId(), 1000);
+					playersManager.changeMoney(player1.getId(), 1000, true);
+					playersManager.changeHp(player1.getId(), player1.getHp());
 				}
 				if (boss.getBossItem() != null) {
-					playersManager.addNewItem(player1.getNickName(), boss.getBossItem());
+					playersManager.addNewItem(player1.getId(), boss.getBossItem());
 					channel.sendMessage("В твой инвентарь добавлен предмет " + boss.getBossItem()).submit();
 				}
 			}
@@ -151,11 +161,11 @@ public class BattleManager {
 			Player winner = player1.getHp() > 0 ? player2 : player1;
 			int xp = playersManager.getXp(defeat);
 			int money = defeat.getMoney() / 2;
-			channel.sendMessage("Игрок " + defeat.getNickName() + " побеждает в этой славной битве и получает " + xp + " опыта и " + money + " монет").submit();
+			channel.sendMessage("Игрок " + defeat.getNickName() + " побеждает в этой славной битве и получает " + xp + " опыта и " + money + " монет").queue();
 			channel.sendMessage("Игрок " + defeat.getNickName() + " умер и был воскрешен на Респауне, он потерял 10% монет и возможно кое-что из предметов").submit();
-			playersManager.changeMoney(winner.getNickName(), money, true);
-			playersManager.changeHp(winner.getNickName(), winner.getHp());
-			playersManager.changeXp(winner.getNickName(), xp);
+			playersManager.changeMoney(winner.getId(), money, true);
+			playersManager.changeHp(winner.getId(), winner.getHp());
+			playersManager.changeXp(winner.getId(), xp);
 			playersManager.deathOfPlayer(defeat);
 		}
 	}

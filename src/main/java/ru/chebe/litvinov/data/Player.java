@@ -9,6 +9,7 @@ import java.util.List;
 @Getter
 @Setter
 public class Player {
+	private String id;
 	private String nickName;
 	private int hp;
 	private int luck;
@@ -24,7 +25,8 @@ public class Player {
 	private String answer;
 	private Event activeEvent;
 
-	public Player(String nickName) {
+	public Player(String nickName, String id) {
+		this.id = id;
 		this.nickName = nickName;
 		this.hp = 100;
 		this.luck = 5;
@@ -50,6 +52,7 @@ public class Player {
 						"Опыт - " + exp + "/" + expToNextLvl + "\n" +
 						"Здоровье - " + hp + "\n" +
 						"Удача - " + luck + "\n" +
+						"Броня - " + armor + "\n" +
 						"Деньги - " + money + "\n" +
 						"Репутация - " + reputation + "\n" +
 						"Сила - " + strength + "\n" +

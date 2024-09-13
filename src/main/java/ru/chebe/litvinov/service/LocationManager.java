@@ -68,7 +68,7 @@ public class LocationManager {
 
 	public boolean move(MessageReceivedEvent event) {
 		String message = event.getMessage().getContentDisplay().substring(5).trim().toLowerCase();
-		var player = playerCache.get(event.getAuthor().getName());
+		var player = playerCache.get(event.getAuthor().getId());
 		var currentLocation = locationCache.get(player.getLocation());
 		if (Strings.isEmpty(message)) {
 			event.getChannel().sendMessage("Для перемещения нужно указать желаемую локацию, введи \"+идти локация\" вместо локация, подставь любую из доступных: \n" + currentLocation.getPaths().toString()).submit();
@@ -84,7 +84,7 @@ public class LocationManager {
 		locationCache.put(nextLocation.getName(), nextLocation);
 		locationCache.put(currentLocation.getName(), currentLocation);
 		player.setLocation(nextLocation.getName());
-		playerCache.put(player.getNickName(), player);
+		playerCache.put(player.getId(), player);
 		event.getChannel().sendMessage("Ты успешно переместился в локацию - " + nextLocation.getName()
 						+ "\nВ этой локации находятся следующие игроки: " + nextLocation.getPopulation().toString()).submit();
 		return true;
@@ -119,7 +119,7 @@ public class LocationManager {
 		locationCache.put(nextLoc.getName(), nextLoc);
 		locationCache.put(loc.getName(), loc);
 		player.setLocation(location);
-		playerCache.put(player.getNickName(), player);
+		playerCache.put(player.getId(), player);
 	}
 
 	public List<String> getLocationList() {

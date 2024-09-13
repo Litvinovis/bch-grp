@@ -38,36 +38,38 @@ public class EventsManager {
 	}
 
 	public void assignEvent(MessageReceivedEvent event) {
-		var player = playerCache.get(event.getAuthor().getName());
+		var player = playerCache.get(event.getAuthor().getId());
 		if (player.getActiveEvent() != null) {
 			event.getChannel().sendMessage("У тебя уже есть активный квест, сначала заверши его").submit();
 		} else {
 			player.setActiveEvent(rand.nextInt(2) == 1 ? createPathFinderEvent() : createAnswerEvent());
-			playerCache.put(player.getNickName(), player);
+			playerCache.put(player.getId(), player);
 			event.getChannel().sendMessage("Ты получил новое задание :\n" + player.getActiveEvent().toString()).submit();
 		}
 	}
 
 	public void checkEvent(MessageReceivedEvent event) {
-		var player = playerCache.get(event.getAuthor().getName());
+		var player = playerCache.get(event.getAuthor().getId());
+		String message = event.getMessage().getContentDisplay().substring(16).trim().toLowerCase();
+		player.setAnswer(message);
 		var activeEvent = player.getActiveEvent();
 		if (activeEvent == null) {
 			event.getChannel().sendMessage("У тебя нет активного квеста, сначала возьми его").submit();
 		} else if (predicateMap.get(activeEvent.getType()).test(player)) {
-			event.getChannel().sendMessage("Ты успешно завершил свой квест, опыт и деньги зачислены на твой счёт").submit();
 			player.setActiveEvent(null);
-			playerCache.put(player.getNickName(), player);
-			playersManager.changeMoney(player.getNickName(), activeEvent.getMoneyReward(), true);
-			playersManager.changeXp(player.getNickName(), activeEvent.getXpReward());
+			playerCache.put(player.getId(), player);
+			playersManager.changeMoney(player.getId(), activeEvent.getMoneyReward(), true);
+			playersManager.changeXp(player.getId(), activeEvent.getXpReward());
+			event.getChannel().sendMessage("Ты успешно завершил свой квест, опыт " + activeEvent.getXpReward() + " и деньги " + activeEvent.getMoneyReward() + " зачислены на твой счёт").submit();
 		} else {
 			event.getChannel().sendMessage("Ты не выполнил условия квеста или ответил неправильно!").submit();
 		}
 	}
 
 	public void transferEvent(MessageReceivedEvent event) {
-		var player = playerCache.get(event.getAuthor().getName());
+		var player = playerCache.get(event.getAuthor().getId());
 		var activeEvent = player.getActiveEvent();
-		if (activeEvent == null && rand.nextInt(100) > locationCache.get(player.getLocation()).getDangerous()) {
+		if (activeEvent == null && locationCache.get(player.getLocation()).isPvp() && rand.nextInt(100) > locationCache.get(player.getLocation()).getDangerous()) {
 			event.getChannel().sendMessage("Во время перемещения ты наткнулся на зомбака из руин...тебе придётся сразится с ним").submit();
 			battleManager.mobFight(event, player);
 		}

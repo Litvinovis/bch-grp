@@ -15,9 +15,10 @@ public class Tavern {
 	}
 
 	public void dieCast(MessageReceivedEvent event) {
-		Player player = playerCache.get(event.getMessage().getAuthor().getName());
+		Player player = playerCache.get(event.getMessage().getAuthor().getId());
 		if (!player.getLocation().equals("таверна")) {
 			event.getChannel().sendMessage("Как ты собрался бросить кости если ты не в таверне? Метнись кабанчиком сначала туда").submit();
+			return;
 		}
 		String bidText = event.getMessage().getContentDisplay().substring(7);
 		int bid;
@@ -32,6 +33,7 @@ public class Tavern {
 			return;
 		} else if (bid > 100) {
 			event.getChannel().sendMessage("Ого к нам мсье мажор пожаловал и давай выёбуваться ставками, не так не пойдет, давай не больше 100").submit();
+			return;
 		}
 		if (player.getMoney() < bid) {
 			event.getChannel().sendMessage("Я ж вижу, что у тебя таких денег отродясь не было, а нанимать ябыса трясти с тебя долг я не хочу").submit();
@@ -77,7 +79,7 @@ public class Tavern {
 				event.getChannel().sendMessage("Зачем за мной повторяешь, попугай что-ли?").submit();
 				event.getChannel().sendMessage("* У вас осталось ".concat(Integer.toString(player.getMoney())).concat(" денег")).submit();
 			}
-			playerCache.put(player.getNickName(), player);
+			playerCache.put(player.getId(), player);
 		} catch (InterruptedException e) {
 			throw new RuntimeException(e);
 		}

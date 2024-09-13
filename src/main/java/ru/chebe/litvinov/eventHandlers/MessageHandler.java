@@ -59,7 +59,7 @@ public class MessageHandler extends ListenerAdapter {
 				String content = event.getMessage().getContentDisplay();
 				if (content.startsWith("+регистрация")) {
 					playersManager.createPlayer(event);
-				} else if (playerCache.get(event.getMessage().getAuthor().getName()) == null) {
+				} else if (playerCache.get(event.getMessage().getAuthor().getId()) == null) {
 					event.getChannel().sendMessage(Constants.NEED_REGISTRATION)
 									.submit();
 				} else if (content.startsWith("+стата")) {
@@ -126,7 +126,7 @@ public class MessageHandler extends ListenerAdapter {
 	}
 
 	private boolean isAdmin(MessageReceivedEvent event) {
-		if (!event.getMessage().getAuthor().getName().equals("l4rover")) {
+		if (!event.getMessage().getAuthor().getId().equals("253576055317594114")) {
 			event.getChannel().sendMessage(Constants.ACCESS_DENIED).submit();
 			return false;
 		} else {
@@ -147,6 +147,8 @@ public class MessageHandler extends ListenerAdapter {
 						+пвп - атаковать случайного игрока текущей локации, работает только в пвп зонах
 						+инвентарь - список ваших предметов без подробного описания
 						+инвентарь (название предмета) - подробная информация о предмете в вашем инвентаре
+						+взять квест - получить квест
+						+выполнить квест (ответ если требуется) - выполнить квест
 						+предмет (название предмета) - подробная информация о любом предмете в игре
 						+инфо - общая информация об игре и создателях
 						+идея (текст) - добавить идею, предложение, замечание и багрепорт.

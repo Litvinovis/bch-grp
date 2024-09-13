@@ -5,13 +5,16 @@ import org.apache.ignite.IgniteCache;
 import ru.chebe.litvinov.data.Item;
 import ru.chebe.litvinov.data.Player;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class ItemsManager {
 
 	private final IgniteCache<String, Item> itemsCache;
 	private final IgniteCache<String, Player> playerCache;
+	private static final List<String> itemsForSale = new ArrayList<>(100);
 
 	public ItemsManager(IgniteCache<String, Player> playerCache, IgniteCache<String, Item> itemsCache) {
 		this.itemsCache = itemsCache;
@@ -69,17 +72,23 @@ public class ItemsManager {
 
 
 		// активируемое
-		map.put("кружка цикория", Item.builder().name("кружка цикория").armor(0).price(50).luck(0).health(30).reputation(0).strength(0).xpGeneration(0).action(true)
+		map.put("кружка цикория", Item.builder().name("кружка цикория").armor(0).price(30).luck(0).health(30).reputation(0).strength(0).xpGeneration(0).action(true)
 						.description("Восстанавливает 30 HP").build());
-		map.put("вино лаба", Item.builder().name("вино лаба").armor(0).price(100).luck(0).health(50).reputation(0).strength(0).xpGeneration(0).action(true)
+		map.put("вино лаба", Item.builder().name("вино лаба").armor(0).price(45).luck(0).health(50).reputation(0).strength(0).xpGeneration(0).action(true)
 						.description("Восстанавливает 50 HP").build());
-		map.put("медовуха база", Item.builder().name("медовуха база").armor(0).price(150).luck(0).health(100).reputation(0).strength(0).xpGeneration(0).action(true)
+		map.put("медовуха база", Item.builder().name("медовуха база").armor(0).price(80).luck(0).health(100).reputation(0).strength(0).xpGeneration(0).action(true)
 						.description("Восстанавливает 100 HP").build());
 
 
 		if (itemsCache != null) {
 			map.forEach(itemsCache::put);
 		}
+
+		map.forEach((key, value) -> {
+			if (value.isAction()) {
+				itemsForSale.add(key);
+			}
+		});
 	}
 
 	public void getItemInfo(MessageReceivedEvent event) {
@@ -94,11 +103,12 @@ public class ItemsManager {
 
 	public void buyItem(MessageReceivedEvent event) {
 		String message = event.getMessage().getContentDisplay().substring(7).trim().toLowerCase();
-		Player player = playerCache.get(event.getAuthor().getName());
+		Player player = playerCache.get(event.getAuthor().getId());
 		if (player.getLocation().equalsIgnoreCase("магазин") || player.getLocation().equalsIgnoreCase("таверна")) {
 			Item item = itemsCache.get(message);
 			if (item == null) {
-				event.getChannel().sendMessage("Такого предмета не существует, но ты можешь обратиться к разработчикам с помощью команды +идея и мы подумаем о его добавлении за умеренную плату").submit();
+				event.getChannel().sendMessage("Такого предмета не существует, ты можешь купить следующие предметы - " + itemsForSale +
+								", набери +предмет (название) чтобы узнать его характеристики").submit();
 				return;
 			} else if (!item.isAction()) {
 				event.getChannel().sendMessage("Этот предмет нельзя купить").submit();
@@ -109,7 +119,7 @@ public class ItemsManager {
 			} else {
 				player.setMoney(player.getMoney() - item.getPrice());
 				player.getInventory().add(item.getName());
-				playerCache.put(event.getAuthor().getName(), player);
+				playerCache.put(event.getAuthor().getId(), player);
 				event.getChannel().sendMessage("Вы купили " + item.getName() + " у вас осталось " + player.getMoney() + " денег").submit();
 			}
 		} else {
