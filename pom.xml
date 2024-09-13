@@ -93,7 +93,7 @@
           </descriptorRefs>
           <archive>
             <manifest>
-              <mainClass>App</mainClass>
+              <mainClass>ru.chebe.litvinov.App</mainClass>
             </manifest>
           </archive>
         </configuration>
