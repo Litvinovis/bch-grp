@@ -45,7 +45,7 @@ public class IgniteConfigurator {
 		playersCfg.setBackups(0);
 
 		// Конфигурируем кэш с предметами
-		CacheConfiguration<String, Items> itemsCfg = new CacheConfiguration<>("items");
+		CacheConfiguration<String, Item> itemsCfg = new CacheConfiguration<>("items");
 		itemsCfg.setDataRegionName("Default_Region");
 		itemsCfg.setCacheMode(CacheMode.PARTITIONED);
 		itemsCfg.setBackups(0);

@@ -9,7 +9,7 @@ import java.util.concurrent.TimeUnit;
 @Getter
 @Setter
 @Builder
-public class Items {
+public class Item {
 	private String name;
 	private String description;
 	private int price;
@@ -33,6 +33,7 @@ public class Items {
 		return "Характеристики предмета:\n" +
 						"Название - " + name + "\n" +
 						"Цена - " + price + "\n" +
+						"Цена продажи - " + (price / 2) + "\n" +
 						"Увеличение брони - " + armor + "\n" +
 						"Увеличение получаемого опыта - " + xpGeneration + "\n" +
 						"Увеличение здоровья - " + health + "\n" +

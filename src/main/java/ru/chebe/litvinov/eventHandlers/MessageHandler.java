@@ -19,7 +19,7 @@ import java.util.concurrent.TimeUnit;
 
 @Slf4j
 public class MessageHandler extends ListenerAdapter {
-	private static final int NUM_THREADS = 4; // Количество потоков в пуле
+	private static final int NUM_THREADS = 8; // Количество потоков в пуле
 	private static final String HELP_MESSAGE = helpMessageCreate();
 	private static final String INFO_MESSAGE = infoMessageCreate();
 	private static IgniteCache<String, Player> playerCache;
@@ -38,7 +38,7 @@ public class MessageHandler extends ListenerAdapter {
 		IgniteCache<String, Boss> bossCache = ignite.cache("bosses");
 		IgniteCache<Integer, Idea> ideasCache = ignite.cache("ideas");
 		IgniteCache<String, Location> locationCache = ignite.cache("locations");
-		IgniteCache<String, Items> itemsCache = ignite.cache("items");
+		IgniteCache<String, Item> itemsCache = ignite.cache("items");
 		this.itemsManager = new ItemsManager(playerCache, itemsCache);
 		this.locationManager = new LocationManager(locationCache, playerCache);
 		this.playersManager = new PlayersManager(playerCache, locationManager, itemsCache);
@@ -90,7 +90,12 @@ public class MessageHandler extends ListenerAdapter {
 					eventsManager.assignEvent(event);
 				} else if (content.startsWith("+выполнить квест")) {
 					eventsManager.checkEvent(event);
-
+				} else if (content.startsWith("+купить")) {
+					itemsManager.buyItem(event);
+				} else if (content.startsWith("+использовать")) {
+					playersManager.useItem(event);
+				} else if (content.startsWith("+продать")) {
+					playersManager.sellItem(event);
 
 
 					// Админские команды
@@ -138,13 +143,16 @@ public class MessageHandler extends ListenerAdapter {
 						+идти (название локации) - перемещает вас в указанную локацию
 						+локация (название локации) - подробная информация об указанной локации
 						+карта - карта бч-грп
-						+убить босса - атаковать босса текущей локации, осторожно они жирные
+						+убить босса - атаковать босса текущей локации, осторожно они жирные ||как ябыс||
 						+пвп - атаковать случайного игрока текущей локации, работает только в пвп зонах
 						+инвентарь - список ваших предметов без подробного описания
 						+инвентарь (название предмета) - подробная информация о предмете в вашем инвентаре
 						+предмет (название предмета) - подробная информация о любом предмете в игре
 						+инфо - общая информация об игре и создателях
 						+идея (текст) - добавить идею, предложение, замечание и багрепорт.
+						+купить (название предмета) - купить предмет в магазине
+						+использовать (название предмета) - использовать предмет из вашего инвентаря
+						+продать (название предмета) - продать предмет из вашего инвентаря
 						""";
 	}
 

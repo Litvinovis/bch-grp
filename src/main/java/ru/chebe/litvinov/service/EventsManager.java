@@ -79,7 +79,7 @@ public class EventsManager {
 						.locationEnd(endLocation)
 						.type("Ходилка")
 						.correctAnswer(null)
-						.description("Достигни нужной локации путник")
+						.description("Отнеси эту залупу в локацию " + endLocation)
 						.itemReward(null)
 						.moneyReward(rand.nextInt(50, 100))
 						.timeEnd(null)

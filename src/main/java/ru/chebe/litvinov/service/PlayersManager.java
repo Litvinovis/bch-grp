@@ -2,7 +2,7 @@ package ru.chebe.litvinov.service;
 
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import org.apache.ignite.IgniteCache;
-import ru.chebe.litvinov.data.Items;
+import ru.chebe.litvinov.data.Item;
 import ru.chebe.litvinov.data.Player;
 
 import java.util.HashMap;
@@ -12,13 +12,13 @@ import java.util.Random;
 
 public class PlayersManager {
 	private final IgniteCache<String, Player> playerCache;
-	private final IgniteCache<String, Items> itemsCache;
+	private final IgniteCache<String, Item> itemsCache;
 	private static final Map<Integer, Integer> xPmap = generateXpMap();
 	private final LocationManager locationManager;
 	List<String> words1 = List.of("Унылый", "Гейский", "Стрёмный", "Тупой", "Дрищавый", "Жирный");
 	List<String> words2 = List.of("Пидор", "Мудила", "Хуй", "Гей", "Лох", "Шлюха");
 
-	public PlayersManager(IgniteCache<String, Player> playerCache, LocationManager locationManager, IgniteCache<String, Items> itemsCache) {
+	public PlayersManager(IgniteCache<String, Player> playerCache, LocationManager locationManager, IgniteCache<String, Item> itemsCache) {
 		this.playerCache = playerCache;
 		this.locationManager = locationManager;
 		this.itemsCache = itemsCache;
@@ -124,7 +124,7 @@ public class PlayersManager {
 
 	public void addNewItem(String nickName, String item) {
 		var player = playerCache.get(nickName);
-		Items newItem = itemsCache.get(item);
+		Item newItem = itemsCache.get(item);
 		player.setReputation(newItem.getReputation() > 0 ? player.getReputation() + newItem.getReputation() : player.getReputation());
 		player.setHp(newItem.getHealth() > 0 ? player.getHp() + newItem.getHealth() : player.getHp());
 		player.setArmor(newItem.getArmor() > 0 ? player.getArmor() + newItem.getArmor() : player.getArmor());
@@ -136,7 +136,7 @@ public class PlayersManager {
 
 	public void deleteItem(String nickName, String item) {
 		var player = playerCache.get(nickName);
-		Items deleteItem = itemsCache.get(item);
+		Item deleteItem = itemsCache.get(item);
 		player.setReputation(deleteItem.getReputation() > 0 ? player.getReputation() - deleteItem.getReputation() : player.getReputation());
 		player.setHp(deleteItem.getHealth() > 0 ? player.getHp() - deleteItem.getHealth() : player.getHp());
 		player.setArmor(deleteItem.getArmor() > 0 ? player.getArmor() - deleteItem.getArmor() : player.getArmor());
@@ -151,5 +151,83 @@ public class PlayersManager {
 		player.setMoney((int) (player.getMoney() * 0.9));
 		playerCache.put(player.getNickName(), player);
 		locationManager.movePerson(player, "респаун");
+	}
+
+	public void useItem(MessageReceivedEvent event) {
+		var player = playerCache.get(event.getAuthor().getName());
+		String message = event.getMessage().getContentDisplay().substring(13).trim().toLowerCase();
+		if (player.getInventory().contains(message.toLowerCase())) {
+			Item item = itemsCache.get(message);
+			if (item.isAction()) {
+				if (item.getHealth() > 0) {
+					changeHp(player.getNickName(), item.getHealth());
+					event.getChannel().sendMessage("Теперь у тебя " + item.getHealth() + " здоровья").submit();
+				}
+				if (item.getArmor() > 0) {
+					changeArmor(player.getNickName(), item.getArmor(), true);
+					event.getChannel().sendMessage("Теперь у тебя " + item.getArmor() + " брони").submit();
+				}
+				if (item.getLuck() > 0) {
+					changeLuck(player.getNickName(), item.getLuck(), true);
+					event.getChannel().sendMessage("Теперь у тебя " + item.getLuck() + " удачи").submit();
+				}
+				if (item.getStrength() > 0) {
+					changeStrength(player.getNickName(), item.getStrength(), true);
+					event.getChannel().sendMessage("Теперь у тебя " + item.getStrength() + " силы").submit();
+				}
+				if (item.getReputation() > 0) {
+					changeReputation(player.getNickName(), item.getReputation(), true);
+					event.getChannel().sendMessage("Теперь у тебя " + item.getReputation() + " репутации").submit();
+				}
+				deleteItem(player.getNickName(), item.getName());
+			} else {
+				event.getChannel().sendMessage("Этот предмет нельзя использовать").submit();
+			}
+		} else {
+			event.getChannel().sendMessage("Такого предмета нет в твоём инвентаре").submit();
+		}
+	}
+
+	private void changeArmor(String nickName, int armor, boolean increase) {
+		var player = playerCache.get(nickName);
+		if (increase) {
+			player.setReputation(player.getReputation() + armor);
+		} else {
+			player.setReputation(player.getReputation() - armor);
+		}
+		playerCache.put(nickName, player);
+	}
+
+	public void changeLuck(String nickName, int luck, boolean increase) {
+		var player = playerCache.get(nickName);
+		if (increase) {
+			player.setReputation(player.getReputation() + luck);
+		} else {
+			player.setReputation(player.getReputation() - luck);
+		}
+		playerCache.put(nickName, player);
+	}
+
+	public void changeStrength(String nickName, int strength, boolean increase) {
+		var player = playerCache.get(nickName);
+		if (increase) {
+			player.setReputation(player.getReputation() + strength);
+		} else {
+			player.setReputation(player.getReputation() - strength);
+		}
+		playerCache.put(nickName, player);
+	}
+
+	public void sellItem(MessageReceivedEvent event) {
+		var player = playerCache.get(event.getAuthor().getName());
+		String message = event.getMessage().getContentDisplay().substring(8).trim().toLowerCase();
+		if (player.getInventory().contains(message.toLowerCase())) {
+			Item item = itemsCache.get(message);
+			changeMoney(player.getNickName(), item.getPrice() / (2 - player.getReputation() / 10), true);
+			deleteItem(player.getNickName(), item.getName());
+			event.getChannel().sendMessage("Теперь у тебя " + player.getMoney() + " денег").submit();
+		} else {
+			event.getChannel().sendMessage("Такого предмета нет в твоём инвентаре").submit();
+		}
 	}
 }
