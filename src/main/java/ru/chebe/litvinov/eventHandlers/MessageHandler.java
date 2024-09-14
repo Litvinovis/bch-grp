@@ -90,6 +90,8 @@ public class MessageHandler extends ListenerAdapter {
 					eventsManager.assignEvent(event);
 				} else if (content.startsWith("+выполнить квест")) {
 					eventsManager.checkEvent(event);
+				} else if (content.startsWith("+поменять квест")) {
+					eventsManager.changeEvent(event);
 				} else if (content.startsWith("+купить")) {
 					itemsManager.buyItem(event);
 				} else if (content.startsWith("+использовать")) {
@@ -149,6 +151,7 @@ public class MessageHandler extends ListenerAdapter {
 						+инвентарь (название предмета) - подробная информация о предмете в вашем инвентаре
 						+взять квест - получить квест
 						+выполнить квест (ответ если требуется) - выполнить квест
+						+поменять квест - изменить квест за 5 денег
 						+предмет (название предмета) - подробная информация о любом предмете в игре
 						+инфо - общая информация об игре и создателях
 						+идея (текст) - добавить идею, предложение, замечание и багрепорт.

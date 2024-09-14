@@ -62,6 +62,20 @@ public class EventsManager {
 		}
 	}
 
+	public void changeEvent(MessageReceivedEvent event) {
+		var player = playerCache.get(event.getAuthor().getId());
+		if (player.getActiveEvent() == null) {
+			event.getChannel().sendMessage("У тебя нет активного квеста, сначала возьми его").submit();
+		} else if (player.getMoney() >= 5) {
+			player.setActiveEvent(rand.nextInt(4) == 1 ? createAnswerEvent() : createPathFinderEvent());
+			player.setMoney(player.getMoney() - 5);
+			playerCache.put(player.getId(), player);
+			event.getChannel().sendMessage("Ты потартил 5 денег и получил новое задание :\n" + player.getActiveEvent().toString()).submit();
+		} else {
+			event.getChannel().sendMessage("У тебя недостаточно денег, сначала зарабаотай их").submit();
+		}
+	}
+
 	public void checkEvent(MessageReceivedEvent event) {
 		var player = playerCache.get(event.getAuthor().getId());
 		String message = event.getMessage().getContentDisplay().substring(16).trim().toLowerCase();
