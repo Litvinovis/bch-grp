@@ -13,7 +13,8 @@ import java.util.Random;
 public class PlayersManager {
 	private final IgniteCache<String, Player> playerCache;
 	private final IgniteCache<String, Item> itemsCache;
-	private static final Map<Integer, Integer> xPmap = generateXpMap();
+	private static final Map<Integer, Integer> xpMap = generateXpMap();
+	private static final Map<Integer, Integer> hpMap = generateHpMap();
 	private final LocationManager locationManager;
 	List<String> words1 = List.of("Унылый", "Гейский", "Стрёмный", "Тупой", "Дрищавый", "Жирный");
 	List<String> words2 = List.of("Пидор", "Мудила", "Хуй", "Гей", "Лох", "Шлюха");
@@ -30,7 +31,11 @@ public class PlayersManager {
 	}
 
 	public int getXp(Player player) {
-		return xPmap.get(player.getLevel() + 1);
+		return xpMap.get(player.getLevel() + 1);
+	}
+
+	public int getMaxHp(Player player) {
+		return hpMap.get(player.getLevel());
 	}
 
 	public void changeHp(String id, int hp) {
@@ -42,7 +47,8 @@ public class PlayersManager {
 	public void changeHp(String id, int hp, boolean increase) {
 		var player = playerCache.get(id);
 		if (increase) {
-			player.setHp(player.getHp() + hp);
+			int newHp = player.getHp() + hp;
+			player.setHp(Math.min(newHp, player.getMaxHp()));
 		} else {
 			player.setHp(player.getHp() - hp);
 		}
@@ -94,7 +100,8 @@ public class PlayersManager {
 		if (player.getExp() + xp >= player.getExpToNextLvl()) {
 			player.setExp(player.getExp() + xp % player.getExpToNextLvl());
 			player.setLevel(player.getLevel() + 1);
-			player.setExpToNextLvl(xPmap.get(player.getLevel()));
+			player.setExpToNextLvl(xpMap.get(player.getLevel()));
+			player.setHp(getMaxHp(player));
 		} else {
 			player.setExp(player.getExp() + xp);
 		}
@@ -109,6 +116,16 @@ public class PlayersManager {
 			xp += 100;
 		}
 		return xpMap;
+	}
+
+	private static Map<Integer, Integer> generateHpMap() {
+		Map<Integer, Integer> hpMap = new HashMap<>();
+		int hp = 100;
+		for (int i = 1; i <= 100; i++) {
+			hpMap.put(i, hp);
+			hp += 10;
+		}
+		return hpMap;
 	}
 
 	public void createPlayer(MessageReceivedEvent event) {
@@ -162,6 +179,7 @@ public class PlayersManager {
 	public void deathOfPlayer(Player dead) {
 		var player = playerCache.get(dead.getId());
 		player.setMoney((int) (player.getMoney() * 0.9));
+		player.setHp(player.getMaxHp());
 		playerCache.put(player.getId(), player);
 		locationManager.movePerson(player, "респаун");
 	}

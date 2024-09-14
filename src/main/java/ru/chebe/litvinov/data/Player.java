@@ -12,6 +12,7 @@ public class Player {
 	private String id;
 	private String nickName;
 	private int hp;
+	private int maxHp;
 	private int luck;
 	private int money;
 	private int reputation;
@@ -29,6 +30,7 @@ public class Player {
 		this.id = id;
 		this.nickName = nickName;
 		this.hp = 100;
+		this.maxHp = 100;
 		this.luck = 5;
 		this.money = 50;
 		this.reputation = 0;
@@ -50,7 +52,7 @@ public class Player {
 						"Имя - " + nickName + "\n" +
 						"Уровень - " + level + "\n" +
 						"Опыт - " + exp + "/" + expToNextLvl + "\n" +
-						"Здоровье - " + hp + "\n" +
+						"Здоровье - " + hp + "/" + maxHp + "\n" +
 						"Удача - " + luck + "\n" +
 						"Броня - " + armor + "\n" +
 						"Деньги - " + money + "\n" +
