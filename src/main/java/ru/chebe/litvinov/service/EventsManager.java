@@ -6,9 +6,7 @@ import ru.chebe.litvinov.data.Event;
 import ru.chebe.litvinov.data.Location;
 import ru.chebe.litvinov.data.Player;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Random;
+import java.util.*;
 import java.util.function.Predicate;
 
 public class EventsManager {
@@ -16,6 +14,9 @@ public class EventsManager {
 	private final IgniteCache<String, Location> locationCache;
 	private final IgniteCache<String, Player> playerCache;
 	private static Map<String, Predicate<Player>> predicateMap;
+	private static List<String> startQuest;
+	private static List<String> middleQuest;
+	private static List<String> endQuest;
 	private final Random rand = new Random();
 	LocationManager locationManager;
 	PlayersManager playersManager;
@@ -35,6 +36,19 @@ public class EventsManager {
 		predicateMap = new HashMap<>();
 		predicateMap.put("Ходилка", player -> player.getActiveEvent().getLocationEnd().equals(player.getLocation()));
 		predicateMap.put("Загадка", player -> player.getActiveEvent().getCorrectAnswer().equalsIgnoreCase(player.getAnswer()));
+		startQuest = List.of("Доставьте потерянную книгу знаний ", "Принесите редкий минерал ", "Заберите волшебный меч у ", "Передайте письмо от ", "Отнесите ключ к секретному подземелью ", "Найдите забытый тотем племени ",
+						"Помогите собрать ингредиенты для зелья ", "Спасите потерявшегося ребенка из лап ", "Поймайте рыбу и отдайте ее местному повару ", "Найдите семена бобов для ", "Спасите деревню от нашествия ", "Придите на помощь ",
+						"Доставьте старинную рукопись ", "Приведите бродячего торговца к ", "Передайте секретные права модератора ", "Отнесите секретное поручение Лаба к ", "Передайте этот виброклинок ");
+		middleQuest = List.of("Вущьту ", "Лабу ", "Баззу ", "Чегобнику ", "Орсону ", "Роверу ", "Ябысу ", "Илье ", "Таои ", "Рэд ", "Дарху ", "Обычному богу ", "Ушасу ", "Бобору ", "Стину ", "Сталкеру ", "Рианель ", "Потату ", "Фражузу ",
+						"Фаерфлей ", "Бувке ", "Кел ", "Гордону ", "Лове ", "Багплею ", "Эдтку ", "Жокернику ", "Вестеру ", "Боенгу ", "Авику ", "Осовец ", "Агрипине ", "Нееретику ", "Механику ", "Ситцу ");
+		endQuest = List.of(" чтобы он смог создать новое мощное оружие", " чтобы он мог защитить свой дом от врагов", " чтобы она могла исцелить тяжело раненного друга", " чтобы они могли спасти королевство от темного властелина",
+						" чтобы мир узнал правду о таинственном исчезновении принцессы", " чтобы освободить плененных героев из заточения", " чтобы восстановить утраченные знания древних магов", " чтобы вернуть надежду жителям умирающего города",
+						" чтобы снять проклятие с замка, которое держало его в вечном сне", " чтобы добыть рецепт волшебного зелья, способного оживлять мертвых", " чтобы собрать материалы для строительства нового храма", " чтобы победить демона, захватившего власть над миром",
+						" чтобы узнать секреты прошлого и предотвратить катастрофу будущего", " чтобы доказать свою храбрость и заслужить уважение товарищей", " чтобы найти способ воскресить погибшего друга", " чтобы научиться управлять стихиями и стать настоящим мастером магии",
+						" чтобы заручиться поддержкой союзников и подготовиться к битве с армией врага", " чтобы понять смысл своей жизни и найти свое истинное предназначение", " чтобы избежать зловещего пророчества и изменить судьбу мира", " чтобы защитить лес от вырубки и спасти животных, обитающих там",
+						" чтобы встретить любовь всей своей жизни и создать семью", " чтобы победить еретиков из руин", " чтобы чегоб перестал ловить в свой подвал малолеток", " чтобы перестать кринжевать", " чтобы покакать", " чтобы убить злого модератора ЧБ",
+						" чтобы освободить лаба из под каблука", " чтобы бухнуть с Базом", " чтобы Илья смог стать инагентом", " чтобы в мире была любовь и пасфайндер", " чтобы открыть форточку после прихода Орсона");
+
 	}
 
 	public void assignEvent(MessageReceivedEvent event) {
@@ -42,7 +56,7 @@ public class EventsManager {
 		if (player.getActiveEvent() != null) {
 			event.getChannel().sendMessage("У тебя уже есть активный квест, сначала заверши его").submit();
 		} else {
-			player.setActiveEvent(rand.nextInt(2) == 1 ? createPathFinderEvent() : createAnswerEvent());
+			player.setActiveEvent(rand.nextInt(4) == 1 ? createAnswerEvent() : createPathFinderEvent());
 			playerCache.put(player.getId(), player);
 			event.getChannel().sendMessage("Ты получил новое задание :\n" + player.getActiveEvent().toString()).submit();
 		}
@@ -81,7 +95,7 @@ public class EventsManager {
 						.locationEnd(endLocation)
 						.type("Ходилка")
 						.correctAnswer(null)
-						.description("Отнеси эту залупу в локацию " + endLocation)
+						.description(createDescription(endLocation))
 						.itemReward(null)
 						.moneyReward(rand.nextInt(50, 100))
 						.timeEnd(null)
@@ -113,5 +127,12 @@ public class EventsManager {
 						.timeEnd(null)
 						.xpReward(rand.nextInt(50, 100))
 						.build();
+	}
+	
+	private String createDescription(String location) {
+		return startQuest.get(rand.nextInt(startQuest.size()))
+						+ middleQuest.get(rand.nextInt(middleQuest.size()))
+						+ "в " + location
+						+ endQuest.get(rand.nextInt(middleQuest.size()));
 	}
 }
