@@ -14,11 +14,13 @@ public class ItemsManager {
 
 	private final IgniteCache<String, Item> itemsCache;
 	private final IgniteCache<String, Player> playerCache;
+	private final PlayersManager playersManager;
 	private static final List<String> itemsForSale = new ArrayList<>(100);
 
-	public ItemsManager(IgniteCache<String, Player> playerCache, IgniteCache<String, Item> itemsCache) {
+	public ItemsManager(IgniteCache<String, Player> playerCache, IgniteCache<String, Item> itemsCache, PlayersManager playersManager) {
 		this.itemsCache = itemsCache;
 		this.playerCache = playerCache;
+		this.playersManager = playersManager;
 		init(itemsCache);
 	}
 
@@ -78,6 +80,8 @@ public class ItemsManager {
 						.description("Восстанавливает 50 HP").build());
 		map.put("медовуха база", Item.builder().name("медовуха база").armor(0).price(80).luck(0).health(100).reputation(0).strength(0).xpGeneration(0).action(true)
 						.description("Восстанавливает 100 HP").build());
+		map.put("токен телепорта", Item.builder().name("токен телепорта").armor(0).price(5).luck(0).health(0).reputation(0).strength(0).xpGeneration(0).action(true)
+						.description("Позволяет использовать телепорты").build());
 
 
 		if (itemsCache != null) {
@@ -118,8 +122,7 @@ public class ItemsManager {
 				event.getChannel().sendMessage("У вас недостаточно денег для покупки этого предмета").submit();
 			} else {
 				player.setMoney(player.getMoney() - item.getPrice());
-				player.getInventory().add(item.getName());
-				playerCache.put(event.getAuthor().getId(), player);
+				playersManager.addNewItem(event.getAuthor().getId(), item.getName());
 				event.getChannel().sendMessage("Вы купили " + item.getName() + " у вас осталось " + player.getMoney() + " денег").submit();
 			}
 		} else {

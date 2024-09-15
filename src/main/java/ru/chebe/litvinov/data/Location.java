@@ -17,6 +17,7 @@ public class Location {
 	private boolean pvp;
 	private String boss;
 	private String bossItem;
+	private boolean teleport;
 
 	@Override
 	public String toString() {

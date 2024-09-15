@@ -58,19 +58,19 @@ public class PlayersManager {
 	public void getInventoryInfo(MessageReceivedEvent event) {
 		String id = event.getMessage().getAuthor().getId();
 		var player = playerCache.get(id);
-		String item = event.getMessage().getContentDisplay().substring(10).trim();
-		if (item.isEmpty()) {
+		String itemName = event.getMessage().getContentDisplay().substring(10).trim();
+		if (itemName.isEmpty()) {
 			if (player.getInventory().isEmpty()) {
 				event.getChannel().sendMessage("Ваш инвентарь ~~пожрал лаб~~ пуст, милорд").submit();
 			} else {
 				event.getChannel().sendMessage(player.getInventory().toString()).submit();
 			}
 		} else {
-			List<String> filteredItems = player.getInventory().stream().filter(i -> i.equals(item)).toList();
-			if (filteredItems.isEmpty()) {
+			Item item = itemsCache.get(itemName);
+			if (item == null) {
 				event.getChannel().sendMessage("Такого предмета у вас нет, посмотрите список имеющихся с помощью команды +инвентарь").submit();
 			} else {
-				event.getChannel().sendMessage(filteredItems.get(0)).submit();
+				event.getChannel().sendMessage(item.toString()).submit();
 			}
 		}
 	}
@@ -158,7 +158,12 @@ public class PlayersManager {
 		player.setArmor(newItem.getArmor() > 0 ? player.getArmor() + newItem.getArmor() : player.getArmor());
 		player.setLuck(newItem.getLuck() > 0 ? player.getLuck() + newItem.getLuck() : player.getLuck());
 		player.setStrength(newItem.getStrength() > 0 ? player.getStrength() + newItem.getStrength() : player.getStrength());
-		player.getInventory().add(item);
+		var inventory = player.getInventory();
+		if (inventory.get(item) != null) {
+			inventory.put(item, inventory.get(item + 1));
+		} else {
+			inventory.put(item, 1);
+		}
 		playerCache.put(id, player);
 	}
 
@@ -172,7 +177,12 @@ public class PlayersManager {
 			player.setLuck(deleteItem.getLuck() > 0 ? player.getLuck() - deleteItem.getLuck() : player.getLuck());
 			player.setStrength(deleteItem.getStrength() > 0 ? player.getStrength() - deleteItem.getStrength() : player.getStrength());
 		}
-		player.getInventory().remove(item);
+		var inventory = player.getInventory();
+		if (inventory.get(item) != null) {
+			inventory.put(item, inventory.get(item) - 1);
+		} else {
+			inventory.remove(item);
+		}
 		playerCache.put(id, player);
 	}
 
@@ -187,7 +197,7 @@ public class PlayersManager {
 	public void useItem(MessageReceivedEvent event) {
 		var player = playerCache.get(event.getAuthor().getId());
 		String message = event.getMessage().getContentDisplay().substring(13).trim().toLowerCase();
-		if (player.getInventory().contains(message.toLowerCase())) {
+		if (player.getInventory().containsKey(message.toLowerCase())) {
 			Item item = itemsCache.get(message);
 			if (item.isAction()) {
 				if (item.getHealth() > 0) {
@@ -252,7 +262,7 @@ public class PlayersManager {
 	public void sellItem(MessageReceivedEvent event) {
 		var player = playerCache.get(event.getAuthor().getId());
 		String message = event.getMessage().getContentDisplay().substring(8).trim().toLowerCase();
-		if (player.getInventory().contains(message.toLowerCase())) {
+		if (player.getInventory().containsKey(message.toLowerCase())) {
 			Item item = itemsCache.get(message);
 			int sellPrice = item.getPrice() / (2 - player.getReputation() / 10);
 			changeMoney(player.getId(), sellPrice, true);

@@ -3,8 +3,8 @@ package ru.chebe.litvinov.data;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 
 @Getter
 @Setter
@@ -22,7 +22,7 @@ public class Player {
 	private int exp;
 	private int armor;
 	private int expToNextLvl;
-	private List<String> inventory;
+	private Map<String, Integer> inventory;
 	private String answer;
 	private Event activeEvent;
 
@@ -40,9 +40,18 @@ public class Player {
 		this.level = 1;
 		this.exp = 0;
 		this.expToNextLvl = 100;
-		this.inventory = new ArrayList<>();
+		this.inventory = startInventory();
 		this.answer = "";
 		this.activeEvent = null;
+	}
+
+	private Map<String, Integer> startInventory() {
+		Map<String, Integer> inventory = new HashMap<>();
+		inventory.put("токен телепорта", 5);
+		inventory.put("кружка цикория", 3);
+		inventory.put("вино лаба", 2);
+		inventory.put("медовуха база", 1);
+		return inventory;
 	}
 
 	@Override

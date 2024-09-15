@@ -39,9 +39,9 @@ public class MessageHandler extends ListenerAdapter {
 		IgniteCache<Integer, Idea> ideasCache = ignite.cache("ideas");
 		IgniteCache<String, Location> locationCache = ignite.cache("locations");
 		IgniteCache<String, Item> itemsCache = ignite.cache("items");
-		this.itemsManager = new ItemsManager(playerCache, itemsCache);
 		this.locationManager = new LocationManager(locationCache, playerCache);
 		this.playersManager = new PlayersManager(playerCache, locationManager, itemsCache);
+		this.itemsManager = new ItemsManager(playerCache, itemsCache, playersManager);
 		this.tavern = new Tavern(playerCache);
 		this.ideasManager = new IdeasManager(ideasCache);
 		this.battleManager = new BattleManager(locationCache, playerCache, bossCache, playersManager);
