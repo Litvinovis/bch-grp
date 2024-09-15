@@ -23,7 +23,7 @@ public class MessageHandler extends ListenerAdapter {
 	private static final String HELP_MESSAGE = helpMessageCreate();
 	private static final String INFO_MESSAGE = infoMessageCreate();
 	private static IgniteCache<String, Player> playerCache;
-	private final Logger logger = LoggerFactory.getLogger("default-logger");
+	private final Logger logger = LoggerFactory.getLogger("adminLog");
 	private final ItemsManager itemsManager;
 	private final PlayersManager playersManager;
 	private final LocationManager locationManager;
