@@ -1,10 +1,9 @@
 package ru.chebe.litvinov.service;
 
 import net.dv8tion.jda.api.entities.channel.unions.MessageChannelUnion;
-import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import org.apache.ignite.IgniteCache;
 import ru.chebe.litvinov.data.Boss;
-import ru.chebe.litvinov.data.Location;
+import ru.chebe.litvinov.data.Person;
 import ru.chebe.litvinov.data.Player;
 
 import java.util.HashMap;
@@ -14,45 +13,38 @@ import java.util.Random;
 
 public class BattleManager {
 
-	private final IgniteCache<String, Location> locationCache;
-	private final IgniteCache<String, Player> playerCache;
 	private final IgniteCache<String, Boss> bossCache;
-	private final PlayersManager playersManager;
 	private final Random rand = new Random();
 
-	public BattleManager(IgniteCache<String, Location> locationCache, IgniteCache<String, Player> playerCache,
-	                     IgniteCache<String, Boss> bossCache, PlayersManager playersManager) {
-		this.locationCache = locationCache;
-		this.playerCache = playerCache;
+	public BattleManager(IgniteCache<String, Boss> bossCache) {
 		this.bossCache = bossCache;
-		this.playersManager = playersManager;
 		init();
 	}
 
 	public void init() {
 		Map<String, Boss> map = new HashMap<>();
-		map.put("cynic mansion", Boss.builder().name("cynic mansion").hp(1000).strength(10).defeat(0).win(0).bossItem("кисточка циника").build());
-		map.put("Darhalas", Boss.builder().name("Darhalas").hp(1000).strength(10).defeat(0).win(0).bossItem("корона дарха").build());
-		map.put("Ctin", Boss.builder().name("Ctin").hp(1000).strength(10).defeat(0).win(0).bossItem("кринж стина").build());
-		map.put("Ushas", Boss.builder().name("Ushas").hp(1000).strength(10).defeat(0).win(0).bossItem("попка ушаса").build());
-		map.put("Morgott", Boss.builder().name("Morgott").hp(1000).strength(10).defeat(0).win(0).bossItem("око мора").build());
-		map.put("Usual_god", Boss.builder().name("Usual_god").hp(1000).strength(10).defeat(0).win(0).bossItem("очко бога").build());
-		map.put("Red", Boss.builder().name("Red").hp(1000).strength(10).defeat(0).win(0).bossItem("сиськи ред").build());
-		map.put("Рианель", Boss.builder().name("Рианель").hp(1000).strength(10).defeat(0).win(0).bossItem("удача рианель").build());
-		map.put("Labynkyr", Boss.builder().name("Labynkyr").hp(1000).strength(10).defeat(0).win(0).bossItem("шарики лаба").build());
-		map.put("Arktulz", Boss.builder().name("Arktulz").hp(1000).strength(10).defeat(0).win(0).bossItem("вонь арктулза").build());
-		map.put("Ябыс", Boss.builder().name("Ябыс").hp(1000).strength(10).defeat(0).win(0).bossItem("скейт ябыса").build());
-		map.put("Orson", Boss.builder().name("Orson").hp(1000).strength(10).defeat(0).win(0).bossItem("форточка орсона").build());
-		map.put("Gordon", Boss.builder().name("Gordon").hp(1000).strength(10).defeat(0).win(0).bossItem("месть гордона").build());
-		map.put("Buzzz", Boss.builder().name("Buzzz").hp(1000).strength(10).defeat(0).win(0).bossItem("хатка база").build());
-		map.put("la_brioche", Boss.builder().name("la_brioche").hp(1000).strength(10).defeat(0).win(0).bossItem("игла бувки").build());
-		map.put("Stalker", Boss.builder().name("Stalker").hp(1000).strength(10).defeat(0).win(0).bossItem("калькулятор сталкера").build());
-		map.put("Crown", Boss.builder().name("Crown").hp(1000).strength(10).defeat(0).win(0).bossItem("язык вороны").build());
-		map.put("Илья", Boss.builder().name("Илья").hp(1000).strength(10).defeat(0).win(0).bossItem("диплом ильи").build());
-		map.put("Chegobnk", Boss.builder().name("Chegobnk").hp(1000).strength(10).defeat(0).win(0).bossItem("кресло чегоба").build());
-		map.put("Вуъщт", Boss.builder().name("Вуъщт").hp(1000).strength(10).defeat(0).win(0).bossItem("хуй вущъта").build());
-		map.put("Eduard", Boss.builder().name("Eduard").hp(1000).strength(10).defeat(0).win(0).bossItem("банка эдика").build());
-		map.put("Rover", Boss.builder().name("Rover").hp(1000).strength(10).defeat(0).win(0).bossItem("бицушка ровера").build());
+		map.put("cynic mansion", Boss.builder().nickName("cynic mansion").hp(1000).strength(10).defeat(0).win(0).bossItem("кисточка циника").build());
+		map.put("Darhalas", Boss.builder().nickName("Darhalas").hp(1000).strength(10).defeat(0).win(0).bossItem("корона дарха").build());
+		map.put("Ctin", Boss.builder().nickName("Ctin").hp(1000).strength(10).defeat(0).win(0).bossItem("кринж стина").build());
+		map.put("Ushas", Boss.builder().nickName("Ushas").hp(1000).strength(10).defeat(0).win(0).bossItem("попка ушаса").build());
+		map.put("Morgott", Boss.builder().nickName("Morgott").hp(1000).strength(10).defeat(0).win(0).bossItem("око мора").build());
+		map.put("Usual_god", Boss.builder().nickName("Usual_god").hp(1000).strength(10).defeat(0).win(0).bossItem("очко бога").build());
+		map.put("Red", Boss.builder().nickName("Red").hp(1000).strength(10).defeat(0).win(0).bossItem("сиськи ред").build());
+		map.put("Рианель", Boss.builder().nickName("Рианель").hp(1000).strength(10).defeat(0).win(0).bossItem("удача рианель").build());
+		map.put("Labynkyr", Boss.builder().nickName("Labynkyr").hp(1000).strength(10).defeat(0).win(0).bossItem("шарики лаба").build());
+		map.put("Arktulz", Boss.builder().nickName("Arktulz").hp(1000).strength(10).defeat(0).win(0).bossItem("вонь арктулза").build());
+		map.put("Ябыс", Boss.builder().nickName("Ябыс").hp(1000).strength(10).defeat(0).win(0).bossItem("скейт ябыса").build());
+		map.put("Orson", Boss.builder().nickName("Orson").hp(1000).strength(10).defeat(0).win(0).bossItem("форточка орсона").build());
+		map.put("Gordon", Boss.builder().nickName("Gordon").hp(1000).strength(10).defeat(0).win(0).bossItem("месть гордона").build());
+		map.put("Buzzz", Boss.builder().nickName("Buzzz").hp(1000).strength(10).defeat(0).win(0).bossItem("хатка база").build());
+		map.put("la_brioche", Boss.builder().nickName("la_brioche").hp(1000).strength(10).defeat(0).win(0).bossItem("игла бувки").build());
+		map.put("Stalker", Boss.builder().nickName("Stalker").hp(1000).strength(10).defeat(0).win(0).bossItem("калькулятор сталкера").build());
+		map.put("Crown", Boss.builder().nickName("Crown").hp(1000).strength(10).defeat(0).win(0).bossItem("язык вороны").build());
+		map.put("Илья", Boss.builder().nickName("Илья").hp(1000).strength(10).defeat(0).win(0).bossItem("диплом ильи").build());
+		map.put("Chegobnk", Boss.builder().nickName("Chegobnk").hp(1000).strength(10).defeat(0).win(0).bossItem("кресло чегоба").build());
+		map.put("Вуъщт", Boss.builder().nickName("Вуъщт").hp(1000).strength(10).defeat(0).win(0).bossItem("хуй вущъта").build());
+		map.put("Eduard", Boss.builder().nickName("Eduard").hp(1000).strength(10).defeat(0).win(0).bossItem("банка эдика").build());
+		map.put("Rover", Boss.builder().nickName("Rover").hp(1000).strength(10).defeat(0).win(0).bossItem("бицушка ровера").build());
 
 		if (bossCache != null) {
 			map.forEach((name, boss) -> {
@@ -63,115 +55,62 @@ public class BattleManager {
 		}
 	}
 
-	public void bossFight(MessageReceivedEvent event) {
-		Player player = playerCache.get(event.getAuthor().getId());
-		var loc = locationCache.get(player.getLocation());
-		if (loc.getBoss() == null) {
-			event.getChannel().sendMessage("В этой локации нет босса, перейди в другую если хочешь присесть на бутылку").submit();
+	public List<Player> playerBattle(Player player1, Player player2, MessageChannelUnion channel) {
+		battleMechanic(player1, player2, channel);
+		return List.of(player1, player2);
+	}
+
+	public int mobBattle(Player player, MessageChannelUnion channel) {
+		Boss boss = Boss.builder().nickName("Бандит").hp(rand.nextInt(15, 35)).strength(3).defeat(0).win(0).bossItem(null).build();
+		battleMechanic(player, boss, channel);
+		if (boss.getHp() > 0) {
+			channel.sendMessage("Тебя убил мелкий бандит, это кринж, чувак! Ты был воскрешен на Респауне, " +
+							"потерял 10% монет и возможно кое-что из инвентаря").queue();
+			return 0;
 		} else {
-			event.getChannel().sendMessage("Ты отважился бросить вызов боссу по имени " + loc.getBoss() + " земля тебе пухом братишка").submit();
-			battleMechanic(player, null, bossCache.get(loc.getBoss()), event.getChannel());
+			channel.sendMessage("Поздравляю ты победил тупого засланца при переходе локации").submit();
+			return player.getHp();
 		}
 	}
 
-	public void playersFight(MessageReceivedEvent event) {
-		Player player = playerCache.get(event.getAuthor().getId());
-		var loc = locationCache.get(player.getLocation());
-		if (!loc.isPvp()) {
-			event.getChannel().sendMessage("В этой локации нельзя драться, я щас милицию вызову!!!").submit();
-		}
-		if (loc.getPopulation().size() < 2) {
-			event.getChannel().sendMessage("В этой локации нет игроков, желаете набить ебало самому себе?").submit();
+	public int bossBattle(Player player, String bossName, MessageChannelUnion channel) {
+		Boss boss = bossCache.get(bossName);
+		battleMechanic(player, boss, channel);
+		if (boss.getHp() > 0) {
+			channel.sendMessage("Штош нужно быть очень глупым чтобы залупаться на " + boss.getNickName() + " с твоими характеристиками" +
+							"Ты умер и был воскрешен на Респауне, ты потерял 10% монет и возможно кое-что из предметов").queue();
+			boss.setWin(boss.getWin() + 1);
+			bossCache.put(boss.getNickName(), boss);
+			return 0;
 		} else {
-			List<String> population = loc.getPopulation();
-			population.remove(player.getNickName());
-			int size = population.size();
-			Player players2 = playerCache.get(population.get(rand.nextInt(size - 1)));
-			event.getChannel().sendMessage("Судьба свела тебя в битве против " + players2.getNickName() + " одному из вас не уйти живым").submit();
-			battleMechanic(player, players2, null, event.getChannel());
+			channel.sendMessage("Поздравляю ты победил босса этой локации " + boss.getNickName()).submit();
+			return player.getHp();
 		}
 	}
 
-	public void mobFight(MessageReceivedEvent event, Player player) {
-		Boss mob = Boss.builder().name("mob").hp(rand.nextInt(15,35)).strength(3).defeat(0).win(0).bossItem(null).build();
-		battleMechanic(player, null, mob, event.getChannel());
-	}
-
-
-	private void battleMechanic(Player player1, Player player2, Boss boss, MessageChannelUnion channel) {
+	public void battleMechanic(Person player1, Person player2, MessageChannelUnion channel) {
 		StringBuilder sb = new StringBuilder();
-		if (boss == null) {
-			while (player1.getHp() > 0 && player2.getHp() > 0) {
-				if (sb.length() > 1800) {
-					channel.sendMessage(sb.toString()).submit();
-					sb.setLength(0);
-				}
-				int damage = randomizeDamage(player1.getStrength() - player2.getArmor());
-				player2.setHp(player2.getHp() - damage);
-				sb.append("Игрок ").append(player1.getNickName()).append(" наносит ").append(damage).append(" урона противнику, у него остаётся ").append(player2.getHp()).append(" HP\n");
-				if (player2.getHp() < 0) {
-					continue;
-				}
-				damage = randomizeDamage(player2.getStrength() - player1.getArmor());
-				player1.setHp(player1.getHp() - damage);
-				sb.append("Игрок ").append(player2.getNickName()).append(" наносит ").append(damage).append(" урона противнику, у него остаётся ").append(player1.getHp()).append(" HP\n");
+		while (player1.getHp() > 0 && player2.getHp() > 0) {
+			if (sb.length() > 1800) {
+				channel.sendMessage(sb.toString()).submit();
+				sb.setLength(0);
 			}
-		} else {
-			while (player1.getHp() > 0 && boss.getHp() > 0) {
-				if (sb.length() > 1800) {
-					channel.sendMessage(sb.toString()).submit();
-					sb.setLength(0);
-				}
-				int damage = randomizeDamage(player1.getStrength());
-				boss.setHp(boss.getHp() - damage);
-				sb.append("Игрок ").append(player1.getNickName()).append(" наносит ").append(damage).append(" урона противнику, у него остаётся ").append(boss.getHp()).append(" HP\n");
-				damage = randomizeDamage(boss.getStrength() - player1.getArmor());
-				player1.setHp(player1.getHp() - damage);
-				sb.append("Босс ").append(boss.getName()).append(" наносит ").append(damage).append(" урона противнику, у него остаётся ").append(player1.getHp()).append(" HP\n");
-			}
+			int damage = randomizeDamage(player1.getStrength());
+			player2.setHp(player2.getHp() - damage);
+			sb.append(player1.getNickName()).append(" наносит ").append(damage).append(" урона противнику, у него остаётся ").append(player2.getHp()).append(" HP\n");
+			damage = randomizeDamage(player2.getStrength() - player1.getArmor());
+			player1.setHp(player1.getHp() - damage);
+			sb.append(player2.getNickName()).append(" наносит ").append(damage).append(" урона противнику, у него остаётся ").append(player1.getHp()).append(" HP\n");
 		}
 		channel.sendMessage(sb.toString()).submit();
-		if (boss != null) {
-			if (boss.getHp() > 0) {
-				channel.sendMessage("Штош нужно быть очень глупым чтобы залупаться на " + boss.getName() + " с твоими характеристиками" +
-												"Ты умер и был воскрешен на Респауне, ты потерял 10% монет и возможно кое-что из предметов").queue();
-				playersManager.deathOfPlayer(player1);
-				boss = bossCache.get(boss.getName());
-				boss.setWin(boss.getWin() + 1);
-				bossCache.put(boss.getName(), boss);
-			} else {
-				if (boss.getName().equals("mob")) {
-					channel.sendMessage("Поздравляю ты победил тупого засланца при переходе локации").submit();
-					playersManager.changeXp(player1.getId(), 10);
-					playersManager.changeMoney(player1.getId(), 10, true);
-					playersManager.changeHp(player1.getId(), player1.getHp());
-				} else {
-					channel.sendMessage("Поздравляю ты победил босса этой локации " + boss.getName()).submit();
-					playersManager.changeXp(player1.getId(), 1000);
-					playersManager.changeMoney(player1.getId(), 1000, true);
-					playersManager.changeHp(player1.getId(), player1.getHp());
-				}
-				if (boss.getBossItem() != null) {
-					playersManager.addNewItem(player1.getId(), boss.getBossItem());
-					channel.sendMessage("В твой инвентарь добавлен предмет " + boss.getBossItem()).submit();
-				}
-			}
-		} else {
-			Player defeat = player1.getHp() > 0 ? player1 : player2;
-			Player winner = player1.getHp() > 0 ? player2 : player1;
-			int xp = playersManager.getXp(defeat);
-			int money = defeat.getMoney() / 2;
-			channel.sendMessage("Игрок " + defeat.getNickName() + " побеждает в этой славной битве и получает " + xp + " опыта и " + money + " монет").queue();
-			channel.sendMessage("Игрок " + defeat.getNickName() + " умер и был воскрешен на Респауне, он потерял 10% монет и возможно кое-что из предметов").submit();
-			playersManager.changeMoney(winner.getId(), money, true);
-			playersManager.changeHp(winner.getId(), winner.getHp());
-			playersManager.changeXp(winner.getId(), xp);
-			playersManager.deathOfPlayer(defeat);
-		}
 	}
 
 	private int randomizeDamage(int damage) {
 		double percentageChange = (rand.nextInt(51) - 25) / 100.0; // От -25% до +25%
-		return (int)(damage + (damage * percentageChange)) * 3;
+		return (int) (damage + (damage * percentageChange)) * 3;
+	}
+
+	public String getBossItemName(String bossName) {
+		return bossCache.get(bossName).getBossItem();
 	}
 }

@@ -1,7 +1,6 @@
 package ru.chebe.litvinov.service;
 
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
-import org.apache.ignite.IgniteCache;
 import ru.chebe.litvinov.data.Event;
 import ru.chebe.litvinov.data.Location;
 import ru.chebe.litvinov.data.Player;
@@ -11,24 +10,13 @@ import java.util.function.Predicate;
 
 public class EventsManager {
 
-	private final IgniteCache<String, Location> locationCache;
-	private final IgniteCache<String, Player> playerCache;
 	private static Map<String, Predicate<Player>> predicateMap;
 	private static List<String> startQuest;
 	private static List<String> middleQuest;
 	private static List<String> endQuest;
 	private final Random rand = new Random();
-	LocationManager locationManager;
-	PlayersManager playersManager;
-	BattleManager battleManager;
 
-	public EventsManager(IgniteCache<String, Location> locationCache, IgniteCache<String, Player> playerCache,
-	                     LocationManager locationManager, PlayersManager playersManager, BattleManager battleManager) {
-		this.playerCache = playerCache;
-		this.locationCache = locationCache;
-		this.locationManager = locationManager;
-		this.playersManager = playersManager;
-		this.battleManager = battleManager;
+	public EventsManager() {
 		init();
 	}
 
@@ -51,60 +39,24 @@ public class EventsManager {
 
 	}
 
-	public void assignEvent(MessageReceivedEvent event) {
-		var player = playerCache.get(event.getAuthor().getId());
-		if (player.getActiveEvent() != null) {
-			event.getChannel().sendMessage("У тебя уже есть активный квест, сначала заверши его").submit();
-		} else {
-			player.setActiveEvent(rand.nextInt(4) == 1 ? createAnswerEvent() : createPathFinderEvent());
-			playerCache.put(player.getId(), player);
-			event.getChannel().sendMessage("Ты получил новое задание :\n" + player.getActiveEvent().toString()).submit();
-		}
+	public Event assignEvent(List<String> locationList) {
+		return rand.nextInt(4) == 1 ? createAnswerEvent() : createPathFinderEvent(locationList);
 	}
 
-	public void changeEvent(MessageReceivedEvent event) {
-		var player = playerCache.get(event.getAuthor().getId());
-		if (player.getActiveEvent() == null) {
-			event.getChannel().sendMessage("У тебя нет активного квеста, сначала возьми его").submit();
-		} else if (player.getMoney() >= 5) {
-			player.setActiveEvent(rand.nextInt(4) == 1 ? createAnswerEvent() : createPathFinderEvent());
-			player.setMoney(player.getMoney() - 5);
-			playerCache.put(player.getId(), player);
-			event.getChannel().sendMessage("Ты потартил 5 денег и получил новое задание :\n" + player.getActiveEvent().toString()).submit();
-		} else {
-			event.getChannel().sendMessage("У тебя недостаточно денег, сначала зарабаотай их").submit();
-		}
+	public boolean checkEvent(Event activeEvent, Player player) {
+		return predicateMap.get(activeEvent.getType()).test(player);
 	}
 
-	public void checkEvent(MessageReceivedEvent event) {
-		var player = playerCache.get(event.getAuthor().getId());
-		String message = event.getMessage().getContentDisplay().substring(16).trim().toLowerCase();
-		player.setAnswer(message);
-		var activeEvent = player.getActiveEvent();
-		if (activeEvent == null) {
-			event.getChannel().sendMessage("У тебя нет активного квеста, сначала возьми его").submit();
-		} else if (predicateMap.get(activeEvent.getType()).test(player)) {
-			player.setActiveEvent(null);
-			playerCache.put(player.getId(), player);
-			playersManager.changeMoney(player.getId(), activeEvent.getMoneyReward(), true);
-			playersManager.changeXp(player.getId(), activeEvent.getXpReward());
-			event.getChannel().sendMessage("Ты успешно завершил свой квест, опыт " + activeEvent.getXpReward() + " и деньги " + activeEvent.getMoneyReward() + " зачислены на твой счёт").submit();
-		} else {
-			event.getChannel().sendMessage("Ты не выполнил условия квеста или ответил неправильно!").submit();
-		}
-	}
-
-	public void transferEvent(MessageReceivedEvent event) {
-		var player = playerCache.get(event.getAuthor().getId());
-		var activeEvent = player.getActiveEvent();
-		if (activeEvent == null && locationCache.get(player.getLocation()).isPvp() && rand.nextInt(100) > locationCache.get(player.getLocation()).getDangerous()) {
+	public boolean transferEvent(MessageReceivedEvent event, Location location) {
+		if (location.isPvp() && rand.nextInt(100) > location.getDangerous()) {
 			event.getChannel().sendMessage("Во время перемещения ты наткнулся на зомбака из руин...тебе придётся сразится с ним").submit();
-			battleManager.mobFight(event, player);
+			return true;
 		}
+		return false;
 	}
 
-	private Event createPathFinderEvent() {
-		String endLocation = locationManager.getLocationList().get(rand.nextInt(locationManager.getLocationList().size() - 1));
+	private Event createPathFinderEvent(List<String> locationList ) {
+		String endLocation = locationList.get(rand.nextInt(locationList.size()));
 		return Event.builder()
 						.locationEnd(endLocation)
 						.type("Ходилка")

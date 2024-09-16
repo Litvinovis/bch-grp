@@ -3,7 +3,6 @@ package ru.chebe.litvinov.service;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import org.apache.ignite.IgniteCache;
 import ru.chebe.litvinov.data.Item;
-import ru.chebe.litvinov.data.Player;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -13,14 +12,10 @@ import java.util.Map;
 public class ItemsManager {
 
 	private final IgniteCache<String, Item> itemsCache;
-	private final IgniteCache<String, Player> playerCache;
-	private final PlayersManager playersManager;
 	private static final List<String> itemsForSale = new ArrayList<>(100);
 
-	public ItemsManager(IgniteCache<String, Player> playerCache, IgniteCache<String, Item> itemsCache, PlayersManager playersManager) {
+	public ItemsManager(IgniteCache<String, Item> itemsCache) {
 		this.itemsCache = itemsCache;
-		this.playerCache = playerCache;
-		this.playersManager = playersManager;
 		init(itemsCache);
 	}
 
@@ -105,28 +100,11 @@ public class ItemsManager {
 		}
 	}
 
-	public void buyItem(MessageReceivedEvent event) {
-		String message = event.getMessage().getContentDisplay().substring(7).trim().toLowerCase();
-		Player player = playerCache.get(event.getAuthor().getId());
-		if (player.getLocation().equalsIgnoreCase("магазин") || player.getLocation().equalsIgnoreCase("таверна")) {
-			Item item = itemsCache.get(message);
-			if (item == null) {
-				event.getChannel().sendMessage("Такого предмета не существует, ты можешь купить следующие предметы - " + itemsForSale +
-								", набери +предмет (название) чтобы узнать его характеристики").submit();
-				return;
-			} else if (!item.isAction()) {
-				event.getChannel().sendMessage("Этот предмет нельзя купить").submit();
-				return;
-			}
-			if (player.getMoney() < item.getPrice()) {
-				event.getChannel().sendMessage("У вас недостаточно денег для покупки этого предмета").submit();
-			} else {
-				player.setMoney(player.getMoney() - item.getPrice());
-				playersManager.addNewItem(event.getAuthor().getId(), item.getName());
-				event.getChannel().sendMessage("Вы купили " + item.getName() + " у вас осталось " + player.getMoney() + " денег").submit();
-			}
-		} else {
-			event.getChannel().sendMessage("Покупать предметы можно только в локациях Таверна и Магазин").submit();
-		}
+	public Item getItem(String itemName) {
+		return itemsCache.get(itemName);
+	}
+
+	public String getItemsForSale() {
+		return itemsForSale.toString();
 	}
 }

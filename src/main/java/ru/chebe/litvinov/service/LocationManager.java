@@ -5,10 +5,7 @@ import net.dv8tion.jda.api.entities.MessageEmbed;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.utils.FileUpload;
 import org.apache.ignite.IgniteCache;
-import org.apache.logging.log4j.util.Strings;
 import ru.chebe.litvinov.data.Location;
-import ru.chebe.litvinov.data.Player;
-
 
 import java.io.File;
 import java.util.*;
@@ -16,12 +13,9 @@ import java.util.*;
 public class LocationManager {
 
 	private final IgniteCache<String, Location> locationCache;
-	private final IgniteCache<String, Player> playerCache;
 	public static final List<String> locationList = new ArrayList<>(50);
 
-
-	public LocationManager(IgniteCache<String, Location> locationCache, IgniteCache<String, Player> playerCache) {
-		this.playerCache = playerCache;
+	public LocationManager(IgniteCache<String, Location> locationCache) {
 		this.locationCache = locationCache;
 		init(locationCache);
 	}
@@ -66,47 +60,20 @@ public class LocationManager {
 		locationList.addAll(map.keySet());
 	}
 
-	public boolean move(MessageReceivedEvent event) {
-		String message = event.getMessage().getContentDisplay().substring(5).trim().toLowerCase();
-		var player = playerCache.get(event.getAuthor().getId());
-		var currentLocation = locationCache.get(player.getLocation());
-		Location nextLocation = locationCache.get(message.toLowerCase());
-		if (Strings.isEmpty(message)) {
-			event.getChannel().sendMessage("Для перемещения нужно указать желаемую локацию, введи \"+идти локация\" вместо локация, подставь любую из доступных: \n" + currentLocation.getPaths().toString()).submit();
-			return false;
-		}
-		if (!currentLocation.getPaths().contains(message)) {
-			int token = player.getInventory().get("токен телепорта");
-			if (currentLocation.isTeleport() && nextLocation != null && nextLocation.isTeleport() && token > 0) {
-				if (token > 1) {
-					player.getInventory().put("токен телепорта", token - 1);
-				} else {
-					player.getInventory().remove("токен телепорта");
-				}
-			} else {
-				event.getChannel().sendMessage("Ты не можешь переместится в эту локацию, выбери что-нибудь из доступных путей: \n" + currentLocation.getPaths().toString()).submit();
-				return false;
-			}
-		}
-		nextLocation.getPopulation().add(player.getNickName());
-		currentLocation.getPopulation().remove(player.getNickName());
-		locationCache.put(nextLocation.getName(), nextLocation);
-		locationCache.put(currentLocation.getName(), currentLocation);
-		player.setLocation(nextLocation.getName());
-		playerCache.put(player.getId(), player);
-		event.getChannel().sendMessage("Ты успешно переместился в локацию - " + nextLocation.getName()
-						+ "\nВ этой локации находятся следующие игроки: " + nextLocation.getPopulation().toString()).submit();
-		return true;
+	public Location movePlayerInPopulation(String player, String currentLocation, String nextLocation) {
+		Location current = locationCache.get(currentLocation);
+		Location next = locationCache.get(nextLocation);
+		next.getPopulation().add(player);
+		current.getPopulation().remove(player);
+		locationCache.put(nextLocation, next);
+		locationCache.put(currentLocation, current);
+		return next;
 	}
 
-	public void locationInfo(MessageReceivedEvent event) {
+	public void locationInfo(MessageReceivedEvent event, String currentLocation) {
 		String target = event.getMessage().getContentDisplay().substring(8).trim().toLowerCase();
 		if (target.equals("моя")) {
-			event.getChannel().sendMessage(
-							locationCache.get(
-											playerCache.get(event.getAuthor().getId()).getLocation()
-							).toString()
-			).submit();
+			event.getChannel().sendMessage(locationCache.get(currentLocation).toString()).submit();
 		} else if (locationCache.get(target) != null) {
 			event.getChannel().sendMessage(locationCache.get(target).toString()).submit();
 		} else {
@@ -126,18 +93,11 @@ public class LocationManager {
 						.queue();
 	}
 
-	public void movePerson(Player player, String location) {
-		var loc = locationCache.get(player.getLocation());
-		loc.getPopulation().remove(player.getNickName());
-		var nextLoc = locationCache.get(location);
-		nextLoc.getPopulation().add(player.getNickName());
-		locationCache.put(nextLoc.getName(), nextLoc);
-		locationCache.put(loc.getName(), loc);
-		player.setLocation(location);
-		playerCache.put(player.getId(), player);
-	}
-
 	public List<String> getLocationList() {
 		return locationList;
+	}
+
+	public Location getLocation(String location) {
+		return locationCache.get(location);
 	}
 }

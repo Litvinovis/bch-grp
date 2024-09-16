@@ -2,7 +2,9 @@ package ru.chebe.litvinov.service;
 
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import org.apache.ignite.IgniteCache;
+import org.apache.logging.log4j.util.Strings;
 import ru.chebe.litvinov.data.Item;
+import ru.chebe.litvinov.data.Location;
 import ru.chebe.litvinov.data.Player;
 
 import java.util.HashMap;
@@ -12,17 +14,25 @@ import java.util.Random;
 
 public class PlayersManager {
 	private final IgniteCache<String, Player> playerCache;
-	private final IgniteCache<String, Item> itemsCache;
+	private final LocationManager locationManager;
+	private final ItemsManager itemsManager;
+	private final BattleManager battleManager;
+	private final EventsManager eventsManager;
+	private final Tavern tavern;
+	private final Random random = new Random();
+
 	private static final Map<Integer, Integer> xpMap = generateXpMap();
 	private static final Map<Integer, Integer> hpMap = generateHpMap();
-	private final LocationManager locationManager;
 	List<String> words1 = List.of("Унылый", "Гейский", "Стрёмный", "Тупой", "Дрищавый", "Жирный");
 	List<String> words2 = List.of("Пидор", "Мудила", "Хуй", "Гей", "Лох", "Шлюха");
 
-	public PlayersManager(IgniteCache<String, Player> playerCache, LocationManager locationManager, IgniteCache<String, Item> itemsCache) {
+	public PlayersManager(IgniteCache<String, Player> playerCache, LocationManager locationManager, ItemsManager itemsManager, BattleManager battleManager, EventsManager eventsManager, Tavern tavern) {
 		this.playerCache = playerCache;
 		this.locationManager = locationManager;
-		this.itemsCache = itemsCache;
+		this.itemsManager = itemsManager;
+		this.battleManager = battleManager;
+		this.eventsManager = eventsManager;
+		this.tavern = tavern;
 	}
 
 	public void getPlayerInfo(MessageReceivedEvent event) {
@@ -44,7 +54,7 @@ public class PlayersManager {
 		playerCache.put(id, player);
 	}
 
-	public void changeHp(String id, int hp, boolean increase) {
+	public int changeHp(String id, int hp, boolean increase) {
 		var player = playerCache.get(id);
 		if (increase) {
 			int newHp = player.getHp() + hp;
@@ -53,6 +63,7 @@ public class PlayersManager {
 			player.setHp(player.getHp() - hp);
 		}
 		playerCache.put(id, player);
+		return player.getHp();
 	}
 
 	public void getInventoryInfo(MessageReceivedEvent event) {
@@ -66,7 +77,7 @@ public class PlayersManager {
 				event.getChannel().sendMessage(player.getInventory().toString()).submit();
 			}
 		} else {
-			Item item = itemsCache.get(itemName);
+			Item item = itemsManager.getItem(itemName);
 			if (item == null) {
 				event.getChannel().sendMessage("Такого предмета у вас нет, посмотрите список имеющихся с помощью команды +инвентарь").submit();
 			} else {
@@ -85,7 +96,7 @@ public class PlayersManager {
 		playerCache.put(id, player);
 	}
 
-	public void changeReputation(String id, int reputation, boolean increase) {
+	public int changeReputation(String id, int reputation, boolean increase) {
 		var player = playerCache.get(id);
 		if (increase) {
 			player.setReputation(player.getReputation() + reputation);
@@ -93,6 +104,7 @@ public class PlayersManager {
 			player.setReputation(player.getReputation() - reputation);
 		}
 		playerCache.put(id, player);
+		return player.getReputation();
 	}
 
 	public void changeXp(String id, int xp) {
@@ -152,7 +164,7 @@ public class PlayersManager {
 
 	public void addNewItem(String id, String item) {
 		var player = playerCache.get(id);
-		Item newItem = itemsCache.get(item);
+		Item newItem = itemsManager.getItem(item);
 		player.setReputation(newItem.getReputation() > 0 ? player.getReputation() + newItem.getReputation() : player.getReputation());
 		player.setHp(newItem.getHealth() > 0 ? player.getHp() + newItem.getHealth() : player.getHp());
 		player.setArmor(newItem.getArmor() > 0 ? player.getArmor() + newItem.getArmor() : player.getArmor());
@@ -169,7 +181,7 @@ public class PlayersManager {
 
 	public void deleteItem(String id, String item) {
 		var player = playerCache.get(id);
-		Item deleteItem = itemsCache.get(item);
+		Item deleteItem = itemsManager.getItem(item);
 		if (!deleteItem.isAction()) {
 			player.setReputation(deleteItem.getReputation() > 0 ? player.getReputation() - deleteItem.getReputation() : player.getReputation());
 			player.setHp(deleteItem.getHealth() > 0 ? player.getHp() - deleteItem.getHealth() : player.getHp());
@@ -191,34 +203,34 @@ public class PlayersManager {
 		player.setMoney((int) (player.getMoney() * 0.9));
 		player.setHp(player.getMaxHp());
 		playerCache.put(player.getId(), player);
-		locationManager.movePerson(player, "респаун");
+		locationManager.movePlayerInPopulation(player.getNickName(), dead.getLocation(), "респаун");
 	}
 
 	public void useItem(MessageReceivedEvent event) {
 		var player = playerCache.get(event.getAuthor().getId());
 		String message = event.getMessage().getContentDisplay().substring(13).trim().toLowerCase();
 		if (player.getInventory().containsKey(message.toLowerCase())) {
-			Item item = itemsCache.get(message);
+			Item item = itemsManager.getItem(message);
 			if (item.isAction()) {
 				if (item.getHealth() > 0) {
-					changeHp(player.getId(), item.getHealth(), true);
-					event.getChannel().sendMessage("Теперь у тебя " + (item.getHealth() + player.getHp()) + " здоровья").submit();
+					int hp = changeHp(player.getId(), item.getHealth(), true);
+					event.getChannel().sendMessage("Теперь у тебя " + hp + " здоровья").submit();
 				}
 				if (item.getArmor() > 0) {
-					changeArmor(player.getId(), item.getArmor(), true);
-					event.getChannel().sendMessage("Теперь у тебя " + (item.getArmor() + player.getArmor()) + " брони").submit();
+					int armor = changeArmor(player.getId(), item.getArmor(), true);
+					event.getChannel().sendMessage("Теперь у тебя " + armor + " брони").submit();
 				}
 				if (item.getLuck() > 0) {
-					changeLuck(player.getId(), item.getLuck(), true);
-					event.getChannel().sendMessage("Теперь у тебя " + (item.getLuck() + player.getLuck()) + " удачи").submit();
+					int luck = changeLuck(player.getId(), item.getLuck(), true);
+					event.getChannel().sendMessage("Теперь у тебя " + luck + " удачи").submit();
 				}
 				if (item.getStrength() > 0) {
-					changeStrength(player.getId(), item.getStrength(), true);
-					event.getChannel().sendMessage("Теперь у тебя " + (item.getStrength() + player.getStrength()) + " силы").submit();
+					int str = changeStrength(player.getId(), item.getStrength(), true);
+					event.getChannel().sendMessage("Теперь у тебя " + str + " силы").submit();
 				}
 				if (item.getReputation() > 0) {
-					changeReputation(player.getId(), item.getReputation(), true);
-					event.getChannel().sendMessage("Теперь у тебя " + (item.getReputation() + player.getReputation()) + " репутации").submit();
+					int rep = changeReputation(player.getId(), item.getReputation(), true);
+					event.getChannel().sendMessage("Теперь у тебя " + rep + " репутации").submit();
 				}
 				deleteItem(player.getId(), item.getName());
 			} else {
@@ -229,7 +241,7 @@ public class PlayersManager {
 		}
 	}
 
-	private void changeArmor(String id, int armor, boolean increase) {
+	private int changeArmor(String id, int armor, boolean increase) {
 		var player = playerCache.get(id);
 		if (increase) {
 			player.setReputation(player.getReputation() + armor);
@@ -237,9 +249,10 @@ public class PlayersManager {
 			player.setReputation(player.getReputation() - armor);
 		}
 		playerCache.put(id, player);
+		return player.getArmor();
 	}
 
-	public void changeLuck(String id, int luck, boolean increase) {
+	public int changeLuck(String id, int luck, boolean increase) {
 		var player = playerCache.get(id);
 		if (increase) {
 			player.setReputation(player.getReputation() + luck);
@@ -247,9 +260,10 @@ public class PlayersManager {
 			player.setReputation(player.getReputation() - luck);
 		}
 		playerCache.put(id, player);
+		return player.getLuck();
 	}
 
-	public void changeStrength(String id, int strength, boolean increase) {
+	public int changeStrength(String id, int strength, boolean increase) {
 		var player = playerCache.get(id);
 		if (increase) {
 			player.setReputation(player.getReputation() + strength);
@@ -257,19 +271,176 @@ public class PlayersManager {
 			player.setReputation(player.getReputation() - strength);
 		}
 		playerCache.put(id, player);
+		return player.getStrength();
 	}
 
 	public void sellItem(MessageReceivedEvent event) {
 		var player = playerCache.get(event.getAuthor().getId());
 		String message = event.getMessage().getContentDisplay().substring(8).trim().toLowerCase();
 		if (player.getInventory().containsKey(message.toLowerCase())) {
-			Item item = itemsCache.get(message);
+			Item item = itemsManager.getItem(message);
 			int sellPrice = item.getPrice() / (2 - player.getReputation() / 10);
 			changeMoney(player.getId(), sellPrice, true);
 			deleteItem(player.getId(), item.getName());
 			event.getChannel().sendMessage("Теперь у тебя " + (player.getMoney() + sellPrice) + " денег").submit();
 		} else {
 			event.getChannel().sendMessage("Такого предмета нет в твоём инвентаре").submit();
+		}
+	}
+
+	public void dieCast(MessageReceivedEvent event) {
+		tavern.dieCast(event, playerCache.get(event.getAuthor().getId()));
+	}
+
+	public void move(MessageReceivedEvent event) {
+		String message = event.getMessage().getContentDisplay().substring(5).trim().toLowerCase();
+		var player = playerCache.get(event.getAuthor().getId());
+		var currentLocation = locationManager.getLocation(player.getLocation());
+		Location nextLocation = locationManager.getLocation(message.toLowerCase());
+		if (Strings.isEmpty(message)) {
+			event.getChannel().sendMessage("Для перемещения нужно указать желаемую локацию, введи \"+идти локация\" вместо локация, подставь любую из доступных: \n" + currentLocation.getPaths().toString()).submit();
+			return;
+		}
+		if (!currentLocation.getPaths().contains(message)) {
+			int token = player.getInventory().get("токен телепорта");
+			if (currentLocation.isTeleport() && nextLocation != null && nextLocation.isTeleport() && token > 0) {
+				if (token > 1) {
+					player.getInventory().put("токен телепорта", token - 1);
+				} else {
+					player.getInventory().remove("токен телепорта");
+				}
+			} else {
+				event.getChannel().sendMessage("Ты не можешь переместится в эту локацию, выбери что-нибудь из доступных путей: \n" + currentLocation.getPaths().toString()).submit();
+				return;
+			}
+		}
+		nextLocation = locationManager.movePlayerInPopulation(player.getNickName(), currentLocation.getName(), nextLocation.getName());
+		player.setLocation(nextLocation.getName());
+		playerCache.put(player.getId(), player);
+		event.getChannel().sendMessage("Ты успешно переместился в локацию - " + nextLocation.getName()
+						+ "\nВ этой локации находятся следующие игроки: " + nextLocation.getPopulation().toString()).submit();
+		if (eventsManager.transferEvent(event, nextLocation)) {
+			int playerHp = battleManager.mobBattle(player, event.getChannel());
+			if (playerHp > 0) {
+				changeHp(player.getId(), playerHp);
+				changeXp(player.getId(), 10);
+				changeMoney(player.getId(), 10, true);
+			} else {
+				deathOfPlayer(player);
+			}
+		}
+	}
+
+	public void assignEvent(MessageReceivedEvent event) {
+		var player = playerCache.get(event.getAuthor().getId());
+		if (player.getActiveEvent() != null) {
+			event.getChannel().sendMessage("У тебя уже есть активный квест, сначала заверши его").submit();
+		} else {
+			player.setActiveEvent(eventsManager.assignEvent(locationManager.getLocationList()));
+			event.getChannel().sendMessage("Ты получил новое задание :\n" + player.getActiveEvent().toString()).submit();
+		}
+	}
+
+	public void changeEvent(MessageReceivedEvent event) {
+		var player = playerCache.get(event.getAuthor().getId());
+		if (player.getActiveEvent() == null) {
+			event.getChannel().sendMessage("У тебя нет активного квеста, сначала возьми его").submit();
+		} else if (player.getMoney() >= 5) {
+			player.setActiveEvent(eventsManager.assignEvent(locationManager.getLocationList()));
+			changeMoney(event.getAuthor().getId(), 5, false);
+			event.getChannel().sendMessage("Ты потартил 5 денег и получил новое задание :\n" + player.getActiveEvent().toString()).submit();
+		} else {
+			event.getChannel().sendMessage("У тебя недостаточно денег, сначала зарабаотай их").submit();
+		}
+	}
+
+	public void checkEvent(MessageReceivedEvent event) {
+		var player = playerCache.get(event.getAuthor().getId());
+		String message = event.getMessage().getContentDisplay().substring(16).trim().toLowerCase();
+		player.setAnswer(message);
+		var activeEvent = player.getActiveEvent();
+		if (activeEvent == null) {
+			event.getChannel().sendMessage("У тебя нет активного квеста, сначала возьми его").submit();
+		} else if (eventsManager.checkEvent(activeEvent, player)) {
+			player.setActiveEvent(null);
+			changeMoney(player.getId(), activeEvent.getMoneyReward(), true);
+			changeXp(player.getId(), activeEvent.getXpReward());
+			event.getChannel().sendMessage("Ты успешно завершил свой квест, опыт " + activeEvent.getXpReward() + " и деньги " + activeEvent.getMoneyReward() + " зачислены на твой счёт").submit();
+		} else {
+			event.getChannel().sendMessage("Ты не выполнил условия квеста или ответил неправильно!").submit();
+		}
+	}
+
+	public void buyItem(MessageReceivedEvent event) {
+		String message = event.getMessage().getContentDisplay().substring(7).trim().toLowerCase();
+		Player player = playerCache.get(event.getAuthor().getId());
+		if (player.getLocation().equalsIgnoreCase("магазин") || player.getLocation().equalsIgnoreCase("таверна")) {
+			Item item = itemsManager.getItem(message);
+			if (item == null) {
+				event.getChannel().sendMessage("Такого предмета не существует, ты можешь купить следующие предметы - " + itemsManager.getItemsForSale() +
+								", набери +предмет (название) чтобы узнать его характеристики").submit();
+			} else if (!item.isAction()) {
+				event.getChannel().sendMessage("Этот предмет нельзя купить").submit();
+			} else if (player.getMoney() < item.getPrice()) {
+				event.getChannel().sendMessage("У вас недостаточно денег для покупки этого предмета").submit();
+			} else {
+				changeMoney(player.getId(), item.getPrice(), false);
+				addNewItem(player.getId(), item.getName());
+				event.getChannel().sendMessage("Вы купили " + item.getName() + " у вас осталось " + player.getMoney() + " денег").submit();
+			}
+		} else {
+			event.getChannel().sendMessage("Покупать предметы можно только в локациях Таверна и Магазин").submit();
+		}
+	}
+
+	public void bossFight(MessageReceivedEvent event) {
+		Player player = playerCache.get(event.getAuthor().getId());
+		var loc = locationManager.getLocation(player.getLocation());
+		if (loc.getBoss() == null) {
+			event.getChannel().sendMessage("В этой локации нет босса, перейди в другую если хочешь присесть на бутылку").submit();
+		} else {
+			event.getChannel().sendMessage("Ты отважился бросить вызов боссу по имени " + loc.getBoss() + " земля тебе пухом братишка").submit();
+			int playerHp = battleManager.bossBattle(player, loc.getBoss(), event.getChannel());
+			if (playerHp > 0) {
+				changeHp(player.getId(), playerHp);
+				changeXp(player.getId(), 1000);
+				changeMoney(player.getId(), 1000, true);
+				String bossItem = battleManager.getBossItemName(loc.getBoss());
+				addNewItem(player.getId(), bossItem);
+				event.getChannel().sendMessage("В твой инвентарь добавлен предмет " + bossItem).submit();
+			} else {
+				deathOfPlayer(player);
+			}
+		}
+	}
+
+	public void playersFight(MessageReceivedEvent event) {
+		Player player = playerCache.get(event.getAuthor().getId());
+		var loc = locationManager.getLocation(player.getLocation());
+		if (!loc.isPvp()) {
+			event.getChannel().sendMessage("В этой локации нельзя драться, я щас милицию вызову!!!").submit();
+		}
+		if (loc.getPopulation().size() < 2) {
+			event.getChannel().sendMessage("В этой локации нет игроков, желаете набить ебало самому себе?").submit();
+		} else {
+			List<String> population = loc.getPopulation();
+			population.remove(player.getNickName());
+			int size = population.size();
+			Player players2 = playerCache.get(population.get(random.nextInt(size)));
+			event.getChannel().sendMessage("Судьба свела тебя в битве против " + players2.getNickName() + " одному из вас не уйти живым").submit();
+			List<Player> players = battleManager.playerBattle(player, players2, event.getChannel());
+
+			players.forEach(p -> {
+				if (p.getHp() > 0) {
+					event.getChannel().sendMessage("Игрок " + p.getNickName() + " побеждает в этой славной битве и получает " + 200 + " опыта и " + 200 + " монет").submit();
+					changeMoney(p.getId(), 200, true);
+					changeHp(p.getId(), 200, true);
+					changeHp(p.getId(), p.getHp());
+				} else {
+					event.getChannel().sendMessage("Игрок " + p.getNickName() + " был убит и был воскрешен на Респауне, он потерял 10% монет и возможно кое-что из предметов").submit();
+					deathOfPlayer(p);
+				}
+			});
 		}
 	}
 }

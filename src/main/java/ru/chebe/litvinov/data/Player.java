@@ -8,19 +8,15 @@ import java.util.Map;
 
 @Getter
 @Setter
-public class Player {
+public class Player extends Person {
 	private String id;
-	private String nickName;
-	private int hp;
 	private int maxHp;
 	private int luck;
 	private int money;
 	private int reputation;
-	private int strength;
 	private String location;
 	private int level;
 	private int exp;
-	private int armor;
 	private int expToNextLvl;
 	private Map<String, Integer> inventory;
 	private String answer;
