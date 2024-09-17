@@ -86,7 +86,7 @@ public class PlayersManager {
 		}
 	}
 
-	public void changeMoney(String id, int money, boolean increase) {
+	public int changeMoney(String id, int money, boolean increase) {
 		var player = playerCache.get(id);
 		if (increase) {
 			player.setMoney(player.getMoney() + money);
@@ -94,6 +94,7 @@ public class PlayersManager {
 			player.setMoney(player.getMoney() - money);
 		}
 		playerCache.put(id, player);
+		return player.getMoney();
 	}
 
 	public int changeReputation(String id, int reputation, boolean increase) {
@@ -146,7 +147,7 @@ public class PlayersManager {
 			String nickName = event.getMessage().getAuthor().getName();
 			playerCache.put(id, new Player(nickName, id));
 			event.getChannel().sendMessage("Добро пожаловать в игру, мы внимательно проанализировали твой профиль и решили, что ник " + getCringeName() + " отлично тебе подходит \n\n" +
-							"Впрочем если ты хочешь использовать ник " + nickName + " мы отнесемся к этому с пониманием, для применения этого используй любую команду \n" +
+							"Впрочем если ты хочешь использовать ник " + nickName + " мы отнесемся к этому с пониманием.\n" +
 							"Теперь ты готов к сражениям и кринжу, скорее ко второму да, для продолжения набери +помощь чтобы отобразить доступные команды или " +
 							"+карта для отображения информации куда тебе надо сходить").submit();
 		} else {
@@ -279,10 +280,9 @@ public class PlayersManager {
 		String message = event.getMessage().getContentDisplay().substring(8).trim().toLowerCase();
 		if (player.getInventory().containsKey(message.toLowerCase())) {
 			Item item = itemsManager.getItem(message);
-			int sellPrice = item.getPrice() / (2 - player.getReputation() / 10);
-			changeMoney(player.getId(), sellPrice, true);
+			int money = changeMoney(player.getId(), item.getPrice() / (2 - player.getReputation() / 10), true);
 			deleteItem(player.getId(), item.getName());
-			event.getChannel().sendMessage("Теперь у тебя " + (player.getMoney() + sellPrice) + " денег").submit();
+			event.getChannel().sendMessage("Теперь у тебя " + money + " денег").submit();
 		} else {
 			event.getChannel().sendMessage("Такого предмета нет в твоём инвентаре").submit();
 		}
@@ -338,6 +338,7 @@ public class PlayersManager {
 		} else {
 			player.setActiveEvent(eventsManager.assignEvent(locationManager.getLocationList()));
 			event.getChannel().sendMessage("Ты получил новое задание :\n" + player.getActiveEvent().toString()).submit();
+			playerCache.put(event.getAuthor().getId(), player);
 		}
 	}
 
@@ -349,6 +350,7 @@ public class PlayersManager {
 			player.setActiveEvent(eventsManager.assignEvent(locationManager.getLocationList()));
 			changeMoney(event.getAuthor().getId(), 5, false);
 			event.getChannel().sendMessage("Ты потартил 5 денег и получил новое задание :\n" + player.getActiveEvent().toString()).submit();
+			playerCache.put(event.getAuthor().getId(), player);
 		} else {
 			event.getChannel().sendMessage("У тебя недостаточно денег, сначала зарабаотай их").submit();
 		}
@@ -366,6 +368,7 @@ public class PlayersManager {
 			changeMoney(player.getId(), activeEvent.getMoneyReward(), true);
 			changeXp(player.getId(), activeEvent.getXpReward());
 			event.getChannel().sendMessage("Ты успешно завершил свой квест, опыт " + activeEvent.getXpReward() + " и деньги " + activeEvent.getMoneyReward() + " зачислены на твой счёт").submit();
+			playerCache.put(event.getAuthor().getId(), player);
 		} else {
 			event.getChannel().sendMessage("Ты не выполнил условия квеста или ответил неправильно!").submit();
 		}
