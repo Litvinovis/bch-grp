@@ -87,6 +87,8 @@ public class MessageHandler extends ListenerAdapter {
 					playersManager.useItem(event);
 				} else if (content.startsWith("+продать")) {
 					playersManager.sellItem(event);
+				} else if (content.startsWith("+бонус")) {
+					playersManager.dailyBonus(event);
 
 
 					// Админские команды
@@ -145,6 +147,7 @@ public class MessageHandler extends ListenerAdapter {
 						+убить босса - атаковать босса текущей локации, осторожно они жирные ||как ябыс||
 						+пвп - атаковать случайного игрока текущей локации, работает только в пвп зонах
 						+кости (ставка) - игра в кидание кубиков, доступна только в локации таверна
+						+бонус - получить ежденевный бонус
 						+идея (текст) - добавить идею, предложение, замечание и багрепорт.
 						+инфо - общая информация об игре и создателях
 						""";

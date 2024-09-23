@@ -20,6 +20,7 @@ public class PlayersManager {
 	private final EventsManager eventsManager;
 	private final Tavern tavern;
 	private final Random random = new Random();
+	private static final int DAILY_BONUS = 100;
 
 	private static final Map<Integer, Integer> xpMap = generateXpMap();
 	private static final Map<Integer, Integer> hpMap = generateHpMap();
@@ -444,6 +445,18 @@ public class PlayersManager {
 					deathOfPlayer(p);
 				}
 			});
+		}
+	}
+
+	public void dailyBonus(MessageReceivedEvent event) {
+		var player = playerCache.get(event.getAuthor().getId());
+		if (player.getDailyTime() < System.currentTimeMillis() - (24 * 60 * 60 * 1000)) {
+			event.getChannel().sendMessage("Вы получили ежедневный бонус").submit();
+			changeMoney(player.getId(), DAILY_BONUS, true);
+			player.setDailyTime(System.currentTimeMillis());
+		} else {
+			int hours = (int) (24 - (((System.currentTimeMillis() - player.getDailyTime()) / (60 * 60 * 1000))));
+			event.getChannel().sendMessage("Вы уже получили ежедневный бонус приходите через " + hours + " часов").submit();
 		}
 	}
 }
