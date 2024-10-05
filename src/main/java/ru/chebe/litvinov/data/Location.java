@@ -4,6 +4,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Getter
@@ -12,7 +13,8 @@ import java.util.List;
 public class Location {
 	private String name;
 	private int dangerous;
-	private List<String> population;
+	private List<String> populationByName;
+	private List<String> populationById;
 	private List<String> paths;
 	private boolean pvp;
 	private String boss;
@@ -22,14 +24,16 @@ public class Location {
 	@Override
 	public String toString() {
 		String isPvp = pvp ? "Да" : "Нет";
+		String isBoss = boss != null ?
+						"Босс - " + boss + "\n" + "Выпадающий из босса предмет - " + bossItem
+						: "";
 		return "Информаци о локации:\n" +
 						"Название - " + name + "\n" +
 						"Опасность - " + dangerous + "%\n" +
-						"Игроки - " + population + "\n" +
+						"Игроки - " + populationByName + "\n" +
 						"Граничащие локации - " + paths + "\n" +
 						"ПВП - " + isPvp + "\n" +
-						"Босс - " + boss+ "\n" +
-						"Выпадающий из босса предмет - " + bossItem;
+						isBoss;
 
 	}
 }

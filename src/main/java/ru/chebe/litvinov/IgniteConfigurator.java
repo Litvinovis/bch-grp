@@ -33,7 +33,7 @@ public class IgniteConfigurator {
 		ideaCfg.setBackups(0);
 
 		// Конфигурируем кэш с боссами
-		CacheConfiguration<Integer, Boss> bossCfg = new CacheConfiguration<>("bosses");
+		CacheConfiguration<String, Boss> bossCfg = new CacheConfiguration<>("bosses");
 		ideaCfg.setDataRegionName("Default_Region");
 		ideaCfg.setCacheMode(CacheMode.PARTITIONED);
 		ideaCfg.setBackups(0);
@@ -55,7 +55,14 @@ public class IgniteConfigurator {
 		locCfg.setDataRegionName("Default_Region");
 		locCfg.setCacheMode(CacheMode.PARTITIONED);
 		locCfg.setBackups(0);
-		igniteCfg.setCacheConfiguration(locCfg, playersCfg, itemsCfg, ideaCfg, bossCfg);
+
+		// Конфигурируем кэш с кланами
+		CacheConfiguration<String, Clan> clanCfg = new CacheConfiguration<>("clans");
+		locCfg.setDataRegionName("Default_Region");
+		locCfg.setCacheMode(CacheMode.PARTITIONED);
+		locCfg.setBackups(0);
+
+		igniteCfg.setCacheConfiguration(locCfg, playersCfg, itemsCfg, ideaCfg, bossCfg, clanCfg);
 
 		// Start the node.
 		return start(igniteCfg);

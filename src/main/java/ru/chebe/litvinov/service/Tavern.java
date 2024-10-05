@@ -9,35 +9,7 @@ import java.util.Random;
 public class Tavern {
 	private final Random random = new Random();
 
-	public Player dieCast(MessageReceivedEvent event, Player player) {
-		if (!player.getLocation().equals("таверна")) {
-			event.getChannel().sendMessage("Как ты собрался бросить кости если ты не в таверне? Метнись кабанчиком сначала туда").submit();
-			return player;
-		}
-		String bidText = event.getMessage().getContentDisplay().substring(7);
-		int bid;
-		try {
-			bid = Integer.parseInt(bidText);
-		} catch (Exception e) {
-			event.getChannel().sendMessage("Ну и что я с твоим " + bidText + " должен делать? Нахер он мне нужен, я только на деньги играю").submit();
-			return player;
-		}
-		if (bid < 0) {
-			event.getChannel().sendMessage("Ты тестировщик или просто давно по хлебопечке не получал? Ставь нормально").submit();
-			return player;
-		} else if (bid > 100) {
-			event.getChannel().sendMessage("Ого к нам мсье мажор пожаловал и давай выёбуваться ставками, не так не пойдет, давай не больше 100").submit();
-			return player;
-		}
-		if (player.getMoney() < bid) {
-			event.getChannel().sendMessage("Я ж вижу, что у тебя таких денег отродясь не было, а нанимать ябыса трясти с тебя долг я не хочу").submit();
-		} else {
-			diceStart(event, player, bid);
-		}
-		return player;
-	}
-
-	private void diceStart(MessageReceivedEvent event, Player player, int bid) {
+	public Player diceStart(MessageReceivedEvent event, Player player, int bid) {
 		try {
 			int die1, die2;
 			int playerDice, tavernDice;
@@ -77,5 +49,6 @@ public class Tavern {
 		} catch (InterruptedException e) {
 			throw new RuntimeException(e);
 		}
+		return player;
 	}
 }

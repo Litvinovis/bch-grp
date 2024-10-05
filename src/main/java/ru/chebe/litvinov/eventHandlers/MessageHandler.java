@@ -28,15 +28,16 @@ public class MessageHandler extends ListenerAdapter {
 	private final PlayersManager playersManager;
 	private final LocationManager locationManager;
 	private final IdeasManager ideasManager;
-	private final ThreadPoolExecutor executor = new ThreadPoolExecutor(NUM_THREADS, NUM_THREADS, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>());;
+	private final ThreadPoolExecutor executor = new ThreadPoolExecutor(NUM_THREADS, NUM_THREADS, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>());
 
 	public MessageHandler(Ignite ignite) {
 		playerCache = ignite.cache("players");
 		this.locationManager = new LocationManager(ignite.cache("locations"));
 		this.itemsManager = new ItemsManager(ignite.cache("items"));
 		this.ideasManager = new IdeasManager(ignite.cache("ideas"));
+		ClanManager clanManager = new ClanManager(ignite.cache("clans"), playerCache);
 		this.playersManager = new PlayersManager(playerCache, locationManager, itemsManager,
-						new BattleManager(ignite.cache("bosses")), new EventsManager(), new Tavern());
+						new BattleManager(ignite.cache("bosses")), new EventsManager(), clanManager, new Tavern());
 	}
 
 	@Override
@@ -90,6 +91,20 @@ public class MessageHandler extends ListenerAdapter {
 				} else if (content.startsWith("+бонус")) {
 					playersManager.dailyBonus(event);
 
+					// Клановые команды
+				} else if (content.startsWith("+новый клан")) {
+					playersManager.clanRegister(event);
+				} else if (content.startsWith("+покинуть клан")) {
+					playersManager.clanLeave(event);
+				} else if (content.startsWith("+вступить в клан")) {
+					playersManager.clanJoin(event);
+				} else if (content.startsWith("+принять заявки")) {
+					playersManager.acceptApply(event);
+				} else if (content.startsWith("+отклонить заявки")) {
+					playersManager.rejectApply(event);
+				} else if (content.startsWith("+клан инфо")) {
+					playersManager.clanInfo(event);
+
 
 					// Админские команды
 				} else if (content.startsWith("+всеидеи") && isAdmin(event)) {
@@ -130,27 +145,43 @@ public class MessageHandler extends ListenerAdapter {
 	private static String helpMessageCreate() {
 		return """
 						Для игры доступны следующие команды:
+					
+						Главные команды:
 						+стата - выводит всю информацию о вашем игровом персонаже
-						+помощь - информация о доступных командах
 						+идти (название локации) - перемещает вас в указанную локацию
 						+локация (моя / название локации) - подробная информация об указанной или текущей локации
 						+карта - карта бч-грп
+					
+						Предметы:
 						+инвентарь - список ваших предметов без подробного описания
 						+инвентарь (название предмета) - подробная информация о предмете в вашем инвентаре
-						+взять квест - получить квест
-						+выполнить квест (ответ если требуется) - выполнить квест
-						+поменять квест - изменить квест за 5 денег
 						+предмет (название предмета) - подробная информация о любом предмете в игре
 						+купить (название предмета) - купить предмет в магазине
 						+использовать (название предмета) - использовать предмет из вашего инвентаря
 						+продать (название предмета) - продать предмет из вашего инвентаря
+					
+						Активности:
+						+взять квест - получить квест
+						+выполнить квест (ответ если требуется) - выполнить квест
+						+поменять квест - изменить квест за 5 денег
 						+убить босса - атаковать босса текущей локации, осторожно они жирные ||как ябыс||
 						+пвп - атаковать случайного игрока текущей локации, работает только в пвп зонах
 						+кости (ставка) - игра в кидание кубиков, доступна только в локации таверна
 						+бонус - получить ежденевный бонус
+					
+					  Клановые:
+					  +новый клан (название клана) - создать новый клан
+					  +покинуть клан - покинуть клан
+					  +вступить в клан (название клана) - вступить в клан
+					  +принять заявки - принять все заявки в клан
+					  +отклонить заявки - отклонить все заявки в клан
+					  +клан инфо (название клана) - информация о клане
+					
+						Вспомогательные:
 						+идея (текст) - добавить идею, предложение, замечание и багрепорт.
 						+инфо - общая информация об игре и создателях
-						""";
+						+помощь - информация о доступных командах
+					""";
 	}
 
 	private static String infoMessageCreate() {

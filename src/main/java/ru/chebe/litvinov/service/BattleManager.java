@@ -66,26 +66,26 @@ public class BattleManager {
 		if (boss.getHp() > 0) {
 			channel.sendMessage("Тебя убил мелкий бандит, это кринж, чувак! Ты был воскрешен на Респауне, " +
 							"потерял 10% монет и возможно кое-что из инвентаря").queue();
-			return 0;
 		} else {
 			channel.sendMessage("Поздравляю ты победил тупого засланца при переходе локации").submit();
-			return player.getHp();
 		}
+		return Math.max(player.getHp(), 0);
 	}
 
 	public int bossBattle(Player player, String bossName, MessageChannelUnion channel) {
 		Boss boss = bossCache.get(bossName);
+		int bossHp = boss.getHp();
 		battleMechanic(player, boss, channel);
 		if (boss.getHp() > 0) {
 			channel.sendMessage("Штош нужно быть очень глупым чтобы залупаться на " + boss.getNickName() + " с твоими характеристиками" +
 							"Ты умер и был воскрешен на Респауне, ты потерял 10% монет и возможно кое-что из предметов").queue();
 			boss.setWin(boss.getWin() + 1);
-			bossCache.put(boss.getNickName(), boss);
-			return 0;
 		} else {
 			channel.sendMessage("Поздравляю ты победил босса этой локации " + boss.getNickName()).submit();
-			return player.getHp();
 		}
+		boss.setHp(bossHp);
+		bossCache.put(boss.getNickName(), boss);
+		return Math.max(player.getHp(), 0);
 	}
 
 	public void battleMechanic(Person player1, Person player2, MessageChannelUnion channel) {

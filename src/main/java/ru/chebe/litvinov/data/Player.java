@@ -22,6 +22,7 @@ public class Player extends Person {
 	private String answer;
 	private Event activeEvent;
 	private long dailyTime;
+	private String clanName;
 
 	public Player(String nickName, String id) {
 		this.id = id;
@@ -41,6 +42,7 @@ public class Player extends Person {
 		this.answer = "";
 		this.activeEvent = null;
 		this.dailyTime = 0;
+		this.clanName = null;
 	}
 
 	private Map<String, Integer> startInventory() {

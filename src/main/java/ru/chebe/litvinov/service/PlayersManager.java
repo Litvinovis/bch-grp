@@ -12,12 +12,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 
+import static ru.chebe.litvinov.Constants.MIN_LVL_TO_CLAN;
+
 public class PlayersManager {
 	private final IgniteCache<String, Player> playerCache;
 	private final LocationManager locationManager;
 	private final ItemsManager itemsManager;
 	private final BattleManager battleManager;
 	private final EventsManager eventsManager;
+	private final ClanManager clanManager;
 	private final Tavern tavern;
 	private final Random random = new Random();
 	private static final int DAILY_BONUS = 100;
@@ -27,12 +30,14 @@ public class PlayersManager {
 	List<String> words1 = List.of("Унылый", "Гейский", "Стрёмный", "Тупой", "Дрищавый", "Жирный");
 	List<String> words2 = List.of("Пидор", "Мудила", "Хуй", "Гей", "Лох", "Шлюха");
 
-	public PlayersManager(IgniteCache<String, Player> playerCache, LocationManager locationManager, ItemsManager itemsManager, BattleManager battleManager, EventsManager eventsManager, Tavern tavern) {
+	public PlayersManager(IgniteCache<String, Player> playerCache, LocationManager locationManager, ItemsManager itemsManager,
+	                      BattleManager battleManager, EventsManager eventsManager, ClanManager clanManager, Tavern tavern) {
 		this.playerCache = playerCache;
 		this.locationManager = locationManager;
 		this.itemsManager = itemsManager;
 		this.battleManager = battleManager;
 		this.eventsManager = eventsManager;
+		this.clanManager = clanManager;
 		this.tavern = tavern;
 	}
 
@@ -201,11 +206,11 @@ public class PlayersManager {
 	}
 
 	public void deathOfPlayer(Player dead) {
-		var player = playerCache.get(dead.getId());
-		player.setMoney((int) (player.getMoney() * 0.9));
-		player.setHp(player.getMaxHp());
-		playerCache.put(player.getId(), player);
-		locationManager.movePlayerInPopulation(player.getNickName(), dead.getLocation(), "респаун");
+		dead.setMoney((int) (dead.getMoney() * 0.9));
+		dead.setHp(dead.getMaxHp());
+		dead.setLocation("респаун");
+		playerCache.put(dead.getId(), dead);
+		locationManager.movePlayerInPopulation(dead, "респаун");
 	}
 
 	public void useItem(MessageReceivedEvent event) {
@@ -290,7 +295,38 @@ public class PlayersManager {
 	}
 
 	public void dieCast(MessageReceivedEvent event) {
-		tavern.dieCast(event, playerCache.get(event.getAuthor().getId()));
+		var player = playerCache.get(event.getAuthor().getId());
+		if (!player.getLocation().equals("таверна")) {
+			event.getChannel().sendMessage("Как ты собрался бросить кости если ты не в таверне? Метнись кабанчиком сначала туда").submit();
+			return;
+		}
+		String bidText = event.getMessage().getContentDisplay().substring(7);
+		if (bidText.isEmpty()) {
+			event.getChannel().sendMessage("Мы на деньги играем, ты забыл ставку указать, от 1 до 100").submit();
+			return;
+		}
+		int bid;
+		try {
+			bid = Integer.parseInt(bidText);
+		} catch (Exception e) {
+			event.getChannel().sendMessage("Ну и что я с твоим " + bidText + " должен делать? Нахер он мне нужен, я только на деньги играю").submit();
+			return;
+		}
+		if (bid < 0) {
+			event.getChannel().sendMessage("Ты тестировщик или просто давно по хлебопечке не получал? Ставь нормально").submit();
+			return;
+		} else if (bid > 100) {
+			event.getChannel().sendMessage("Ого к нам мсье мажор пожаловал и давай выёбуваться ставками, не так не пойдет, давай не больше 100").submit();
+			return;
+		}
+		if (player.getMoney() < bid) {
+			event.getChannel().sendMessage("Я ж вижу, что у тебя таких денег отродясь не было, а нанимать ябыса трясти с тебя долг я не хочу").submit();
+		}
+		player.setMoney(player.getMoney() - bid);
+		playerCache.put(player.getId(), player);
+		player.setMoney(player.getMoney() + bid);
+		player = tavern.diceStart(event, player, bid);
+		playerCache.put(player.getId(), player);
 	}
 
 	public void move(MessageReceivedEvent event) {
@@ -315,11 +351,11 @@ public class PlayersManager {
 				return;
 			}
 		}
-		nextLocation = locationManager.movePlayerInPopulation(player.getNickName(), currentLocation.getName(), nextLocation.getName());
+		nextLocation = locationManager.movePlayerInPopulation(player, nextLocation.getName());
 		player.setLocation(nextLocation.getName());
 		playerCache.put(player.getId(), player);
 		event.getChannel().sendMessage("Ты успешно переместился в локацию - " + nextLocation.getName()
-						+ "\nВ этой локации находятся следующие игроки: " + nextLocation.getPopulation().toString()).submit();
+						+ "\nВ этой локации находятся следующие игроки: " + nextLocation.getPopulationByName().toString()).submit();
 		if (eventsManager.transferEvent(event, nextLocation)) {
 			int playerHp = battleManager.mobBattle(player, event.getChannel());
 			if (playerHp > 0) {
@@ -424,11 +460,11 @@ public class PlayersManager {
 		if (!loc.isPvp()) {
 			event.getChannel().sendMessage("В этой локации нельзя драться, я щас милицию вызову!!!").submit();
 		}
-		if (loc.getPopulation().size() < 2) {
+		if (loc.getPopulationByName().size() < 2) {
 			event.getChannel().sendMessage("В этой локации нет игроков, желаете набить ебало самому себе?").submit();
 		} else {
-			List<String> population = loc.getPopulation();
-			population.remove(player.getNickName());
+			List<String> population = loc.getPopulationById();
+			population.remove(player.getId());
 			int size = population.size();
 			Player players2 = playerCache.get(population.get(random.nextInt(size)));
 			event.getChannel().sendMessage("Судьба свела тебя в битве против " + players2.getNickName() + " одному из вас не уйти живым").submit();
@@ -454,9 +490,95 @@ public class PlayersManager {
 			event.getChannel().sendMessage("Вы получили ежедневный бонус").submit();
 			changeMoney(player.getId(), DAILY_BONUS, true);
 			player.setDailyTime(System.currentTimeMillis());
+			playerCache.put(player.getId(), player);
 		} else {
 			int hours = (int) (24 - (((System.currentTimeMillis() - player.getDailyTime()) / (60 * 60 * 1000))));
 			event.getChannel().sendMessage("Вы уже получили ежедневный бонус приходите через " + hours + " часов").submit();
 		}
+	}
+
+	public void clanRegister(MessageReceivedEvent event) {
+		var player = playerCache.get(event.getAuthor().getId());
+		if (player.getLevel() < MIN_LVL_TO_CLAN) {
+			event.getChannel().sendMessage("Вы не можете создать клан раньше, чем достигните 10 уровня").submit();
+			return;
+		}
+		if (!player.getClanName().isEmpty()) {
+			event.getChannel().sendMessage("Вы уже состоите в клане, сначала покиньте его").submit();
+		} else {
+			String clanName = event.getMessage().getContentDisplay().substring(11).trim().toLowerCase();
+			String result = clanManager.registerClan(clanName, player.getId());
+			if (!result.isEmpty()) {
+				event.getChannel().sendMessage(result).submit();
+			} else {
+				player.setClanName(clanName);
+				playerCache.put(player.getId(), player);
+				event.getChannel().sendMessage("Вы успешно зарегистрировали клан " + clanName).submit();
+			}
+		}
+	}
+
+	public void clanLeave(MessageReceivedEvent event) {
+		var player = playerCache.get(event.getAuthor().getId());
+		if (player.getClanName().isEmpty()) {
+			event.getChannel().sendMessage("Вы не состоите в клане").submit();
+		} else {
+			clanManager.leaveClan(player.getClanName(), player.getId());
+			event.getChannel().sendMessage("Вы покинули клан " + player.getClanName()).submit();
+		}
+	}
+
+	public void clanJoin(MessageReceivedEvent event) {
+		String clanName = event.getMessage().getContentDisplay().substring(16).trim().toLowerCase();
+		var player = playerCache.get(event.getAuthor().getId());
+		if (player.getLevel() < MIN_LVL_TO_CLAN) {
+			event.getChannel().sendMessage("Вы не можете присоединиться к клану раньше, чем достигните 10 уровня").submit();
+			return;
+		}
+		if (player.getClanName().isEmpty()) {
+			String result = clanManager.joinClan(clanName, player.getId());
+			if (!result.isEmpty()) {
+				player.setClanName(result);
+				playerCache.put(player.getId(), player);
+				event.getChannel().sendMessage("Вы присоединились к клану " + player.getClanName()).submit();
+			} else {
+				event.getChannel().sendMessage(result).submit();
+			}
+		} else {
+			event.getChannel().sendMessage("Вы уже состоите в клане " + player.getClanName()).submit();
+		}
+	}
+
+	public void acceptApply(MessageReceivedEvent event) {
+		var player = playerCache.get(event.getAuthor().getId());
+		if (player.getClanName().isEmpty()) {
+			event.getChannel().sendMessage("Вы не состоите в клане").submit();
+		} else {
+			String result = clanManager.acceptApply(player.getClanName(), player.getId());
+			if (!result.isEmpty()) {
+				event.getChannel().sendMessage(result).submit();
+			} else {
+				event.getChannel().sendMessage("Вы приняли все заявки на вступление в клан").submit();
+			}
+		}
+	}
+
+	public void rejectApply(MessageReceivedEvent event) {
+		var player = playerCache.get(event.getAuthor().getId());
+		if (player.getClanName().isEmpty()) {
+			event.getChannel().sendMessage("Вы не состоите в клане").submit();
+		} else {
+			String result = clanManager.rejectApply(player.getClanName(), player.getId());
+			if (!result.isEmpty()) {
+				event.getChannel().sendMessage(result).submit();
+			} else {
+				event.getChannel().sendMessage("Вы отклонили все заявки на вступление в клан").submit();
+			}
+		}
+	}
+
+	public void clanInfo(MessageReceivedEvent event) {
+		String clanName = event.getMessage().getContentDisplay().substring(10).trim().toLowerCase();
+		event.getChannel().sendMessage(clanManager.getClanInfo(clanName)).submit();
 	}
 }
