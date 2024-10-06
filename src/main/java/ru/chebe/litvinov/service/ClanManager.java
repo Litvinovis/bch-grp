@@ -4,6 +4,9 @@ import org.apache.ignite.IgniteCache;
 import ru.chebe.litvinov.data.Clan;
 import ru.chebe.litvinov.data.Player;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import static ru.chebe.litvinov.Constants.MAX_CLAN_SIZE;
 
 public class ClanManager {
@@ -110,5 +113,14 @@ public class ClanManager {
 		}
 		sb.append("Количество заявок на вступление: ").append(clan.getAppliers().size()).append("\n");
 		return sb.toString();
+	}
+
+	public List<String> getClanMembers(String clanName) {
+		var clan = clanCache.get(clanName);
+		if (clan == null) {
+			return new ArrayList<>();
+		} else {
+			return clan.getMembers();
+		}
 	}
 }

@@ -55,14 +55,15 @@ public class BattleManager {
 		}
 	}
 
-	public List<Player> playerBattle(Player player1, Player player2, MessageChannelUnion channel) {
-		battleMechanic(player1, player2, channel);
-		return List.of(player1, player2);
+	public List<Person> playerBattle(List<Person> players1, List<Person> players2, MessageChannelUnion channel) {
+		battleMechanic(players1, players2, channel);
+		players1.addAll(players2);
+		return players1;
 	}
 
 	public int mobBattle(Player player, MessageChannelUnion channel) {
-		Boss boss = Boss.builder().nickName("Бандит").hp(rand.nextInt(15, 35)).strength(3).defeat(0).win(0).bossItem(null).build();
-		battleMechanic(player, boss, channel);
+		Person boss = Boss.builder().nickName("Бандит").hp(rand.nextInt(15, 35)).strength(3).defeat(0).win(0).bossItem(null).build();
+		battleMechanic(List.of(player), List.of(boss), channel);
 		if (boss.getHp() > 0) {
 			channel.sendMessage("Тебя убил мелкий бандит, это кринж, чувак! Ты был воскрешен на Респауне, " +
 							"потерял 10% монет и возможно кое-что из инвентаря").queue();
@@ -72,10 +73,10 @@ public class BattleManager {
 		return Math.max(player.getHp(), 0);
 	}
 
-	public int bossBattle(Player player, String bossName, MessageChannelUnion channel) {
+	public void bossBattle(List<Person> player, String bossName, MessageChannelUnion channel) {
 		Boss boss = bossCache.get(bossName);
 		int bossHp = boss.getHp();
-		battleMechanic(player, boss, channel);
+		battleMechanic(player, List.of(boss), channel);
 		if (boss.getHp() > 0) {
 			channel.sendMessage("Штош нужно быть очень глупым чтобы залупаться на " + boss.getNickName() + " с твоими характеристиками" +
 							"Ты умер и был воскрешен на Респауне, ты потерял 10% монет и возможно кое-что из предметов").queue();
@@ -85,22 +86,23 @@ public class BattleManager {
 		}
 		boss.setHp(bossHp);
 		bossCache.put(boss.getNickName(), boss);
-		return Math.max(player.getHp(), 0);
 	}
 
-	public void battleMechanic(Person player1, Person player2, MessageChannelUnion channel) {
+	public void battleMechanic(List<Person> player1, List<Person> player2, MessageChannelUnion channel) {
 		StringBuilder sb = new StringBuilder();
-		while (player1.getHp() > 0 && player2.getHp() > 0) {
+		while (checkHpPlayerList(player1) && checkHpPlayerList(player2)) {
 			if (sb.length() > 1800) {
 				channel.sendMessage(sb.toString()).submit();
 				sb.setLength(0);
 			}
-			int damage = randomizeDamage(player1.getStrength());
-			player2.setHp(player2.getHp() - damage);
-			sb.append(player1.getNickName()).append(" наносит ").append(damage).append(" урона противнику, у него остаётся ").append(player2.getHp()).append(" HP\n");
-			damage = randomizeDamage(player2.getStrength() - player1.getArmor());
-			player1.setHp(player1.getHp() - damage);
-			sb.append(player2.getNickName()).append(" наносит ").append(damage).append(" урона противнику, у него остаётся ").append(player1.getHp()).append(" HP\n");
+			Person playerAttack = getRandomPlayer(player1);
+			Person playerDef = getRandomPlayer(player2);
+			int damage = randomizeDamage(playerAttack.getStrength());
+			playerDef.setHp(playerDef.getHp() - damage);
+			sb.append(playerAttack.getNickName()).append(" наносит ").append(damage).append(" урона противнику, у него остаётся ").append(playerDef.getHp()).append(" HP\n");
+			damage = randomizeDamage(playerDef.getStrength() - playerAttack.getArmor());
+			playerAttack.setHp(playerAttack.getHp() - damage);
+			sb.append(playerDef.getNickName()).append(" наносит ").append(damage).append(" урона противнику, у него остаётся ").append(playerAttack.getHp()).append(" HP\n");
 		}
 		channel.sendMessage(sb.toString()).submit();
 	}
@@ -112,5 +114,22 @@ public class BattleManager {
 
 	public String getBossItemName(String bossName) {
 		return bossCache.get(bossName).getBossItem();
+	}
+
+	private boolean checkHpPlayerList(List<Person> players) {
+		for (Person player : players) {
+			if (player.getHp() > 0) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private Person getRandomPlayer(List<Person> players) {
+		Person player = players.get(rand.nextInt(players.size()));
+		while (player.getHp() <= 0) {
+			player = players.get(rand.nextInt(players.size()));
+		}
+		return player;
 	}
 }
