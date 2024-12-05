@@ -69,13 +69,13 @@ public class ItemsManager {
 
 
 		// активируемое
-		map.put("кружка цикория", Item.builder().name("кружка цикория").armor(0).price(30).luck(0).health(30).reputation(0).strength(0).xpGeneration(0).action(true)
+		map.put("кружка цикория", Item.builder().name("кружка цикория").armor(0).price(10).luck(0).health(30).reputation(0).strength(0).xpGeneration(0).action(true)
 						.description("Восстанавливает 30 HP").build());
-		map.put("вино лаба", Item.builder().name("вино лаба").armor(0).price(45).luck(0).health(50).reputation(0).strength(0).xpGeneration(0).action(true)
+		map.put("вино лаба", Item.builder().name("вино лаба").armor(0).price(15).luck(0).health(50).reputation(0).strength(0).xpGeneration(0).action(true)
 						.description("Восстанавливает 50 HP").build());
-		map.put("медовуха база", Item.builder().name("медовуха база").armor(0).price(80).luck(0).health(100).reputation(0).strength(0).xpGeneration(0).action(true)
+		map.put("медовуха база", Item.builder().name("медовуха база").armor(0).price(30).luck(0).health(100).reputation(0).strength(0).xpGeneration(0).action(true)
 						.description("Восстанавливает 100 HP").build());
-		map.put("токен телепорта", Item.builder().name("токен телепорта").armor(0).price(5).luck(0).health(0).reputation(0).strength(0).xpGeneration(0).action(true)
+		map.put("токен телепорта", Item.builder().name("токен телепорта").armor(0).price(2).luck(0).health(0).reputation(0).strength(0).xpGeneration(0).action(true)
 						.description("Позволяет использовать телепорты").build());
 
 

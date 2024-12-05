@@ -63,7 +63,7 @@ public class ClanManager {
 			} else {
 				for (var member : clan.getAppliers()) {
 					var player = playerCache.get(member);
-					if (!player.getClanName().isEmpty()) {
+					if (player.getClanName() != null && !player.getClanName().isEmpty()) {
 						clan.getAppliers().remove(member);
 						return player.getClanName() + " не может вступить в клан, т.к. он уже в другом клане, его заявка отменена, для обработки оставшихся заявок, запустите команду заново";
 					} else {

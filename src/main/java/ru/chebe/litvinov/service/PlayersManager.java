@@ -195,7 +195,7 @@ public class PlayersManager {
 			player.setStrength(deleteItem.getStrength() > 0 ? player.getStrength() - deleteItem.getStrength() : player.getStrength());
 		}
 		var inventory = player.getInventory();
-		if (inventory.get(item) != null) {
+		if (inventory.get(item) > 1) {
 			inventory.put(item, inventory.get(item) - 1);
 		} else {
 			inventory.remove(item);
@@ -335,10 +335,19 @@ public class PlayersManager {
 		if (Strings.isEmpty(message)) {
 			event.getChannel().sendMessage("Для перемещения нужно указать желаемую локацию, введи \"+идти локация\" вместо локация, подставь любую из доступных: \n" + currentLocation.getPaths().toString()).submit();
 			return;
+		} else if (nextLocation == null) {
+			event.getChannel().sendMessage("Ты не можешь переместится в эту локацию, выбери что-нибудь из доступных путей: \n" + currentLocation.getPaths().toString()).submit();
+			return;
 		}
+		if (currentLocation.getName().equals(nextLocation.getName())) {
+			event.getChannel().sendMessage("Ты уже находишься в этой локации").submit();
+			return;
+		}
+		boolean isTeleport = false;
 		if (!currentLocation.getPaths().contains(message)) {
 			int token = player.getInventory().get("токен телепорта");
-			if (currentLocation.isTeleport() && nextLocation != null && nextLocation.isTeleport() && token > 0) {
+			if (currentLocation.isTeleport() && nextLocation.isTeleport() && token > 0) {
+				isTeleport = true;
 				if (token > 1) {
 					player.getInventory().put("токен телепорта", token - 1);
 				} else {
@@ -352,7 +361,9 @@ public class PlayersManager {
 		nextLocation = locationManager.movePlayerInPopulation(player, nextLocation.getName());
 		player.setLocation(nextLocation.getName());
 		playerCache.put(player.getId(), player);
-		event.getChannel().sendMessage("Ты успешно переместился в локацию - " + nextLocation.getName()
+		var token = player.getInventory().get("токен телепорта") == null ? 0 : player.getInventory().get("токен телепорта");
+		String teleport = isTeleport ? " с помощью токена телепорта, осталось " + token : "";
+		event.getChannel().sendMessage("Ты успешно переместился в локацию - " + nextLocation.getName() + teleport
 						+ "\nВ этой локации находятся следующие игроки: " + nextLocation.getPopulationByName().toString()).submit();
 		if (eventsManager.transferEvent(event, nextLocation)) {
 			int playerHp = battleManager.mobBattle(player, event.getChannel());
@@ -513,7 +524,7 @@ public class PlayersManager {
 			event.getChannel().sendMessage("Вы не можете создать клан раньше, чем достигните 10 уровня").submit();
 			return;
 		}
-		if (!player.getClanName().isEmpty()) {
+		if (player.getClanName() != null && !player.getClanName().isEmpty()) {
 			event.getChannel().sendMessage("Вы уже состоите в клане, сначала покиньте его").submit();
 		} else {
 			String clanName = event.getMessage().getContentDisplay().substring(11).trim().toLowerCase();
@@ -530,7 +541,7 @@ public class PlayersManager {
 
 	public void clanLeave(MessageReceivedEvent event) {
 		var player = playerCache.get(event.getAuthor().getId());
-		if (player.getClanName().isEmpty()) {
+		if (player.getClanName() == null || player.getClanName().isEmpty()) {
 			event.getChannel().sendMessage("Вы не состоите в клане").submit();
 		} else {
 			clanManager.leaveClan(player.getClanName(), player.getId());
@@ -545,7 +556,7 @@ public class PlayersManager {
 			event.getChannel().sendMessage("Вы не можете присоединиться к клану раньше, чем достигните 10 уровня").submit();
 			return;
 		}
-		if (player.getClanName().isEmpty()) {
+		if (player.getClanName() == null || player.getClanName().isEmpty()) {
 			String result = clanManager.joinClan(clanName, player.getId());
 			if (!result.isEmpty()) {
 				player.setClanName(result);
@@ -561,7 +572,7 @@ public class PlayersManager {
 
 	public void acceptApply(MessageReceivedEvent event) {
 		var player = playerCache.get(event.getAuthor().getId());
-		if (player.getClanName().isEmpty()) {
+		if (player.getClanName() == null || player.getClanName().isEmpty()) {
 			event.getChannel().sendMessage("Вы не состоите в клане").submit();
 		} else {
 			String result = clanManager.acceptApply(player.getClanName(), player.getId());
@@ -575,7 +586,7 @@ public class PlayersManager {
 
 	public void rejectApply(MessageReceivedEvent event) {
 		var player = playerCache.get(event.getAuthor().getId());
-		if (player.getClanName().isEmpty()) {
+		if (player.getClanName() == null || player.getClanName().isEmpty()) {
 			event.getChannel().sendMessage("Вы не состоите в клане").submit();
 		} else {
 			String result = clanManager.rejectApply(player.getClanName(), player.getId());
