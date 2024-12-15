@@ -70,4 +70,15 @@ public class Player extends Person {
 						"Локация - " + location + "\n" +
 						quest;
 	}
+
+	public String inventoryInfo() {
+		for (Map.Entry<String, Integer> entry : inventory.entrySet()) {
+			if (entry.getValue() == null) {
+				inventory.remove(entry.getKey());
+			}
+		}
+		return inventory.toString();
+	}
 }
+
+

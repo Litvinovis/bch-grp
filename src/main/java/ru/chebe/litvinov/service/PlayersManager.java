@@ -10,7 +10,8 @@ import ru.chebe.litvinov.data.Player;
 
 import java.util.*;
 
-import static ru.chebe.litvinov.Constants.MIN_LVL_TO_CLAN;
+import static ru.chebe.litvinov.Constants.MIN_LVL_TO_CLAN_CREATE;
+import static ru.chebe.litvinov.Constants.MIN_LVL_TO_CLAN_JOIN;
 
 public class PlayersManager {
 	private final IgniteCache<String, Player> playerCache;
@@ -78,7 +79,7 @@ public class PlayersManager {
 			if (player.getInventory().isEmpty()) {
 				event.getChannel().sendMessage("Ваш инвентарь ~~пожрал лаб~~ пуст, милорд").submit();
 			} else {
-				event.getChannel().sendMessage(player.getInventory().toString()).submit();
+				event.getChannel().sendMessage(player.inventoryInfo()).submit();
 			}
 		} else {
 			Item item = itemsManager.getItem(itemName);
@@ -411,10 +412,10 @@ public class PlayersManager {
 			event.getChannel().sendMessage("У тебя нет активного квеста, сначала возьми его").submit();
 		} else if (eventsManager.checkEvent(activeEvent, player)) {
 			player.setActiveEvent(null);
+			playerCache.put(event.getAuthor().getId(), player);
 			changeMoney(player.getId(), activeEvent.getMoneyReward(), true);
 			changeXp(player.getId(), activeEvent.getXpReward());
 			event.getChannel().sendMessage("Ты успешно завершил свой квест, опыт " + activeEvent.getXpReward() + " и деньги " + activeEvent.getMoneyReward() + " зачислены на твой счёт").submit();
-			playerCache.put(event.getAuthor().getId(), player);
 		} else {
 			event.getChannel().sendMessage("Ты не выполнил условия квеста или ответил неправильно!").submit();
 		}
@@ -509,9 +510,9 @@ public class PlayersManager {
 		var player = playerCache.get(event.getAuthor().getId());
 		if (player.getDailyTime() < System.currentTimeMillis() - (24 * 60 * 60 * 1000)) {
 			event.getChannel().sendMessage("Вы получили ежедневный бонус").submit();
-			changeMoney(player.getId(), DAILY_BONUS, true);
 			player.setDailyTime(System.currentTimeMillis());
 			playerCache.put(player.getId(), player);
+			changeMoney(player.getId(), DAILY_BONUS, true);
 		} else {
 			int hours = (int) (24 - (((System.currentTimeMillis() - player.getDailyTime()) / (60 * 60 * 1000))));
 			event.getChannel().sendMessage("Вы уже получили ежедневный бонус приходите через " + hours + " часов").submit();
@@ -520,7 +521,7 @@ public class PlayersManager {
 
 	public void clanRegister(MessageReceivedEvent event) {
 		var player = playerCache.get(event.getAuthor().getId());
-		if (player.getLevel() < MIN_LVL_TO_CLAN) {
+		if (player.getLevel() < MIN_LVL_TO_CLAN_CREATE) {
 			event.getChannel().sendMessage("Вы не можете создать клан раньше, чем достигните 10 уровня").submit();
 			return;
 		}
@@ -552,7 +553,7 @@ public class PlayersManager {
 	public void clanJoin(MessageReceivedEvent event) {
 		String clanName = event.getMessage().getContentDisplay().substring(16).trim().toLowerCase();
 		var player = playerCache.get(event.getAuthor().getId());
-		if (player.getLevel() < MIN_LVL_TO_CLAN) {
+		if (player.getLevel() < MIN_LVL_TO_CLAN_JOIN) {
 			event.getChannel().sendMessage("Вы не можете присоединиться к клану раньше, чем достигните 10 уровня").submit();
 			return;
 		}
