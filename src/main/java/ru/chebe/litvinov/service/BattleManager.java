@@ -6,10 +6,7 @@ import ru.chebe.litvinov.data.Boss;
 import ru.chebe.litvinov.data.Person;
 import ru.chebe.litvinov.data.Player;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Random;
+import java.util.*;
 
 public class BattleManager {
 
@@ -56,6 +53,10 @@ public class BattleManager {
 	}
 
 	public List<Person> playerBattle(List<Person> players1, List<Person> players2, MessageChannelUnion channel) {
+		if (players1.isEmpty() || players2.isEmpty()) {
+			channel.sendMessage("Невозможно начать бой!").queue();
+			return Collections.emptyList();
+		}
 		battleMechanic(players1, players2, channel);
 		players1.addAll(players2);
 		return players1;

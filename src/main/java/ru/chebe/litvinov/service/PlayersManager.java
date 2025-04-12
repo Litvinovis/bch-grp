@@ -8,10 +8,7 @@ import ru.chebe.litvinov.data.Location;
 import ru.chebe.litvinov.data.Person;
 import ru.chebe.litvinov.data.Player;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Random;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import static ru.chebe.litvinov.Constants.MIN_LVL_TO_CLAN_CREATE;
@@ -472,40 +469,68 @@ public class PlayersManager {
 	public void playersFight(MessageReceivedEvent event) {
 		Player player = playerCache.get(event.getAuthor().getId());
 		var loc = locationManager.getLocation(player.getLocation());
-		if (!loc.isPvp()) {
-			event.getChannel().sendMessage("В этой локации нельзя драться, я щас милицию вызову!!!").submit();
-			return;
-		}
-		if (loc.getPopulationById().size() < 2) {
-			event.getChannel().sendMessage("В этой локации нет игроков, желаете набить ебало самому себе?").submit();
-			return;
-		}
-		List<String> population = loc.getPopulationById();
-		population.remove(player.getId());
-		List<Person> clanPlayers1 = getPlayersByClan(player);
-		for (Person p : clanPlayers1) {
-			population.remove(((Player) p).getId());
-		}
-		if (population.isEmpty()) {
-			event.getChannel().sendMessage("В этой локации нет игроков не из вашего клана, а гомоебля пока запрещена").submit();
-			return;
-		}
-		int size = population.size();
-		Player player2 = playerCache.get(population.get(random.nextInt(size)));
-		event.getChannel().sendMessage("Судьба свела тебя в битве против " + player2.getNickName() + " да начнётся битва").submit();
-		List<Person> players = battleManager.playerBattle(clanPlayers1, getPlayersByClan(player2), event.getChannel());
 
-		players.forEach(p -> {
+		// Проверка PvP зоны
+		if (!loc.isPvp()) {
+			event.getChannel().sendMessage("В этой локации нельзя драться!").queue();
+			return;
+		}
+
+		// Получение списка игроков
+		List<String> population = new ArrayList<>(loc.getPopulationById());
+		population.remove(player.getId()); // Убираем текущего игрока
+
+		// Проверка наличия противников
+		if (population.isEmpty()) {
+			event.getChannel().sendMessage("Нет игроков для битвы").queue();
+			return;
+		}
+
+		// Удаление членов клана из списка противников
+		List<Person> clanMembers = getPlayersByClan(player);
+		clanMembers.forEach(p -> population.remove(((Player) p).getId()));
+
+		if (population.isEmpty()) {
+			event.getChannel().sendMessage("Все игроки здесь из вашего клана").queue();
+			return;
+		}
+
+		// Выбор случайного противника
+		String enemyId = population.get(random.nextInt(population.size()));
+		Player enemy = playerCache.get(enemyId);
+
+		if (enemy == null) {
+			event.getChannel().sendMessage("Ошибка при выборе противника").queue();
+			return;
+		}
+
+		// Формирование команд
+		List<Person> attackers = getPlayersByClan(player);
+		List<Person> defenders = getPlayersByClan(enemy);
+		if (defenders.isEmpty()) defenders = List.of(enemy); // Если противник без клана
+
+		// Проведение боя
+		List<Person> battleResult = battleManager.playerBattle(attackers, defenders, event.getChannel());
+
+		// Обработка результатов
+		battleResult.forEach(p -> {
+			Player pObj = (Player) p;
 			if (p.getHp() > 0) {
-				event.getChannel().sendMessage("Игрок " + p.getNickName() + " побеждает в этой славной битве и получает " + 200 + " опыта и " + 200 + " монет").submit();
-				changeMoney(((Player) p).getId(), 200, true);
-				changeHp(((Player) p).getId(), 200, true);
-				changeHp(((Player) p).getId(), p.getHp());
+				if (attackers.contains(p)) {
+					// Используем методы PlayersManager для изменений
+					changeMoney(pObj.getId(), 200, true);
+					changeXp(pObj.getId(), 150);
+					event.getChannel().sendMessage(pObj.getNickName() + " получает награду!").queue();
+				}
 			} else {
-				event.getChannel().sendMessage("Игрок " + p.getNickName() + " был убит и был воскрешен на Респауне, он потерял 10% монет и возможно кое-что из предметов").submit();
-				deathOfPlayer(((Player) p));
+				// Используем метод deathOfPlayer из PlayersManager
+				deathOfPlayer(pObj);
+				event.getChannel().sendMessage(pObj.getNickName() + " погиб!").queue();
 			}
 		});
+
+		Location updatedLoc = locationManager.getLocation(player.getLocation());
+		event.getChannel().sendMessage("Оставшиеся игроки: " + updatedLoc.getPopulationByName()).queue();
 	}
 
 	public void dailyBonus(MessageReceivedEvent event) {
