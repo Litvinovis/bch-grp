@@ -8,7 +8,11 @@ import ru.chebe.litvinov.data.Location;
 import ru.chebe.litvinov.data.Person;
 import ru.chebe.litvinov.data.Player;
 
-import java.util.*;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Random;
+import java.util.stream.Collectors;
 
 import static ru.chebe.litvinov.Constants.MIN_LVL_TO_CLAN_CREATE;
 import static ru.chebe.litvinov.Constants.MIN_LVL_TO_CLAN_JOIN;
@@ -248,12 +252,10 @@ public class PlayersManager {
 	}
 
 	private int changeArmor(String id, int armor, boolean increase) {
-		var player = playerCache.get(id);
-		if (increase) {
-			player.setReputation(player.getReputation() + armor);
-		} else {
-			player.setReputation(player.getReputation() - armor);
-		}
+		Player player = playerCache.get(id);
+		player.setArmor(increase ?
+						player.getArmor() + armor :
+						player.getArmor() - armor);
 		playerCache.put(id, player);
 		return player.getArmor();
 	}
@@ -606,13 +608,55 @@ public class PlayersManager {
 
 	// Возвращает список игроков клана в текущей локации
 	private List<Person> getPlayersByClan(Player player) {
-		List<Person> players = new ArrayList<>();
-		List<String> clanMembers = clanManager.getClanMembers(player.getClanName());
-		for (String clanMember : clanMembers) {
-			if (playerCache.get(clanMember).getLocation().equals(player.getLocation())) {
-				players.add(player);
-			}
+		return clanManager.getClanMembers(player.getClanName()).stream()
+						.map(playerCache::get)
+						.filter(p -> p.getLocation().equals(player.getLocation()))
+						.collect(Collectors.toList());
+	}
+
+	public void playRoulette(MessageReceivedEvent event) {
+		Player player = playerCache.get(event.getAuthor().getId());
+		if (!player.getLocation().equals("таверна")) {
+			event.getChannel().sendMessage("Играть в рулетку можно только в таверне!").queue();
+			return;
 		}
-		return players;
+
+		String[] parts = event.getMessage().getContentDisplay().split(" ");
+		if (parts.length < 3) {
+			event.getChannel().sendMessage("Использование: +рулетка [ставка] [красный/черный/0-36]").queue();
+			return;
+		}
+
+		try {
+			int bid = Integer.parseInt(parts[1]);
+			String bet = parts[2];
+			player = tavern.playRoulette(event, player, bid, bet);
+			playerCache.put(player.getId(), player);
+		} catch (NumberFormatException e) {
+			event.getChannel().sendMessage("Неверный формат ставки!").queue();
+		}
+	}
+
+	public void rockPaperScissors(MessageReceivedEvent event) {
+		Player player = playerCache.get(event.getAuthor().getId());
+		if (!player.getLocation().equals("таверна")) {
+			event.getChannel().sendMessage("Играть можно только в таверне!").queue();
+			return;
+		}
+
+		String[] parts = event.getMessage().getContentDisplay().split(" ");
+		if (parts.length < 3) {
+			event.getChannel().sendMessage("Использование: +кнб [ставка] [камень/ножницы/бумага]").queue();
+			return;
+		}
+
+		try {
+			int bid = Integer.parseInt(parts[1]);
+			String choice = parts[2];
+			player = tavern.rockPaperScissors(event, player, bid, choice);
+			playerCache.put(player.getId(), player);
+		} catch (NumberFormatException e) {
+			event.getChannel().sendMessage("Неверный формат ставки!").queue();
+		}
 	}
 }

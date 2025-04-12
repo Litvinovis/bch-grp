@@ -28,7 +28,8 @@ public class Item {
 		String act = action ? "активируемое" : "Постоянное";
 		String time = "";
 		if (expireTime != 0) {
-			time = "\nИсчезнет через " + TimeUnit.MICROSECONDS.toMinutes(expireTime - System.currentTimeMillis()) + " минут";
+			time = "\nИсчезнет через " +
+							TimeUnit.MILLISECONDS.toMinutes(expireTime - System.currentTimeMillis()) + " минут";
 		}
 		return "Характеристики предмета:\n" +
 						"Название - " + name + "\n" +

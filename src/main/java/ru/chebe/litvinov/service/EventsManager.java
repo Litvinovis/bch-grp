@@ -56,7 +56,9 @@ public class EventsManager {
 	}
 
 	private Event createPathFinderEvent(List<String> locationList ) {
-		String endLocation = locationList.get(rand.nextInt(locationList.size()));
+		ArrayList<String> startQuest = new ArrayList<>(locationList);
+		startQuest.remove("респаун");
+		String endLocation = startQuest.get(rand.nextInt(startQuest.size()));
 		return Event.builder()
 						.locationEnd(endLocation)
 						.type("Ходилка")

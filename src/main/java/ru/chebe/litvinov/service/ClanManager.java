@@ -105,7 +105,7 @@ public class ClanManager {
 		}
 		StringBuilder sb = new StringBuilder();
 		sb.append("Клан: ").append(clanName).append("\n");
-		sb.append("Лидер: ").append(playerCache.get(clan.getLeaderId())).append("\n");
+		sb.append("Лидер: ").append(playerCache.get(clan.getLeaderId()).getNickName()).append("\n");
 		sb.append("Участники: ");
 		for (var member : clan.getMembers()) {
 			var player = playerCache.get(member);

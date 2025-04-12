@@ -4,7 +4,8 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.util.function.Predicate;
+import java.time.Instant;
+import java.util.concurrent.TimeUnit;
 
 @Getter
 @Setter
@@ -36,7 +37,10 @@ public class Event {
 	}
 
 	private String timeLost() {
-		return "timeEnd";
+		long remaining = Instant.parse(timeEnd).toEpochMilli() - System.currentTimeMillis();
+		return String.format("%d мин. %d сек.",
+						TimeUnit.MILLISECONDS.toMinutes(remaining),
+						TimeUnit.MILLISECONDS.toSeconds(remaining) % 60);
 	}
 }
 

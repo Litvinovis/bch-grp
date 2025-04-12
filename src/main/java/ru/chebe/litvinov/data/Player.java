@@ -74,7 +74,7 @@ public class Player extends Person {
 	public String inventoryInfo() {
 		for (Map.Entry<String, Integer> entry : inventory.entrySet()) {
 			if (entry.getValue() == null) {
-				inventory.remove(entry.getKey());
+				inventory.put(entry.getKey(), 3);
 			}
 		}
 		return inventory.toString();

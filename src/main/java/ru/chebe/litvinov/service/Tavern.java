@@ -1,7 +1,6 @@
 package ru.chebe.litvinov.service;
 
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
-import org.apache.ignite.IgniteCache;
 import ru.chebe.litvinov.data.Player;
 
 import java.util.Random;
@@ -48,6 +47,56 @@ public class Tavern {
 			}
 		} catch (InterruptedException e) {
 			throw new RuntimeException(e);
+		}
+		return player;
+	}
+
+	public Player playRoulette(MessageReceivedEvent event, Player player, int bid, String bet) {
+		if (player.getMoney() < bid) {
+			event.getChannel().sendMessage("У вас недостаточно денег для этой ставки!").queue();
+			return player;
+		}
+
+		int winNumber = random.nextInt(37);
+		String color = (winNumber == 0) ? "зеленый" : (winNumber % 2 == 0) ? "красный" : "черный";
+
+		boolean isWin = bet.equalsIgnoreCase(color) || bet.equals(String.valueOf(winNumber));
+		int payout = 1;
+
+		if (isWin) {
+			if (bet.equalsIgnoreCase("красный") || bet.equalsIgnoreCase("черный")) {
+				payout = 2;
+			} else if (bet.equals(String.valueOf(winNumber))) {
+				payout = 35;
+			}
+			player.setMoney(player.getMoney() + bid * payout);
+			event.getChannel().sendMessage("Выигрыш! Выпало: " + winNumber + " (" + color + "). Вы получаете " + (bid * payout)).queue();
+		} else {
+			player.setMoney(player.getMoney() - bid);
+			event.getChannel().sendMessage("Проигрыш. Выпало: " + winNumber + " (" + color + ")").queue();
+		}
+		return player;
+	}
+
+	public Player rockPaperScissors(MessageReceivedEvent event, Player player, int bid, String choice) {
+		if (player.getMoney() < bid) {
+			event.getChannel().sendMessage("У вас недостаточно денег для этой ставки!").queue();
+			return player;
+		}
+
+		String[] options = {"камень", "ножницы", "бумага"};
+		String aiChoice = options[random.nextInt(3)];
+
+		if (choice.equals(aiChoice)) {
+			event.getChannel().sendMessage("Ничья! AI тоже выбрал " + aiChoice).queue();
+		} else if ((choice.equals("камень") && aiChoice.equals("ножницы")) ||
+						(choice.equals("ножницы") && aiChoice.equals("бумага")) ||
+						(choice.equals("бумага") && aiChoice.equals("камень"))) {
+			player.setMoney(player.getMoney() + bid);
+			event.getChannel().sendMessage("Победа! AI выбрал: " + aiChoice + ". Вы получаете " + bid).queue();
+		} else {
+			player.setMoney(player.getMoney() - bid);
+			event.getChannel().sendMessage("Проигрыш. AI выбрал: " + aiChoice).queue();
 		}
 		return player;
 	}
