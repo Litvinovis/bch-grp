@@ -68,58 +68,86 @@ public class BattleManager {
 		if (boss.getHp() > 0) {
 			channel.sendMessage("Тебя убил мелкий бандит, это кринж, чувак! Ты был воскрешен на Респауне, " +
 							"потерял 10% монет и возможно кое-что из инвентаря").queue();
+			return -1;
 		} else {
 			channel.sendMessage("Поздравляю ты победил тупого засланца при переходе локации").submit();
+			return 1;
 		}
-		return Math.max(player.getHp(), 0);
 	}
 
-	public void bossBattle(List<Person> player, String bossName, MessageChannelUnion channel) {
+	public void bossBattle(List<Person> players, String bossName, MessageChannelUnion channel) {
 		Boss boss = bossCache.get(bossName);
-		int bossHp = boss.getHp();
-		battleMechanic(player, List.of(boss), channel);
-		if (boss.getHp() > 0) {
+		if (boss == null) {
+			channel.sendMessage("Босс не найден.").queue();
+			return;
+		}
+		int initialBossHp = boss.getHp();
+		int initialBossWin = boss.getWin();
+
+		battleMechanic(players, List.of(boss), channel);
+
+		boolean bossDefeated = boss.getHp() <= 0;
+
+		if (!bossDefeated) {
+			// Босс победил
 			channel.sendMessage("Штош нужно быть очень глупым чтобы залупаться на " + boss.getNickName() + " с твоими характеристиками" +
 							"Ты умер и был воскрешен на Респауне, ты потерял 10% монет и возможно кое-что из предметов").queue();
-			boss.setWin(boss.getWin() + 1);
+			boss.setWin(initialBossWin + 1);
 		} else {
+			// Игрок(и) победили
 			channel.sendMessage("Поздравляю ты победил босса этой локации " + boss.getNickName()).submit();
+			boss.setDefeat(boss.getDefeat() + 1);
 		}
-		boss.setHp(bossHp);
+
+		boss.setHp(initialBossHp);
 		bossCache.put(boss.getNickName(), boss);
 	}
 
-	public void battleMechanic(List<Person> player1, List<Person> player2, MessageChannelUnion channel) {
+	public void battleMechanic(List<Person> team1, List<Person> team2, MessageChannelUnion channel) {
 		StringBuilder sb = new StringBuilder();
-		while (checkHpPlayerList(player1) && checkHpPlayerList(player2)) {
+		while (checkHpPlayerList(team1) && checkHpPlayerList(team2)) {
 			if (sb.length() > 1800) {
 				channel.sendMessage(sb.toString()).submit();
 				sb.setLength(0);
 			}
-			Person playerAttack = getRandomPlayer(player1);
-			Person playerDef = getRandomPlayer(player2);
-			int damage = randomizeDamage(playerAttack.getStrength());
-			playerDef.setHp(playerDef.getHp() - damage);
-			sb.append(playerAttack.getNickName()).append(" наносит ").append(damage).append(" урона противнику, у него остаётся ").append(playerDef.getHp()).append(" HP\n");
-			damage = randomizeDamage(playerDef.getStrength() - playerAttack.getArmor());
-			playerAttack.setHp(playerAttack.getHp() - damage);
-			sb.append(playerDef.getNickName()).append(" наносит ").append(damage).append(" урона противнику, у него остаётся ").append(playerAttack.getHp()).append(" HP\n");
+			Person attacker = getRandomPlayer(team1);
+			Person defender = getRandomPlayer(team2);
+
+			// Атака первого на второго
+			if (attacker != null && defender != null) {
+				int damage = randomizeDamage(attacker.getStrength());
+				defender.setHp(defender.getHp() - damage);
+				sb.append(attacker.getNickName()).append(" наносит ").append(damage).append(" урона противнику, у него остаётся ").append(defender.getHp()).append(" HP ");
+
+				// Контратака второго на первого (если второй еще жив)
+				if (defender.getHp() > 0) {
+					damage = randomizeDamage(defender.getStrength() - attacker.getArmor());
+					attacker.setHp(attacker.getHp() - damage);
+					sb.append(defender.getNickName()).append(" наносит ").append(damage).append(" урона противнику, у него остаётся ").append(attacker.getHp()).append(" HP ");
+				}
+			} else {
+				break;
+			}
 		}
-		channel.sendMessage(sb.toString()).submit();
+		if (!sb.isEmpty()) {
+			channel.sendMessage(sb.toString()).submit();
+		}
 	}
 
-	private int randomizeDamage(int damage) {
+	private int randomizeDamage(int baseDamage) {
+		if (baseDamage <= 0) return 0;
 		double percentageChange = (rand.nextInt(51) - 25) / 100.0; // От -25% до +25%
-		return (int) (damage + (damage * percentageChange)) * 3;
+		return Math.max(1, (int) (baseDamage * (1 + percentageChange)));
 	}
 
 	public String getBossItemName(String bossName) {
-		return bossCache.get(bossName).getBossItem();
+		Boss boss = bossCache.get(bossName);
+		return boss != null ? boss.getBossItem() : null;
 	}
 
 	private boolean checkHpPlayerList(List<Person> players) {
 		for (Person player : players) {
-			if (player.getHp() > 0) {
+			if (player != null && player.getHp() > 0) {
 				return true;
 			}
 		}
@@ -127,10 +155,21 @@ public class BattleManager {
 	}
 
 	private Person getRandomPlayer(List<Person> players) {
-		Person player = players.get(rand.nextInt(players.size()));
-		while (player.getHp() <= 0) {
-			player = players.get(rand.nextInt(players.size()));
+		if (players == null || players.isEmpty()) {
+			return null;
 		}
-		return player;
+
+		List<Person> alivePlayers = new ArrayList<>();
+		for (Person p : players) {
+			if (p != null && p.getHp() > 0) {
+				alivePlayers.add(p);
+			}
+		}
+
+		if (alivePlayers.isEmpty()) {
+			return null;
+		}
+
+		return alivePlayers.get(rand.nextInt(alivePlayers.size()));
 	}
 }
