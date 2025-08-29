@@ -134,12 +134,6 @@ public class BattleManager {
 		}
 	}
 
-	private int randomizeDamage(int baseDamage) {
-		if (baseDamage <= 0) return 0;
-		double percentageChange = (rand.nextInt(51) - 25) / 100.0; // От -25% до +25%
-		return Math.max(1, (int) (baseDamage * (1 + percentageChange)));
-	}
-
 	public String getBossItemName(String bossName) {
 		Boss boss = bossCache.get(bossName);
 		return boss != null ? boss.getBossItem() : null;
@@ -152,6 +146,12 @@ public class BattleManager {
 			}
 		}
 		return false;
+	}
+
+	protected int randomizeDamage(int baseDamage) {
+		if (baseDamage <= 0) return 0;
+		double percentageChange = (rand.nextInt(51) - 25) / 100.0; // От -25% до +25%
+		return Math.max(1, (int) (baseDamage * (1 + percentageChange)));
 	}
 
 	private Person getRandomPlayer(List<Person> players) {

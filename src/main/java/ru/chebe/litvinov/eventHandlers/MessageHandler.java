@@ -61,6 +61,8 @@ public class MessageHandler extends ListenerAdapter {
 					playersManager.playRoulette(event);
 				} else if (content.startsWith("+кнб")) {
 					playersManager.rockPaperScissors(event);
+				} else if (content.startsWith("+число")) {
+					playersManager.guessTheNumber(event);
 				} else if (content.startsWith("+помощь")) {
 					event.getChannel().sendMessage(HELP_MESSAGE).submit();
 				} else if (content.startsWith("+локация")) {
@@ -170,6 +172,8 @@ public class MessageHandler extends ListenerAdapter {
 						  Пример: +рулетка 50 красный
 						+кнб (ставка) (камень/ножницы/бумага) - игра "камень-ножницы-бумага"
 						  Пример: +кнб 30 камень
+						+число (ставка) (число от 1 до 10) - угадай число от 1 до 10 (x5)
+						  Пример: +число 20 7
 						
 						Активности:
 						+взять квест - получить квест

@@ -179,7 +179,7 @@ public class PlayersManager {
 		player.setStrength(newItem.getStrength() > 0 ? player.getStrength() + newItem.getStrength() : player.getStrength());
 		var inventory = player.getInventory();
 		if (inventory.get(item) != null) {
-			inventory.put(item, inventory.get(item + 1));
+			inventory.put(item, inventory.get(item) + 1);
 		} else {
 			inventory.put(item, 1);
 		}
@@ -319,10 +319,8 @@ public class PlayersManager {
 		}
 		if (player.getMoney() < bid) {
 			event.getChannel().sendMessage("Я ж вижу, что у тебя таких денег отродясь не было, а нанимать ябыса трясти с тебя долг я не хочу").submit();
+			return;
 		}
-		player.setMoney(player.getMoney() - bid);
-		playerCache.put(player.getId(), player);
-		player.setMoney(player.getMoney() + bid);
 		player = tavern.diceStart(event, player, bid);
 		playerCache.put(player.getId(), player);
 	}
@@ -487,8 +485,9 @@ public class PlayersManager {
 		}
 
 		// Удаление членов клана из списка противников
-		List<Person> clanMembers = getPlayersByClan(player);
-		clanMembers.forEach(p -> population.remove(((Player) p).getId()));
+		List<Player> clanMembers = getPlayersByClan(player);
+		List<String> clanMemberIds = clanMembers.stream().map(Player::getId).collect(Collectors.toList());
+		clanMemberIds.forEach(population::remove);
 
 		if (population.isEmpty()) {
 			event.getChannel().sendMessage("Все игроки здесь из вашего клана").queue();
@@ -505,8 +504,10 @@ public class PlayersManager {
 		}
 
 		// Формирование команд
-		List<Person> attackers = getPlayersByClan(player);
-		List<Person> defenders = getPlayersByClan(enemy);
+		List<Person> attackers = new ArrayList<>(getPlayersByClan(player));
+		List<Person> defenders = new ArrayList<>(getPlayersByClan(enemy).stream()
+						.map(p -> (Person) p)
+						.collect(Collectors.toList()));
 		if (defenders.isEmpty()) defenders = List.of(enemy); // Если противник без клана
 
 		// Проведение боя
@@ -632,10 +633,10 @@ public class PlayersManager {
 	}
 
 	// Возвращает список игроков клана в текущей локации
-	private List<Person> getPlayersByClan(Player player) {
+	private List<Player> getPlayersByClan(Player player) {
 		return clanManager.getClanMembers(player.getClanName()).stream()
 						.map(playerCache::get)
-						.filter(p -> p.getLocation().equals(player.getLocation()))
+						.filter(p -> p != null && p.getLocation().equals(player.getLocation()))
 						.collect(Collectors.toList());
 	}
 
@@ -682,6 +683,35 @@ public class PlayersManager {
 			playerCache.put(player.getId(), player);
 		} catch (NumberFormatException e) {
 			event.getChannel().sendMessage("Неверный формат ставки!").queue();
+		}
+	}
+
+	public void guessTheNumber(MessageReceivedEvent event) {
+		Player player = playerCache.get(event.getAuthor().getId());
+		if (!player.getLocation().equals("таверна")) {
+			event.getChannel().sendMessage("Играть можно только в таверне!").queue();
+			return;
+		}
+
+		String[] parts = event.getMessage().getContentDisplay().split(" ");
+		if (parts.length < 3) {
+			event.getChannel().sendMessage("Использование: +число [ставка] [число от 1 до 10]").queue();
+			return;
+		}
+
+		try {
+			int bid = Integer.parseInt(parts[1]);
+			int guess = Integer.parseInt(parts[2]);
+			
+			if (guess < 1 || guess > 10) {
+				event.getChannel().sendMessage("Число должно быть от 1 до 10!").queue();
+				return;
+			}
+			
+			player = tavern.guessTheNumber(event, player, bid, guess);
+			playerCache.put(player.getId(), player);
+		} catch (NumberFormatException e) {
+			event.getChannel().sendMessage("Неверный формат ставки или числа!").queue();
 		}
 	}
 }

@@ -19,6 +19,7 @@ public class Event {
 	int moneyReward;
 	int xpReward;
 	String itemReward;
+	@lombok.Builder.Default
 	int attempt = 0;
 
 	@Override

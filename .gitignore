@@ -41,3 +41,12 @@ build/
 
 ### Mac OS ###
 .DS_Store
+
+### Logs ###
+logs/
+*.log
+*.log.gz
+
+### Apache Ignite ###
+ignite/work/
+ignite/*/work/

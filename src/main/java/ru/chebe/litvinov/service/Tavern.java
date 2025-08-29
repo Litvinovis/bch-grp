@@ -6,7 +6,16 @@ import ru.chebe.litvinov.data.Player;
 import java.util.Random;
 
 public class Tavern {
-	private final Random random = new Random();
+	private final Random random;
+
+	public Tavern() {
+		this.random = new Random();
+	}
+
+	// Constructor for testing
+	public Tavern(Random random) {
+		this.random = random;
+	}
 
 	public Player diceStart(MessageReceivedEvent event, Player player, int bid) {
 		try {
@@ -97,6 +106,33 @@ public class Tavern {
 		} else {
 			player.setMoney(player.getMoney() - bid);
 			event.getChannel().sendMessage("Проигрыш. AI выбрал: " + aiChoice).queue();
+		}
+		return player;
+	}
+
+	public Player guessTheNumber(MessageReceivedEvent event, Player player, int bid, int guess) {
+		if (player.getMoney() < bid) {
+			if (event != null) {
+				event.getChannel().sendMessage("У вас недостаточно денег для этой ставки!").queue();
+			}
+			return player;
+		}
+
+		// Deduct the bet first
+		player.setMoney(player.getMoney() - bid);
+		
+		int secretNumber = random.nextInt(10) + 1; // Number between 1 and 10
+
+		if (guess == secretNumber) {
+			int winAmount = bid * 5; // 5x payout for correct guess
+			player.setMoney(player.getMoney() + winAmount);
+			if (event != null) {
+				event.getChannel().sendMessage("Поздравляем! Вы угадали число " + secretNumber + " и выиграли " + winAmount + " денег!").queue();
+			}
+		} else {
+			if (event != null) {
+				event.getChannel().sendMessage("Вы не угадали. Загаданное число было " + secretNumber + ". Вы проиграли " + bid + " денег.").queue();
+			}
 		}
 		return player;
 	}
