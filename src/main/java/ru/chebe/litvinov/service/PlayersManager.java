@@ -448,7 +448,11 @@ public class PlayersManager {
 		} else {
 			event.getChannel().sendMessage("Ты отважился бросить вызов боссу по имени " + loc.getBoss() + " земля тебе пухом братишка").submit();
 			var players = getPlayersByClan(player);
-			battleManager.bossBattle(players, loc.getBoss(), event.getChannel());
+			// Convert List<Player> to List<Person>
+			List<Person> playersAsPerson = players.stream()
+							.map(p -> (Person) p)
+							.collect(Collectors.toList());
+			battleManager.bossBattle(playersAsPerson, loc.getBoss(), event.getChannel());
 			for (Person play : players) {
 				if (play.getHp() > 0) {
 					changeHp(((Player) play).getId(), play.getHp());
