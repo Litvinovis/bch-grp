@@ -1,38 +1,21 @@
 package ru.chebe.litvinov;
 
-import junit.framework.Test;
-import junit.framework.TestCase;
-import junit.framework.TestSuite;
+import org.junit.Test;
 
-/**
- * Unit test for simple App.
- */
-public class AppTest
-    extends TestCase
-{
-    /**
-     * Create the test case
-     *
-     * @param testName name of the test case
-     */
-    public AppTest( String testName )
-    {
-        super( testName );
-    }
+import static org.junit.Assert.*;
 
-    /**
-     * @return the suite of tests being tested
-     */
-    public static Test suite()
-    {
-        return new TestSuite( AppTest.class );
-    }
+public class AppTest {
 
-    /**
-     * Rigourous Test :-)
-     */
-    public void testApp()
-    {
-        assertTrue( true );
+    @Test
+    public void resolveDiscordToken_handlesMissingOrPresentEnv() {
+        // В тестовом окружении переменная может быть как задана, так и нет —
+        // проверяем корректную обработку обоих случаев.
+        var token = App.resolveDiscordToken();
+        if (System.getenv("BCHGRP_DISCORD_TOKEN") == null || System.getenv("BCHGRP_DISCORD_TOKEN").trim().isEmpty()) {
+            assertTrue(token.isEmpty());
+        } else {
+            assertTrue(token.isPresent());
+            assertFalse(token.get().isBlank());
+        }
     }
 }
