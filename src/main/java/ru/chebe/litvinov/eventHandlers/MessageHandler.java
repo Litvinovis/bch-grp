@@ -21,6 +21,8 @@ public class MessageHandler extends ListenerAdapter {
 	private static final int NUM_THREADS = 4; // Количество потоков в пуле
 	private static final String HELP_MESSAGE = helpMessageCreate();
 	private static final String INFO_MESSAGE = infoMessageCreate();
+	private static final String OPENCLAW_ROVER_BOT_ID = "1481319611533365483";
+	private static final String BCH_CHANNEL_ID = "1241459077339549836";
 	private static IgniteCache<String, Player> playerCache;
 	private final Logger logger = LoggerFactory.getLogger("adminLog");
 	private final ItemsManager itemsManager;
@@ -30,13 +32,13 @@ public class MessageHandler extends ListenerAdapter {
 	private final ThreadPoolExecutor executor = new ThreadPoolExecutor(NUM_THREADS, NUM_THREADS, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>());
 
 	public MessageHandler(Ignite ignite) {
-		playerCache = ignite.cache("players");
-		this.locationManager = new LocationManager(ignite.cache("locations"));
-		this.itemsManager = new ItemsManager(ignite.cache("items"));
-		this.ideasManager = new IdeasManager(ignite.cache("ideas"));
-		ClanManager clanManager = new ClanManager(ignite.cache("clans"), playerCache);
+		playerCache = ignite.getOrCreateCache("players");
+		this.locationManager = new LocationManager(ignite.getOrCreateCache("locations"));
+		this.itemsManager = new ItemsManager(ignite.getOrCreateCache("items"));
+		this.ideasManager = new IdeasManager(ignite.getOrCreateCache("ideas"));
+		ClanManager clanManager = new ClanManager(ignite.getOrCreateCache("clans"), playerCache);
 		this.playersManager = new PlayersManager(playerCache, locationManager, itemsManager,
-						new BattleManager(ignite.cache("bosses")), new EventsManager(), clanManager, new Tavern());
+						new BattleManager(ignite.getOrCreateCache("bosses")), new EventsManager(), clanManager, new Tavern());
 	}
 
 	@Override
@@ -46,10 +48,19 @@ public class MessageHandler extends ListenerAdapter {
 
 	private void chooseAction(MessageReceivedEvent event) {
 		try {
-			if (isBotAsking(event)) {
+			boolean asking = isBotAsking(event);
+			if (OPENCLAW_ROVER_BOT_ID.equals(event.getAuthor().getId())) {
+				logger.info("OpenClaw message observed: channelId={}, content='{}', asking={}",
+						event.getChannel().getId(), event.getMessage().getContentDisplay(), asking);
+			}
+			if (asking) {
 				String content = event.getMessage().getContentDisplay();
 				if (content.startsWith("+регистрация")) {
 					playersManager.createPlayer(event);
+				} else if (content.startsWith("+помощь")) {
+					event.getChannel().sendMessage(HELP_MESSAGE).submit();
+				} else if (playerCache == null) {
+					event.getChannel().sendMessage("Сервис базы данных временно недоступен, попробуйте через минуту.").submit();
 				} else if (playerCache.get(event.getMessage().getAuthor().getId()) == null) {
 					event.getChannel().sendMessage(Constants.NEED_REGISTRATION)
 									.submit();
@@ -63,8 +74,6 @@ public class MessageHandler extends ListenerAdapter {
 					playersManager.rockPaperScissors(event);
 				} else if (content.startsWith("+число")) {
 					playersManager.guessTheNumber(event);
-				} else if (content.startsWith("+помощь")) {
-					event.getChannel().sendMessage(HELP_MESSAGE).submit();
 				} else if (content.startsWith("+локация")) {
 					locationManager.locationInfo(event, playerCache.get(event.getMessage().getAuthor().getId()).getLocation());
 				} else if (content.startsWith("+карта")) {
@@ -135,7 +144,26 @@ public class MessageHandler extends ListenerAdapter {
 	}
 
 	private boolean isBotAsking(MessageReceivedEvent event) {
-		return event.getMessage().getContentDisplay().startsWith("+") && (event.getChannel().getType().toString().equals("PRIVATE") || event.getChannel().asTextChannel().getName().equals("бч-грп"));
+		String content = event.getMessage().getContentDisplay();
+		if (content == null || !content.startsWith("+")) {
+			return false;
+		}
+
+		// Игнорируем других ботов, кроме доверенного OpenClawRover для автопроверок
+		if (event.getAuthor().isBot() && !OPENCLAW_ROVER_BOT_ID.equals(event.getAuthor().getId())) {
+			return false;
+		}
+
+		if (event.getChannel().getType().toString().equals("PRIVATE")) {
+			return true;
+		}
+
+		// Разрешаем команды в guild только в верификационном канале по ID (стабильно, без зависимости от имени)
+		if (event.isFromGuild() && BCH_CHANNEL_ID.equals(event.getChannel().getId())) {
+			return true;
+		}
+
+		return false;
 	}
 
 	private boolean isAdmin(MessageReceivedEvent event) {
