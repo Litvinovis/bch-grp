@@ -7,3 +7,4 @@ ignite:
   local-address: "192.168.1.120"
   discovery-addresses:
     - "192.168.1.120:47650..47659"
+  work-dir: "/tmp/ignite-bch-client"

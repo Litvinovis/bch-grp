@@ -30,7 +30,7 @@ public class App {
             BotConfig botConfig = BotConfig.load();
 
             logger.info("Инициализация Apache Ignite");
-            Ignite ignite = new IgniteConfigurator(botConfig.getIgniteLocalAddress(), botConfig.getIgniteDiscoveryAddresses()).getIgnite();
+            Ignite ignite = new IgniteConfigurator(botConfig.getIgniteLocalAddress(), botConfig.getIgniteDiscoveryAddresses(), botConfig.getIgniteWorkDir()).getIgnite();
             logger.info("Apache Ignite успешно инициализирован");
             
             logger.info("Активация кластера Ignite");

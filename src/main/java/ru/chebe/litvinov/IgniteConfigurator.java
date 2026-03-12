@@ -11,16 +11,19 @@ import java.util.List;
 public class IgniteConfigurator {
     private final String localAddress;
     private final List<String> discoveryAddresses;
+    private final String workDir;
 
-    public IgniteConfigurator(String localAddress, List<String> discoveryAddresses) {
+    public IgniteConfigurator(String localAddress, List<String> discoveryAddresses, String workDir) {
         this.localAddress = localAddress;
         this.discoveryAddresses = discoveryAddresses;
+        this.workDir = workDir;
     }
 
     public Ignite getIgnite() {
         IgniteConfiguration cfg = new IgniteConfiguration();
         cfg.setIgniteInstanceName("bchgrp-client");
         cfg.setClientMode(true);
+        cfg.setWorkDirectory(workDir);
 
         TcpDiscoverySpi discoverySpi = new TcpDiscoverySpi();
         discoverySpi.setLocalAddress(localAddress);

@@ -12,11 +12,13 @@ public class BotConfig {
     private final List<String> allowedChannelIds;
     private final String igniteLocalAddress;
     private final List<String> igniteDiscoveryAddresses;
+    private final String igniteWorkDir;
 
-    public BotConfig(List<String> allowedChannelIds, String igniteLocalAddress, List<String> igniteDiscoveryAddresses) {
+    public BotConfig(List<String> allowedChannelIds, String igniteLocalAddress, List<String> igniteDiscoveryAddresses, String igniteWorkDir) {
         this.allowedChannelIds = allowedChannelIds;
         this.igniteLocalAddress = igniteLocalAddress;
         this.igniteDiscoveryAddresses = igniteDiscoveryAddresses;
+        this.igniteWorkDir = igniteWorkDir;
     }
 
     public List<String> getAllowedChannelIds() {
@@ -29,6 +31,10 @@ public class BotConfig {
 
     public List<String> getIgniteDiscoveryAddresses() {
         return igniteDiscoveryAddresses;
+    }
+
+    public String getIgniteWorkDir() {
+        return igniteWorkDir;
     }
 
     @SuppressWarnings("unchecked")
@@ -48,8 +54,9 @@ public class BotConfig {
             if (igniteDiscovery.isEmpty()) {
                 igniteDiscovery = List.of("192.168.1.120:47650..47659");
             }
+            String igniteWorkDir = readString(root, "ignite", "work-dir", "/tmp/ignite-bch-client");
 
-            return new BotConfig(channelIds, igniteLocal, igniteDiscovery);
+            return new BotConfig(channelIds, igniteLocal, igniteDiscovery, igniteWorkDir);
         } catch (Exception e) {
             return defaults();
         }
@@ -82,7 +89,7 @@ public class BotConfig {
     }
 
     private static BotConfig defaults() {
-        return new BotConfig(Collections.emptyList(), "192.168.1.120", List.of("192.168.1.120:47650..47659"));
+        return new BotConfig(Collections.emptyList(), "192.168.1.120", List.of("192.168.1.120:47650..47659"), "/tmp/ignite-bch-client");
     }
 }
 
