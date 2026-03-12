@@ -27,8 +27,10 @@ public class App {
         logger.info("Запуск приложения bchgrp");
 
         try {
+            BotConfig botConfig = BotConfig.load();
+
             logger.info("Инициализация Apache Ignite");
-            Ignite ignite = new IgniteConfigurator().getIgnite();
+            Ignite ignite = new IgniteConfigurator(botConfig.getIgniteLocalAddress(), botConfig.getIgniteDiscoveryAddresses()).getIgnite();
             logger.info("Apache Ignite успешно инициализирован");
             
             logger.info("Активация кластера Ignite");
@@ -38,7 +40,6 @@ public class App {
             logger.info("Инициализация Discord бота");
             String token = resolveDiscordToken()
                     .orElseThrow(() -> new IllegalStateException("Не задан токен Discord. Установите переменную окружения BCHGRP_DISCORD_TOKEN"));
-            BotConfig botConfig = BotConfig.load();
             JDA jda = JDABuilder.createDefault(token)
                     .enableIntents(GatewayIntent.MESSAGE_CONTENT)
                     .addEventListeners(new MessageHandler(ignite, botConfig.getAllowedChannelIds()))

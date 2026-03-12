@@ -10,43 +10,79 @@ import java.util.Map;
 
 public class BotConfig {
     private final List<String> allowedChannelIds;
+    private final String igniteLocalAddress;
+    private final List<String> igniteDiscoveryAddresses;
 
-    public BotConfig(List<String> allowedChannelIds) {
+    public BotConfig(List<String> allowedChannelIds, String igniteLocalAddress, List<String> igniteDiscoveryAddresses) {
         this.allowedChannelIds = allowedChannelIds;
+        this.igniteLocalAddress = igniteLocalAddress;
+        this.igniteDiscoveryAddresses = igniteDiscoveryAddresses;
     }
 
     public List<String> getAllowedChannelIds() {
         return allowedChannelIds;
     }
 
+    public String getIgniteLocalAddress() {
+        return igniteLocalAddress;
+    }
+
+    public List<String> getIgniteDiscoveryAddresses() {
+        return igniteDiscoveryAddresses;
+    }
+
     @SuppressWarnings("unchecked")
     public static BotConfig load() {
         try (InputStream is = BotConfig.class.getClassLoader().getResourceAsStream("application.yml")) {
             if (is == null) {
-                return new BotConfig(Collections.emptyList());
+                return defaults();
             }
             Map<String, Object> root = new Yaml().load(is);
             if (root == null) {
-                return new BotConfig(Collections.emptyList());
+                return defaults();
             }
-            Object discordObj = root.get("discord");
-            if (!(discordObj instanceof Map<?, ?> discordMap)) {
-                return new BotConfig(Collections.emptyList());
+
+            List<String> channelIds = readStringList(root, "discord", "allowed-channel-ids");
+            String igniteLocal = readString(root, "ignite", "local-address", "192.168.1.120");
+            List<String> igniteDiscovery = readStringList(root, "ignite", "discovery-addresses");
+            if (igniteDiscovery.isEmpty()) {
+                igniteDiscovery = List.of("192.168.1.120:47650..47659");
             }
-            Object idsObj = discordMap.get("allowed-channel-ids");
-            if (!(idsObj instanceof List<?> ids)) {
-                return new BotConfig(Collections.emptyList());
-            }
-            List<String> out = new ArrayList<>();
-            for (Object id : ids) {
-                if (id != null) {
-                    String s = id.toString().trim();
-                    if (!s.isEmpty()) out.add(s);
-                }
-            }
-            return new BotConfig(out);
+
+            return new BotConfig(channelIds, igniteLocal, igniteDiscovery);
         } catch (Exception e) {
-            return new BotConfig(Collections.emptyList());
+            return defaults();
         }
     }
+
+    @SuppressWarnings("unchecked")
+    private static List<String> readStringList(Map<String, Object> root, String section, String key) {
+        Object secObj = root.get(section);
+        if (!(secObj instanceof Map<?, ?> sec)) return new ArrayList<>();
+        Object obj = sec.get(key);
+        if (!(obj instanceof List<?> list)) return new ArrayList<>();
+        List<String> out = new ArrayList<>();
+        for (Object item : list) {
+            if (item != null) {
+                String s = item.toString().trim();
+                if (!s.isEmpty()) out.add(s);
+            }
+        }
+        return out;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static String readString(Map<String, Object> root, String section, String key, String def) {
+        Object secObj = root.get(section);
+        if (!(secObj instanceof Map<?, ?> sec)) return def;
+        Object obj = sec.get(key);
+        if (obj == null) return def;
+        String s = obj.toString().trim();
+        return s.isEmpty() ? def : s;
+    }
+
+    private static BotConfig defaults() {
+        return new BotConfig(Collections.emptyList(), "192.168.1.120", List.of("192.168.1.120:47650..47659"));
+    }
 }
+
