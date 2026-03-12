@@ -22,8 +22,8 @@ public class MessageHandler extends ListenerAdapter {
 	private static final String HELP_MESSAGE = helpMessageCreate();
 	private static final String INFO_MESSAGE = infoMessageCreate();
 	private static final String OPENCLAW_ROVER_BOT_ID = "1481319611533365483";
-	private static final String BCH_CHANNEL_ID = "1241459077339549836";
 	private static IgniteCache<String, Player> playerCache;
+	private final java.util.Set<String> allowedChannelIds;
 	private final Logger logger = LoggerFactory.getLogger("adminLog");
 	private final ItemsManager itemsManager;
 	private final PlayersManager playersManager;
@@ -31,7 +31,8 @@ public class MessageHandler extends ListenerAdapter {
 	private final IdeasManager ideasManager;
 	private final ThreadPoolExecutor executor = new ThreadPoolExecutor(NUM_THREADS, NUM_THREADS, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>());
 
-	public MessageHandler(Ignite ignite) {
+	public MessageHandler(Ignite ignite, java.util.List<String> allowedChannelIds) {
+		this.allowedChannelIds = new java.util.HashSet<>(allowedChannelIds == null ? java.util.List.of() : allowedChannelIds);
 		playerCache = ignite.getOrCreateCache("players");
 		this.locationManager = new LocationManager(ignite.getOrCreateCache("locations"));
 		this.itemsManager = new ItemsManager(ignite.getOrCreateCache("items"));
@@ -158,8 +159,8 @@ public class MessageHandler extends ListenerAdapter {
 			return true;
 		}
 
-		// Разрешаем команды в guild только в верификационном канале по ID (стабильно, без зависимости от имени)
-		if (event.isFromGuild() && BCH_CHANNEL_ID.equals(event.getChannel().getId())) {
+		// Разрешаем команды в guild только в каналах из конфигурации (application.yml)
+		if (event.isFromGuild() && allowedChannelIds.contains(event.getChannel().getId())) {
 			return true;
 		}
 
