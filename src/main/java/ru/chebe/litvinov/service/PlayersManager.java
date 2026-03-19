@@ -2,13 +2,13 @@ package ru.chebe.litvinov.service;
 
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import org.apache.ignite.IgniteCache;
-import org.apache.logging.log4j.util.Strings;
 import ru.chebe.litvinov.data.Item;
 import ru.chebe.litvinov.data.Location;
 import ru.chebe.litvinov.data.Person;
 import ru.chebe.litvinov.data.Player;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 import static ru.chebe.litvinov.Constants.MIN_LVL_TO_CLAN_CREATE;
@@ -23,6 +23,12 @@ public class PlayersManager {
 	private final ClanManager clanManager;
 	private final Tavern tavern;
 	private final Random random = new Random();
+	/** Per-player locks to prevent race conditions on read-modify-write operations. */
+	private final ConcurrentHashMap<String, Object> playerLocks = new ConcurrentHashMap<>();
+
+	private Object getPlayerLock(String id) {
+		return playerLocks.computeIfAbsent(id, k -> new Object());
+	}
 	private static final int DAILY_BONUS = 100;
 
 	private static final Map<Integer, Integer> xpMap = generateXpMap();
@@ -55,21 +61,27 @@ public class PlayersManager {
 	}
 
 	public void changeHp(String id, int hp) {
-		var player = playerCache.get(id);
-		player.setHp(hp);
-		playerCache.put(id, player);
+		synchronized (getPlayerLock(id)) {
+			var player = playerCache.get(id);
+			if (player == null) return;
+			player.setHp(hp);
+			playerCache.put(id, player);
+		}
 	}
 
 	public int changeHp(String id, int hp, boolean increase) {
-		var player = playerCache.get(id);
-		if (increase) {
-			int newHp = player.getHp() + hp;
-			player.setHp(Math.min(newHp, player.getMaxHp()));
-		} else {
-			player.setHp(player.getHp() - hp);
+		synchronized (getPlayerLock(id)) {
+			var player = playerCache.get(id);
+			if (player == null) return 0;
+			if (increase) {
+				int newHp = player.getHp() + hp;
+				player.setHp(Math.min(newHp, player.getMaxHp()));
+			} else {
+				player.setHp(player.getHp() - hp);
+			}
+			playerCache.put(id, player);
+			return player.getHp();
 		}
-		playerCache.put(id, player);
-		return player.getHp();
 	}
 
 	public void getInventoryInfo(MessageReceivedEvent event) {
@@ -93,38 +105,47 @@ public class PlayersManager {
 	}
 
 	public int changeMoney(String id, int money, boolean increase) {
-		var player = playerCache.get(id);
-		if (increase) {
-			player.setMoney(player.getMoney() + money);
-		} else {
-			player.setMoney(player.getMoney() - money);
+		synchronized (getPlayerLock(id)) {
+			var player = playerCache.get(id);
+			if (player == null) return 0;
+			if (increase) {
+				player.setMoney(player.getMoney() + money);
+			} else {
+				player.setMoney(player.getMoney() - money);
+			}
+			playerCache.put(id, player);
+			return player.getMoney();
 		}
-		playerCache.put(id, player);
-		return player.getMoney();
 	}
 
 	public int changeReputation(String id, int reputation, boolean increase) {
-		var player = playerCache.get(id);
-		if (increase) {
-			player.setReputation(player.getReputation() + reputation);
-		} else {
-			player.setReputation(player.getReputation() - reputation);
+		synchronized (getPlayerLock(id)) {
+			var player = playerCache.get(id);
+			if (player == null) return 0;
+			if (increase) {
+				player.setReputation(player.getReputation() + reputation);
+			} else {
+				player.setReputation(player.getReputation() - reputation);
+			}
+			playerCache.put(id, player);
+			return player.getReputation();
 		}
-		playerCache.put(id, player);
-		return player.getReputation();
 	}
 
 	public void changeXp(String id, int xp) {
-		var player = playerCache.get(id);
-		if (player.getExp() + xp >= player.getExpToNextLvl()) {
-			player.setExp(player.getExp() + xp % player.getExpToNextLvl());
-			player.setLevel(player.getLevel() + 1);
-			player.setExpToNextLvl(xpMap.get(player.getLevel()));
-			player.setHp(getMaxHp(player));
-		} else {
-			player.setExp(player.getExp() + xp);
+		synchronized (getPlayerLock(id)) {
+			var player = playerCache.get(id);
+			if (player == null) return;
+			if (player.getExp() + xp >= player.getExpToNextLvl()) {
+				player.setExp(player.getExp() + xp % player.getExpToNextLvl());
+				player.setLevel(player.getLevel() + 1);
+				player.setExpToNextLvl(xpMap.get(player.getLevel()));
+				player.setHp(getMaxHp(player));
+			} else {
+				player.setExp(player.getExp() + xp);
+			}
+			playerCache.put(id, player);
 		}
-		playerCache.put(id, player);
 	}
 
 	private static Map<Integer, Integer> generateXpMap() {
@@ -170,39 +191,48 @@ public class PlayersManager {
 	}
 
 	public void addNewItem(String id, String item) {
-		var player = playerCache.get(id);
-		Item newItem = itemsManager.getItem(item);
-		player.setReputation(newItem.getReputation() > 0 ? player.getReputation() + newItem.getReputation() : player.getReputation());
-		player.setHp(newItem.getHealth() > 0 ? player.getHp() + newItem.getHealth() : player.getHp());
-		player.setArmor(newItem.getArmor() > 0 ? player.getArmor() + newItem.getArmor() : player.getArmor());
-		player.setLuck(newItem.getLuck() > 0 ? player.getLuck() + newItem.getLuck() : player.getLuck());
-		player.setStrength(newItem.getStrength() > 0 ? player.getStrength() + newItem.getStrength() : player.getStrength());
-		var inventory = player.getInventory();
-		if (inventory.get(item) != null) {
-			inventory.put(item, inventory.get(item) + 1);
-		} else {
-			inventory.put(item, 1);
+		synchronized (getPlayerLock(id)) {
+			var player = playerCache.get(id);
+			if (player == null) return;
+			Item newItem = itemsManager.getItem(item);
+			if (newItem == null) return;
+			player.setReputation(newItem.getReputation() > 0 ? player.getReputation() + newItem.getReputation() : player.getReputation());
+			player.setHp(newItem.getHealth() > 0 ? player.getHp() + newItem.getHealth() : player.getHp());
+			player.setArmor(newItem.getArmor() > 0 ? player.getArmor() + newItem.getArmor() : player.getArmor());
+			player.setLuck(newItem.getLuck() > 0 ? player.getLuck() + newItem.getLuck() : player.getLuck());
+			player.setStrength(newItem.getStrength() > 0 ? player.getStrength() + newItem.getStrength() : player.getStrength());
+			var inventory = player.getInventory();
+			if (inventory.get(item) != null) {
+				inventory.put(item, inventory.get(item) + 1);
+			} else {
+				inventory.put(item, 1);
+			}
+			playerCache.put(id, player);
 		}
-		playerCache.put(id, player);
 	}
 
 	public void deleteItem(String id, String item) {
-		var player = playerCache.get(id);
-		Item deleteItem = itemsManager.getItem(item);
-		if (!deleteItem.isAction()) {
-			player.setReputation(deleteItem.getReputation() > 0 ? player.getReputation() - deleteItem.getReputation() : player.getReputation());
-			player.setHp(deleteItem.getHealth() > 0 ? player.getHp() - deleteItem.getHealth() : player.getHp());
-			player.setArmor(deleteItem.getArmor() > 0 ? player.getArmor() - deleteItem.getArmor() : player.getArmor());
-			player.setLuck(deleteItem.getLuck() > 0 ? player.getLuck() - deleteItem.getLuck() : player.getLuck());
-			player.setStrength(deleteItem.getStrength() > 0 ? player.getStrength() - deleteItem.getStrength() : player.getStrength());
+		synchronized (getPlayerLock(id)) {
+			var player = playerCache.get(id);
+			if (player == null) return;
+			Item deleteItem = itemsManager.getItem(item);
+			if (deleteItem == null) return;
+			if (!deleteItem.isAction()) {
+				player.setReputation(deleteItem.getReputation() > 0 ? player.getReputation() - deleteItem.getReputation() : player.getReputation());
+				player.setHp(deleteItem.getHealth() > 0 ? player.getHp() - deleteItem.getHealth() : player.getHp());
+				player.setArmor(deleteItem.getArmor() > 0 ? player.getArmor() - deleteItem.getArmor() : player.getArmor());
+				player.setLuck(deleteItem.getLuck() > 0 ? player.getLuck() - deleteItem.getLuck() : player.getLuck());
+				player.setStrength(deleteItem.getStrength() > 0 ? player.getStrength() - deleteItem.getStrength() : player.getStrength());
+			}
+			var inventory = player.getInventory();
+			Integer count = inventory.get(item);
+			if (count != null && count > 1) {
+				inventory.put(item, count - 1);
+			} else {
+				inventory.remove(item);
+			}
+			playerCache.put(id, player);
 		}
-		var inventory = player.getInventory();
-		if (inventory.get(item) > 1) {
-			inventory.put(item, inventory.get(item) - 1);
-		} else {
-			inventory.remove(item);
-		}
-		playerCache.put(id, player);
 	}
 
 	public void deathOfPlayer(Player dead) {
@@ -249,34 +279,43 @@ public class PlayersManager {
 	}
 
 	private int changeArmor(String id, int armor, boolean increase) {
-		Player player = playerCache.get(id);
-		player.setArmor(increase ?
-						player.getArmor() + armor :
-						player.getArmor() - armor);
-		playerCache.put(id, player);
-		return player.getArmor();
+		synchronized (getPlayerLock(id)) {
+			Player player = playerCache.get(id);
+			if (player == null) return 0;
+			player.setArmor(increase ?
+							player.getArmor() + armor :
+							player.getArmor() - armor);
+			playerCache.put(id, player);
+			return player.getArmor();
+		}
 	}
 
 	public int changeLuck(String id, int luck, boolean increase) {
-		var player = playerCache.get(id);
-		if (increase) {
-			player.setReputation(player.getReputation() + luck);
-		} else {
-			player.setReputation(player.getReputation() - luck);
+		synchronized (getPlayerLock(id)) {
+			var player = playerCache.get(id);
+			if (player == null) return 0;
+			if (increase) {
+				player.setLuck(player.getLuck() + luck);
+			} else {
+				player.setLuck(player.getLuck() - luck);
+			}
+			playerCache.put(id, player);
+			return player.getLuck();
 		}
-		playerCache.put(id, player);
-		return player.getLuck();
 	}
 
 	public int changeStrength(String id, int strength, boolean increase) {
-		var player = playerCache.get(id);
-		if (increase) {
-			player.setReputation(player.getReputation() + strength);
-		} else {
-			player.setReputation(player.getReputation() - strength);
+		synchronized (getPlayerLock(id)) {
+			var player = playerCache.get(id);
+			if (player == null) return 0;
+			if (increase) {
+				player.setStrength(player.getStrength() + strength);
+			} else {
+				player.setStrength(player.getStrength() - strength);
+			}
+			playerCache.put(id, player);
+			return player.getStrength();
 		}
-		playerCache.put(id, player);
-		return player.getStrength();
 	}
 
 	public void sellItem(MessageReceivedEvent event) {
@@ -330,7 +369,7 @@ public class PlayersManager {
 		var player = playerCache.get(event.getAuthor().getId());
 		var currentLocation = locationManager.getLocation(player.getLocation());
 		Location nextLocation = locationManager.getLocation(message.toLowerCase());
-		if (Strings.isEmpty(message)) {
+		if (message == null || message.isEmpty()) {
 			event.getChannel().sendMessage("Для перемещения нужно указать желаемую локацию, введи \"+идти локация\" вместо локация, подставь любую из доступных: \n" + currentLocation.getPaths().toString()).submit();
 			return;
 		} else if (nextLocation == null) {
@@ -343,7 +382,8 @@ public class PlayersManager {
 		}
 		boolean isTeleport = false;
 		if (!currentLocation.getPaths().contains(message)) {
-			int token = player.getInventory().get("токен телепорта");
+			Integer tokenObj = player.getInventory().get("токен телепорта");
+			int token = tokenObj != null ? tokenObj : 0;
 			if (currentLocation.isTeleport() && nextLocation.isTeleport() && token > 0) {
 				isTeleport = true;
 				if (token > 1) {

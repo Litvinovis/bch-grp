@@ -101,6 +101,6 @@ public class EventsManager {
 		return startQuest.get(rand.nextInt(startQuest.size()))
 						+ middleQuest.get(rand.nextInt(middleQuest.size()))
 						+ "в " + location
-						+ endQuest.get(rand.nextInt(middleQuest.size()));
+						+ endQuest.get(rand.nextInt(endQuest.size()));
 	}
 }
