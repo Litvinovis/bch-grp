@@ -24,6 +24,7 @@ public class MessageHandler extends ListenerAdapter {
 	private static final String OPENCLAW_ROVER_BOT_ID = "1481319611533365483";
 	private static IgniteCache<String, Player> playerCache;
 	private final java.util.Set<String> allowedChannelIds;
+	private final java.util.Set<String> adminIds;
 	private final Logger logger = LoggerFactory.getLogger("adminLog");
 	private final ItemsManager itemsManager;
 	private final PlayersManager playersManager;
@@ -31,8 +32,9 @@ public class MessageHandler extends ListenerAdapter {
 	private final IdeasManager ideasManager;
 	private final ThreadPoolExecutor executor = new ThreadPoolExecutor(NUM_THREADS, NUM_THREADS, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>());
 
-	public MessageHandler(Ignite ignite, java.util.List<String> allowedChannelIds) {
+	public MessageHandler(Ignite ignite, java.util.List<String> allowedChannelIds, java.util.List<String> adminIds) {
 		this.allowedChannelIds = new java.util.HashSet<>(allowedChannelIds == null ? java.util.List.of() : allowedChannelIds);
+		this.adminIds = new java.util.HashSet<>(adminIds == null ? java.util.List.of() : adminIds);
 		playerCache = ignite.getOrCreateCache("players");
 		this.locationManager = new LocationManager(ignite.getOrCreateCache("locations"));
 		this.itemsManager = new ItemsManager(ignite.getOrCreateCache("items"));
@@ -168,7 +170,7 @@ public class MessageHandler extends ListenerAdapter {
 	}
 
 	private boolean isAdmin(MessageReceivedEvent event) {
-		if (!event.getMessage().getAuthor().getId().equals("253576055317594114")) {
+		if (!adminIds.contains(event.getMessage().getAuthor().getId())) {
 			event.getChannel().sendMessage(Constants.ACCESS_DENIED).submit();
 			return false;
 		} else {

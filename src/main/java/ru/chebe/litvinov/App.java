@@ -42,8 +42,9 @@ public class App {
                     .orElseThrow(() -> new IllegalStateException("Не задан токен Discord. Установите переменную окружения BCHGRP_DISCORD_TOKEN"));
             JDA jda = JDABuilder.createDefault(token)
                     .enableIntents(GatewayIntent.MESSAGE_CONTENT)
-                    .addEventListeners(new MessageHandler(ignite, botConfig.getAllowedChannelIds()))
+                    .addEventListeners(new MessageHandler(ignite, botConfig.getAllowedChannelIds(), botConfig.getAdminIds()))
                     .setActivity(Activity.playing("БЧ-ГРП"))
+                    .setMaxReconnectDelay(60)
                     .build();
             logger.info("Discord бот успешно инициализирован");
             

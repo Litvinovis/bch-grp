@@ -10,12 +10,14 @@ import java.util.Map;
 
 public class BotConfig {
     private final List<String> allowedChannelIds;
+    private final List<String> adminIds;
     private final String igniteLocalAddress;
     private final List<String> igniteDiscoveryAddresses;
     private final String igniteWorkDir;
 
-    public BotConfig(List<String> allowedChannelIds, String igniteLocalAddress, List<String> igniteDiscoveryAddresses, String igniteWorkDir) {
+    public BotConfig(List<String> allowedChannelIds, List<String> adminIds, String igniteLocalAddress, List<String> igniteDiscoveryAddresses, String igniteWorkDir) {
         this.allowedChannelIds = allowedChannelIds;
+        this.adminIds = adminIds;
         this.igniteLocalAddress = igniteLocalAddress;
         this.igniteDiscoveryAddresses = igniteDiscoveryAddresses;
         this.igniteWorkDir = igniteWorkDir;
@@ -23,6 +25,10 @@ public class BotConfig {
 
     public List<String> getAllowedChannelIds() {
         return allowedChannelIds;
+    }
+
+    public List<String> getAdminIds() {
+        return adminIds;
     }
 
     public String getIgniteLocalAddress() {
@@ -49,6 +55,7 @@ public class BotConfig {
             }
 
             List<String> channelIds = readStringList(root, "discord", "allowed-channel-ids");
+            List<String> adminIds = readStringList(root, "discord", "admin-ids");
             String igniteLocal = readString(root, "ignite", "local-address", "192.168.1.120");
             List<String> igniteDiscovery = readStringList(root, "ignite", "discovery-addresses");
             if (igniteDiscovery.isEmpty()) {
@@ -56,7 +63,7 @@ public class BotConfig {
             }
             String igniteWorkDir = readString(root, "ignite", "work-dir", "/tmp/ignite-bch-client");
 
-            return new BotConfig(channelIds, igniteLocal, igniteDiscovery, igniteWorkDir);
+            return new BotConfig(channelIds, adminIds, igniteLocal, igniteDiscovery, igniteWorkDir);
         } catch (Exception e) {
             return defaults();
         }
@@ -89,7 +96,7 @@ public class BotConfig {
     }
 
     private static BotConfig defaults() {
-        return new BotConfig(Collections.emptyList(), "192.168.1.120", List.of("192.168.1.120:47650..47659"), "/tmp/ignite-bch-client");
+        return new BotConfig(Collections.emptyList(), Collections.emptyList(), "192.168.1.120", List.of("192.168.1.120:47650..47659"), "/tmp/ignite-bch-client");
     }
 }
 

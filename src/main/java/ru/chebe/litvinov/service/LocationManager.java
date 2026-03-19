@@ -67,7 +67,7 @@ public class LocationManager {
 		next.getPopulationByName().add(player.getNickName());
 		next.getPopulationById().add(player.getId());
 		current.getPopulationByName().remove(player.getNickName());
-		current.getPopulationByName().remove(player.getId());
+		current.getPopulationById().remove(player.getId());
 		locationCache.put(next.getName(), next);
 		locationCache.put(current.getName(), current);
 		return next;

@@ -73,12 +73,59 @@ public class PlayersManagerTest extends TestCase {
         Player player = new Player("TestPlayer", "123");
         player.setHp(90);
         player.setMaxHp(100);
-        
+
         when(playerCache.get("123")).thenReturn(player);
-        
+
         int newHp = playersManager.changeHp("123", 30, true);
-        
+
         assertEquals(100, newHp); // Should not exceed maxHp
         verify(playerCache).put("123", player);
+    }
+
+    @Test
+    public void testChangeHpWithNullPlayer_doesNotThrow() {
+        when(playerCache.get("unknown")).thenReturn(null);
+        // Must not throw NPE — null player guard added as part of bug fix
+        int result = playersManager.changeHp("unknown", 10, true);
+        assertEquals(0, result);
+        verify(playerCache, never()).put(anyString(), any());
+    }
+
+    @Test
+    public void testChangeLuckIncrease_modifiesLuckNotReputation() {
+        Player player = new Player("TestPlayer", "123");
+        player.setLuck(5);
+        player.setReputation(0);
+
+        when(playerCache.get("123")).thenReturn(player);
+
+        int newLuck = playersManager.changeLuck("123", 3, true);
+
+        assertEquals(8, newLuck);
+        assertEquals(0, player.getReputation()); // reputation must be unchanged
+        verify(playerCache).put("123", player);
+    }
+
+    @Test
+    public void testChangeStrengthIncrease_modifiesStrengthNotReputation() {
+        Player player = new Player("TestPlayer", "123");
+        player.setStrength(5);
+        player.setReputation(0);
+
+        when(playerCache.get("123")).thenReturn(player);
+
+        int newStrength = playersManager.changeStrength("123", 4, true);
+
+        assertEquals(9, newStrength);
+        assertEquals(0, player.getReputation()); // reputation must be unchanged
+        verify(playerCache).put("123", player);
+    }
+
+    @Test
+    public void testChangeMoneyWithNullPlayer_doesNotThrow() {
+        when(playerCache.get("ghost")).thenReturn(null);
+        int result = playersManager.changeMoney("ghost", 50, true);
+        assertEquals(0, result);
+        verify(playerCache, never()).put(anyString(), any());
     }
 }
