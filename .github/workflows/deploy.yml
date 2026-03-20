@@ -41,8 +41,8 @@ jobs:
           BACKUP="${DEPLOY_DIR}/${JAR_NAME}.backup.$(date +%Y%m%d_%H%M)"
           sudo cp ${DEPLOY_DIR}/${JAR_NAME} ${BACKUP} 2>/dev/null || true
 
-          # Deploy new jar
-          sudo cp target/${JAR_NAME} ${DEPLOY_DIR}/${JAR_NAME}
+          # Deploy new jar (assembly plugin produces jar-with-dependencies)
+          sudo cp target/bchgrp-*-jar-with-dependencies.jar ${DEPLOY_DIR}/${JAR_NAME}
 
           # Restart service
           sudo systemctl restart ${SERVICE}
