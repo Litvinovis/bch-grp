@@ -1,0 +1,76 @@
+name: Build & Deploy — BCH-GRP Bot
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to deploy'
+        default: 'main'
+        required: false
+
+jobs:
+  build-and-deploy:
+    runs-on: self-hosted
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch || github.ref }}
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Build & Test
+        run: mvn package -B
+
+      - name: Deploy (only on push/dispatch to main)
+        if: github.event_name != 'pull_request'
+        run: |
+          DEPLOY_DIR=/opt/BCHGRP
+          JAR_NAME=bchgrp.jar
+          SERVICE=bot-bchgrp
+
+          # Backup current jar
+          BACKUP="${DEPLOY_DIR}/${JAR_NAME}.backup.$(date +%Y%m%d_%H%M)"
+          sudo cp ${DEPLOY_DIR}/${JAR_NAME} ${BACKUP} 2>/dev/null || true
+
+          # Deploy new jar
+          sudo cp target/${JAR_NAME} ${DEPLOY_DIR}/${JAR_NAME}
+
+          # Restart service
+          sudo systemctl restart ${SERVICE}
+
+      - name: Smoke test
+        if: github.event_name != 'pull_request'
+        run: |
+          echo "Waiting for bot to start..."
+          sleep 15
+          STATUS=$(sudo systemctl is-active bot-bchgrp)
+          if [ "$STATUS" != "active" ]; then
+            echo "❌ Bot failed to start, rolling back..."
+            LATEST_BACKUP=$(ls -t /opt/BCHGRP/bchgrp.jar.backup.* 2>/dev/null | sed -n '2p')
+            if [ -n "$LATEST_BACKUP" ]; then
+              sudo cp "$LATEST_BACKUP" /opt/BCHGRP/bchgrp.jar
+              sudo systemctl restart bot-bchgrp
+            fi
+            exit 1
+          fi
+          echo "✅ Bot is running fine"
+
+      - name: Notify Telegram
+        if: always() && github.event_name != 'pull_request'
+        run: |
+          if [ "${{ job.status }}" = "success" ]; then
+            MSG="✅ *BCH-GRP Bot* задеплоен%0Aветка: \`${{ github.ref_name }}\`%0Aкоммит: ${{ github.sha }}"
+          else
+            MSG="❌ *BCH-GRP Bot* — деплой упал%0Aветка: \`${{ github.ref_name }}\`%0Aсмотри: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          fi
+          curl -s "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+            -d "chat_id=${{ secrets.TELEGRAM_CHAT_ID }}&text=${MSG}&parse_mode=Markdown" > /dev/null
