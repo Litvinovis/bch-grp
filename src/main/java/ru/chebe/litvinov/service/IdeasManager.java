@@ -9,7 +9,7 @@ import ru.chebe.litvinov.data.Idea;
 
 import javax.cache.Cache;
 
-public class IdeasManager {
+public class IdeasManager implements ru.chebe.litvinov.service.interfaces.IIdeasManager {
 
 	private final IgniteCache<Integer, Idea> ideaCache;
 
