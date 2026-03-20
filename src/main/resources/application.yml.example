@@ -1,0 +1,17 @@
+discord:
+  # ID каналов, в которых бот принимает команды
+  allowed-channel-ids:
+    - "CHANNEL_ID_1"
+    - "CHANNEL_ID_2"
+  # ID пользователей с правами администратора бота
+  admin-ids:
+    - "ADMIN_DISCORD_USER_ID"
+
+ignite:
+  # Локальный адрес узла Ignite
+  local-address: "127.0.0.1"
+  # Адреса узлов кластера Ignite для discovery
+  discovery-addresses:
+    - "127.0.0.1:47650..47659"
+  # Рабочая директория Ignite
+  work-dir: "/tmp/ignite-bch-client"

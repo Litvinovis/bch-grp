@@ -1,18 +1,26 @@
+# Build output
 target/
+build/
+
+# Jar artifacts
+*.jar
+
+# Maven wrapper jar (keep this)
 !.mvn/wrapper/maven-wrapper.jar
-!**/src/main/**/target/
-!**/src/test/**/target/
+
+# Environment / secrets
+.env
+*.env
+.env.*
+!.env.example
+
+# Runtime application config (contains secrets / environment-specific values)
+# The template is kept as application.yml.example
+src/main/resources/application.yml
+config/application.yml
 
 ### IntelliJ IDEA ###
-.idea/modules.xml
-.idea/jarRepositories.xml
-.idea/compiler.xml
-.idea/libraries/
-.idea/workspace.xml
-.idea/encodings.xml
-.idea/uiDesigner.xml
-.idea/vcs.xml
-.idea/misc.xml
+.idea/
 *.iws
 *.iml
 *.ipr
@@ -32,15 +40,15 @@ target/
 /dist/
 /nbdist/
 /.nb-gradle/
-build/
-!**/src/main/**/build/
-!**/src/test/**/build/
 
 ### VS Code ###
 .vscode/
 
 ### Mac OS ###
 .DS_Store
+
+### Windows ###
+Thumbs.db
 
 ### Logs ###
 logs/
@@ -50,3 +58,4 @@ logs/
 ### Apache Ignite ###
 ignite/work/
 ignite/*/work/
+/tmp/ignite-*/
