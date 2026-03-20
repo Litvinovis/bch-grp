@@ -11,7 +11,7 @@ import ru.chebe.litvinov.data.Player;
 import java.io.File;
 import java.util.*;
 
-public class LocationManager {
+public class LocationManager implements ru.chebe.litvinov.service.interfaces.ILocationManager {
 
 	private final IgniteCache<String, Location> locationCache;
 	public static final List<String> locationList = new ArrayList<>(50);

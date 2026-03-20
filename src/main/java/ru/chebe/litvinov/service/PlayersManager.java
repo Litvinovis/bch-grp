@@ -9,12 +9,13 @@ import ru.chebe.litvinov.data.Player;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 
 import static ru.chebe.litvinov.Constants.MIN_LVL_TO_CLAN_CREATE;
 import static ru.chebe.litvinov.Constants.MIN_LVL_TO_CLAN_JOIN;
 
-public class PlayersManager {
+public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPlayersManager {
 	private final IgniteCache<String, Player> playerCache;
 	private final LocationManager locationManager;
 	private final ItemsManager itemsManager;
@@ -23,11 +24,15 @@ public class PlayersManager {
 	private final ClanManager clanManager;
 	private final Tavern tavern;
 	private final Random random = new Random();
-	/** Per-player locks to prevent race conditions on read-modify-write operations. */
-	private final ConcurrentHashMap<String, Object> playerLocks = new ConcurrentHashMap<>();
 
-	private Object getPlayerLock(String id) {
-		return playerLocks.computeIfAbsent(id, k -> new Object());
+	/**
+	 * Per-player ReentrantLock для атомарных read-modify-write операций.
+	 * Использование единой стратегии ReentrantLock (без смешения с synchronized).
+	 */
+	private final ConcurrentHashMap<String, ReentrantLock> playerLocks = new ConcurrentHashMap<>();
+
+	private ReentrantLock getPlayerLock(String id) {
+		return playerLocks.computeIfAbsent(id, k -> new ReentrantLock());
 	}
 	private static final int DAILY_BONUS = 100;
 
@@ -61,16 +66,22 @@ public class PlayersManager {
 	}
 
 	public void changeHp(String id, int hp) {
-		synchronized (getPlayerLock(id)) {
+		ReentrantLock lock = getPlayerLock(id);
+		lock.lock();
+		try {
 			var player = playerCache.get(id);
 			if (player == null) return;
 			player.setHp(hp);
 			playerCache.put(id, player);
+		} finally {
+			lock.unlock();
 		}
 	}
 
 	public int changeHp(String id, int hp, boolean increase) {
-		synchronized (getPlayerLock(id)) {
+		ReentrantLock lock = getPlayerLock(id);
+		lock.lock();
+		try {
 			var player = playerCache.get(id);
 			if (player == null) return 0;
 			if (increase) {
@@ -81,6 +92,8 @@ public class PlayersManager {
 			}
 			playerCache.put(id, player);
 			return player.getHp();
+		} finally {
+			lock.unlock();
 		}
 	}
 
@@ -105,7 +118,9 @@ public class PlayersManager {
 	}
 
 	public int changeMoney(String id, int money, boolean increase) {
-		synchronized (getPlayerLock(id)) {
+		ReentrantLock lock = getPlayerLock(id);
+		lock.lock();
+		try {
 			var player = playerCache.get(id);
 			if (player == null) return 0;
 			if (increase) {
@@ -115,11 +130,15 @@ public class PlayersManager {
 			}
 			playerCache.put(id, player);
 			return player.getMoney();
+		} finally {
+			lock.unlock();
 		}
 	}
 
 	public int changeReputation(String id, int reputation, boolean increase) {
-		synchronized (getPlayerLock(id)) {
+		ReentrantLock lock = getPlayerLock(id);
+		lock.lock();
+		try {
 			var player = playerCache.get(id);
 			if (player == null) return 0;
 			if (increase) {
@@ -129,11 +148,15 @@ public class PlayersManager {
 			}
 			playerCache.put(id, player);
 			return player.getReputation();
+		} finally {
+			lock.unlock();
 		}
 	}
 
 	public void changeXp(String id, int xp) {
-		synchronized (getPlayerLock(id)) {
+		ReentrantLock lock = getPlayerLock(id);
+		lock.lock();
+		try {
 			var player = playerCache.get(id);
 			if (player == null) return;
 			if (player.getExp() + xp >= player.getExpToNextLvl()) {
@@ -145,6 +168,8 @@ public class PlayersManager {
 				player.setExp(player.getExp() + xp);
 			}
 			playerCache.put(id, player);
+		} finally {
+			lock.unlock();
 		}
 	}
 
@@ -191,7 +216,9 @@ public class PlayersManager {
 	}
 
 	public void addNewItem(String id, String item) {
-		synchronized (getPlayerLock(id)) {
+		ReentrantLock lock = getPlayerLock(id);
+		lock.lock();
+		try {
 			var player = playerCache.get(id);
 			if (player == null) return;
 			Item newItem = itemsManager.getItem(item);
@@ -208,11 +235,15 @@ public class PlayersManager {
 				inventory.put(item, 1);
 			}
 			playerCache.put(id, player);
+		} finally {
+			lock.unlock();
 		}
 	}
 
 	public void deleteItem(String id, String item) {
-		synchronized (getPlayerLock(id)) {
+		ReentrantLock lock = getPlayerLock(id);
+		lock.lock();
+		try {
 			var player = playerCache.get(id);
 			if (player == null) return;
 			Item deleteItem = itemsManager.getItem(item);
@@ -232,6 +263,8 @@ public class PlayersManager {
 				inventory.remove(item);
 			}
 			playerCache.put(id, player);
+		} finally {
+			lock.unlock();
 		}
 	}
 
@@ -279,7 +312,9 @@ public class PlayersManager {
 	}
 
 	private int changeArmor(String id, int armor, boolean increase) {
-		synchronized (getPlayerLock(id)) {
+		ReentrantLock lock = getPlayerLock(id);
+		lock.lock();
+		try {
 			Player player = playerCache.get(id);
 			if (player == null) return 0;
 			player.setArmor(increase ?
@@ -287,11 +322,15 @@ public class PlayersManager {
 							player.getArmor() - armor);
 			playerCache.put(id, player);
 			return player.getArmor();
+		} finally {
+			lock.unlock();
 		}
 	}
 
 	public int changeLuck(String id, int luck, boolean increase) {
-		synchronized (getPlayerLock(id)) {
+		ReentrantLock lock = getPlayerLock(id);
+		lock.lock();
+		try {
 			var player = playerCache.get(id);
 			if (player == null) return 0;
 			if (increase) {
@@ -301,11 +340,15 @@ public class PlayersManager {
 			}
 			playerCache.put(id, player);
 			return player.getLuck();
+		} finally {
+			lock.unlock();
 		}
 	}
 
 	public int changeStrength(String id, int strength, boolean increase) {
-		synchronized (getPlayerLock(id)) {
+		ReentrantLock lock = getPlayerLock(id);
+		lock.lock();
+		try {
 			var player = playerCache.get(id);
 			if (player == null) return 0;
 			if (increase) {
@@ -315,6 +358,8 @@ public class PlayersManager {
 			}
 			playerCache.put(id, player);
 			return player.getStrength();
+		} finally {
+			lock.unlock();
 		}
 	}
 
