@@ -14,9 +14,7 @@ build/
 .env.*
 !.env.example
 
-# Runtime application config (contains secrets / environment-specific values)
-# The template is kept as application.yml.example
-src/main/resources/application.yml
+# Runtime application config (external deploy config, not the bundled resource)
 config/application.yml
 
 ### IntelliJ IDEA ###
