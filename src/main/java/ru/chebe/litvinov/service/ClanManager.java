@@ -9,16 +9,34 @@ import java.util.List;
 
 import static ru.chebe.litvinov.Constants.MAX_CLAN_SIZE;
 
+/**
+ * Менеджер кланов.
+ * Управляет созданием, вступлением, выходом и управлением заявками в кланах.
+ * Данные хранятся в Ignite-кэшах кланов и игроков.
+ */
 public class ClanManager {
 
 	private final IgniteCache<String, Clan> clanCache;
 	private final IgniteCache<String, Player> playerCache;
 
+	/**
+	 * Создаёт менеджер кланов.
+	 *
+	 * @param clanCache   Ignite-кэш для хранения данных кланов
+	 * @param playerCache Ignite-кэш для хранения данных игроков
+	 */
 	public ClanManager(IgniteCache<String, Clan> clanCache, IgniteCache<String, Player> playerCache) {
 		this.clanCache = clanCache;
 		this.playerCache = playerCache;
 	}
 
+	/**
+	 * Регистрирует новый клан с указанным именем и лидером.
+	 *
+	 * @param clanName название нового клана
+	 * @param leaderId идентификатор игрока-лидера
+	 * @return пустую строку при успехе или сообщение об ошибке
+	 */
 	public String registerClan(String clanName, String leaderId) {
 		if (clanCache.containsKey(clanName)) {
 			return "Клан с таким именем уже существует, подай заявку на вступление или придумай другое название";
@@ -29,6 +47,13 @@ public class ClanManager {
 	}
 
 
+	/**
+	 * Удаляет игрока из клана. Если игрок был лидером — назначает нового лидера.
+	 * Если клан остался пустым — удаляет его.
+	 *
+	 * @param clanName название клана
+	 * @param id       идентификатор выходящего игрока
+	 */
 	public void leaveClan(String clanName, String id) {
 		var clan = clanCache.get(clanName);
 		clan.getMembers().remove(id);
@@ -39,6 +64,13 @@ public class ClanManager {
 		}
 	}
 
+	/**
+	 * Подаёт заявку на вступление игрока в клан.
+	 *
+	 * @param clanName название клана
+	 * @param id       идентификатор игрока
+	 * @return пустую строку при успешной подаче заявки или сообщение об ошибке
+	 */
 	public String joinClan(String clanName, String id) {
 		var clan = clanCache.get(clanName);
 		if (clan == null) {
@@ -51,6 +83,13 @@ public class ClanManager {
 		return "";
 	}
 
+	/**
+	 * Принимает все заявки на вступление в клан. Доступно только лидеру клана.
+	 *
+	 * @param clanName название клана
+	 * @param id       идентификатор игрока, выполняющего действие
+	 * @return пустую строку при успехе или сообщение об ошибке
+	 */
 	public String acceptApply(String clanName, String id) {
 		var clan = clanCache.get(clanName);
 		if (clan.getLeaderId().equals(id)) {
@@ -81,6 +120,13 @@ public class ClanManager {
 		return "";
 	}
 
+	/**
+	 * Отклоняет все заявки на вступление в клан. Доступно только лидеру клана.
+	 *
+	 * @param clanName название клана
+	 * @param id       идентификатор игрока, выполняющего действие
+	 * @return пустую строку при успехе или сообщение об ошибке
+	 */
 	public String rejectApply(String clanName, String id) {
 		var clan = clanCache.get(clanName);
 		if (clan.getLeaderId().equals(id)) {
@@ -95,6 +141,12 @@ public class ClanManager {
 		return "";
 	}
 
+	/**
+	 * Возвращает текстовую информацию о клане: лидер, участники и количество заявок.
+	 *
+	 * @param clanName название клана
+	 * @return строка с информацией о клане или сообщение об ошибке
+	 */
 	public String getClanInfo(String clanName) {
 		if (clanName.isEmpty()) {
 			return "Вы не ввели название клана";
@@ -115,6 +167,12 @@ public class ClanManager {
 		return sb.toString();
 	}
 
+	/**
+	 * Возвращает список идентификаторов участников клана.
+	 *
+	 * @param clanName название клана
+	 * @return список идентификаторов игроков или пустой список если клан не найден
+	 */
 	public List<String> getClanMembers(String clanName) {
 		var clan = clanCache.get(clanName);
 		if (clan == null) {

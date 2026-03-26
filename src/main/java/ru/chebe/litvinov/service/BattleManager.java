@@ -8,16 +8,29 @@ import ru.chebe.litvinov.data.Player;
 
 import java.util.*;
 
+/**
+ * Менеджер боевой системы.
+ * Управляет боями между игроками, мобами и боссами, а также хранит состояние боссов в Ignite-кэше.
+ */
 public class BattleManager {
 
 	private final IgniteCache<String, Boss> bossCache;
 	private final Random rand = new Random();
 
+	/**
+	 * Создаёт менеджер боёв и инициализирует кэш боссов начальными данными.
+	 *
+	 * @param bossCache Ignite-кэш для хранения состояния боссов
+	 */
 	public BattleManager(IgniteCache<String, Boss> bossCache) {
 		this.bossCache = bossCache;
 		init();
 	}
 
+	/**
+	 * Инициализирует кэш боссов предустановленными данными.
+	 * Боссы добавляются только если ещё не существуют в кэше.
+	 */
 	public void init() {
 		Map<String, Boss> map = new HashMap<>();
 		map.put("cynic mansion", Boss.builder().nickName("cynic mansion").hp(1000).strength(10).defeat(0).win(0).bossItem("кисточка циника").build());
@@ -52,6 +65,14 @@ public class BattleManager {
 		}
 	}
 
+	/**
+	 * Проводит PvP-бой между двумя командами игроков.
+	 *
+	 * @param players1 атакующая команда
+	 * @param players2 защищающаяся команда
+	 * @param channel  Discord-канал для вывода сообщений о ходе боя
+	 * @return объединённый список всех участников с актуальным HP после боя
+	 */
 	public List<Person> playerBattle(List<Person> players1, List<Person> players2, MessageChannelUnion channel) {
 		if (players1.isEmpty() || players2.isEmpty()) {
 			channel.sendMessage("Невозможно начать бой!").queue();
@@ -62,6 +83,13 @@ public class BattleManager {
 		return players1;
 	}
 
+	/**
+	 * Проводит бой игрока со случайным мобом при переходе в опасную локацию.
+	 *
+	 * @param player  игрок, вступающий в бой
+	 * @param channel Discord-канал для вывода сообщений
+	 * @return 1 если игрок победил, -1 если проиграл
+	 */
 	public int mobBattle(Player player, MessageChannelUnion channel) {
 		Person boss = Boss.builder().nickName("Бандит").hp(rand.nextInt(15, 35)).strength(3).defeat(0).win(0).bossItem(null).build();
 		battleMechanic(List.of(player), List.of(boss), channel);
@@ -75,6 +103,14 @@ public class BattleManager {
 		}
 	}
 
+	/**
+	 * Проводит бой команды игроков против босса локации.
+	 * После боя HP босса восстанавливается до начального значения, обновляется статистика побед/поражений.
+	 *
+	 * @param players  список игроков-участников боя
+	 * @param bossName имя босса из кэша
+	 * @param channel  Discord-канал для вывода сообщений
+	 */
 	public void bossBattle(List<Person> players, String bossName, MessageChannelUnion channel) {
 		Boss boss = bossCache.get(bossName);
 		if (boss == null) {
@@ -103,6 +139,14 @@ public class BattleManager {
 		bossCache.put(boss.getNickName(), boss);
 	}
 
+	/**
+	 * Реализует пошаговую механику боя двух команд.
+	 * Бой идёт пока в каждой команде есть хотя бы один живой участник.
+	 *
+	 * @param team1   первая команда
+	 * @param team2   вторая команда
+	 * @param channel Discord-канал для вывода сообщений о ходе боя
+	 */
 	public void battleMechanic(List<Person> team1, List<Person> team2, MessageChannelUnion channel) {
 		StringBuilder sb = new StringBuilder();
 		while (checkHpPlayerList(team1) && checkHpPlayerList(team2)) {
@@ -134,6 +178,12 @@ public class BattleManager {
 		}
 	}
 
+	/**
+	 * Возвращает название предмета, выпадающего с указанного босса.
+	 *
+	 * @param bossName имя босса
+	 * @return название предмета или null если босс не найден
+	 */
 	public String getBossItemName(String bossName) {
 		Boss boss = bossCache.get(bossName);
 		return boss != null ? boss.getBossItem() : null;
@@ -148,6 +198,12 @@ public class BattleManager {
 		return false;
 	}
 
+	/**
+	 * Вычисляет случайный урон на основе базового значения с отклонением ±25%.
+	 *
+	 * @param baseDamage базовое значение урона
+	 * @return итоговое значение урона (минимум 1, если baseDamage > 0; 0 если baseDamage <= 0)
+	 */
 	protected int randomizeDamage(int baseDamage) {
 		if (baseDamage <= 0) return 0;
 		double percentageChange = (rand.nextInt(51) - 25) / 100.0; // От -25% до +25%

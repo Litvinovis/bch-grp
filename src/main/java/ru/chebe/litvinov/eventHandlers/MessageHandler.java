@@ -23,6 +23,12 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
+/**
+ * Обработчик Discord-сообщений.
+ * Принимает входящие сообщения, маршрутизирует их на соответствующие команды,
+ * обрабатывает проверку регистрации и прав доступа (администраторские команды).
+ * Использует пул потоков для параллельной обработки сообщений.
+ */
 @Slf4j
 public class MessageHandler extends ListenerAdapter {
 
@@ -47,6 +53,13 @@ public class MessageHandler extends ListenerAdapter {
 	private final ThreadPoolExecutor executor = new ThreadPoolExecutor(
 			NUM_THREADS, NUM_THREADS, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>());
 
+	/**
+	 * Создаёт обработчик сообщений, инициализируя все игровые сервисы через Ignite-кэши.
+	 *
+	 * @param ignite            запущенный экземпляр Apache Ignite
+	 * @param allowedChannelIds список идентификаторов Discord-каналов, в которых работает бот
+	 * @param adminIds          список идентификаторов Discord-пользователей с правами администратора
+	 */
 	public MessageHandler(Ignite ignite, java.util.List<String> allowedChannelIds, java.util.List<String> adminIds) {
 		this.allowedChannelIds = new HashSet<>(allowedChannelIds == null ? java.util.List.of() : allowedChannelIds);
 		this.adminIds = new HashSet<>(adminIds == null ? java.util.List.of() : adminIds);

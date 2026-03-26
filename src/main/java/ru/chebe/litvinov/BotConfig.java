@@ -8,6 +8,10 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Конфигурация бота, загружаемая из файла application.yml.
+ * Содержит параметры Discord-каналов, администраторов и настройки Apache Ignite.
+ */
 public class BotConfig {
     private final List<String> allowedChannelIds;
     private final List<String> adminIds;
@@ -15,6 +19,15 @@ public class BotConfig {
     private final List<String> igniteDiscoveryAddresses;
     private final String igniteWorkDir;
 
+    /**
+     * Создаёт конфигурацию бота с указанными параметрами.
+     *
+     * @param allowedChannelIds       список идентификаторов Discord-каналов, в которых работает бот
+     * @param adminIds                список идентификаторов администраторов
+     * @param igniteLocalAddress      локальный IP-адрес для Apache Ignite
+     * @param igniteDiscoveryAddresses список адресов для обнаружения узлов Ignite-кластера
+     * @param igniteWorkDir           рабочий каталог Apache Ignite
+     */
     public BotConfig(List<String> allowedChannelIds, List<String> adminIds, String igniteLocalAddress, List<String> igniteDiscoveryAddresses, String igniteWorkDir) {
         this.allowedChannelIds = allowedChannelIds;
         this.adminIds = adminIds;
@@ -23,26 +36,57 @@ public class BotConfig {
         this.igniteWorkDir = igniteWorkDir;
     }
 
+    /**
+     * Возвращает список разрешённых Discord-каналов.
+     *
+     * @return список идентификаторов каналов
+     */
     public List<String> getAllowedChannelIds() {
         return allowedChannelIds;
     }
 
+    /**
+     * Возвращает список идентификаторов администраторов.
+     *
+     * @return список идентификаторов администраторов
+     */
     public List<String> getAdminIds() {
         return adminIds;
     }
 
+    /**
+     * Возвращает локальный IP-адрес Ignite-узла.
+     *
+     * @return строка с IP-адресом
+     */
     public String getIgniteLocalAddress() {
         return igniteLocalAddress;
     }
 
+    /**
+     * Возвращает список адресов для обнаружения узлов Ignite-кластера.
+     *
+     * @return список адресов в формате host:port или диапазона портов
+     */
     public List<String> getIgniteDiscoveryAddresses() {
         return igniteDiscoveryAddresses;
     }
 
+    /**
+     * Возвращает рабочий каталог Apache Ignite.
+     *
+     * @return путь к рабочему каталогу
+     */
     public String getIgniteWorkDir() {
         return igniteWorkDir;
     }
 
+    /**
+     * Загружает конфигурацию из файла application.yml в classpath.
+     * При отсутствии файла или ошибке чтения возвращает конфигурацию с параметрами по умолчанию.
+     *
+     * @return загруженный или дефолтный объект BotConfig
+     */
     @SuppressWarnings("unchecked")
     public static BotConfig load() {
         try (InputStream is = BotConfig.class.getClassLoader().getResourceAsStream("application.yml")) {

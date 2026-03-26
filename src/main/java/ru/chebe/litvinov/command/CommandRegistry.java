@@ -60,7 +60,10 @@ public class CommandRegistry {
     }
 
     /**
-     * @return true если prefix является администраторской командой
+     * Проверяет, является ли текст сообщения администраторской командой.
+     *
+     * @param content содержимое сообщения
+     * @return true если сообщение начинается с префикса администраторской команды
      */
     public boolean isAdminCommand(String content) {
         for (String prefix : adminCommands.keySet()) {
@@ -70,7 +73,16 @@ public class CommandRegistry {
     }
 
     /**
-     * Создать стандартный реестр со всеми игровыми командами.
+     * Создаёт стандартный реестр со всеми игровыми командами.
+     *
+     * @param playersManager  менеджер игроков
+     * @param ideasManager    менеджер идей
+     * @param locationManager менеджер локаций
+     * @param itemsManager    менеджер предметов
+     * @param raidManager     менеджер рейдов
+     * @param helpMessage     текст справочного сообщения для команды +помощь
+     * @param infoMessage     текст информационного сообщения для команды +инфо
+     * @return настроенный реестр команд
      */
     public static CommandRegistry build(IPlayersManager playersManager,
                                         IIdeasManager ideasManager,

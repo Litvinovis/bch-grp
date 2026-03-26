@@ -5,18 +5,39 @@ import ru.chebe.litvinov.data.Player;
 
 import java.util.Random;
 
+/**
+ * Таверна — место для азартных игр в игровом мире.
+ * Содержит логику игр: кости, рулетка, камень-ножницы-бумага и угадай число.
+ */
 public class Tavern {
 	private final Random random;
 
+	/**
+	 * Создаёт таверну со стандартным генератором случайных чисел.
+	 */
 	public Tavern() {
 		this.random = new Random();
 	}
 
-	// Constructor for testing
+	/**
+	 * Создаёт таверну с указанным генератором случайных чисел.
+	 * Используется в тестах для воспроизводимых результатов.
+	 *
+	 * @param random генератор случайных чисел
+	 */
 	public Tavern(Random random) {
 		this.random = random;
 	}
 
+	/**
+	 * Проводит игру в кости между игроком и трактирщиком.
+	 * Игрок с повышенной удачей получает бонус +1 к одному из кубиков.
+	 *
+	 * @param event  событие Discord-сообщения
+	 * @param player объект игрока
+	 * @param bid    ставка (от 1 до 100)
+	 * @return обновлённый объект игрока с изменённым количеством денег
+	 */
 	public Player diceStart(MessageReceivedEvent event, Player player, int bid) {
 		try {
 			int die1, die2;
@@ -60,6 +81,16 @@ public class Tavern {
 		return player;
 	}
 
+	/**
+	 * Проводит игру в рулетку.
+	 * Ставка на цвет (красный/чёрный) даёт выигрыш x2, ставка на число — x35.
+	 *
+	 * @param event  событие Discord-сообщения
+	 * @param player объект игрока
+	 * @param bid    сумма ставки
+	 * @param bet    выбор игрока: «красный», «черный» или число 0-36
+	 * @return обновлённый объект игрока с изменённым количеством денег
+	 */
 	public Player playRoulette(MessageReceivedEvent event, Player player, int bid, String bet) {
 		if (player.getMoney() < bid) {
 			event.getChannel().sendMessage("У вас недостаточно денег для этой ставки!").queue();
@@ -87,6 +118,16 @@ public class Tavern {
 		return player;
 	}
 
+	/**
+	 * Проводит игру «камень-ножницы-бумага» против AI.
+	 * При победе игрок получает ставку, при проигрыше — теряет её.
+	 *
+	 * @param event  событие Discord-сообщения
+	 * @param player объект игрока
+	 * @param bid    сумма ставки
+	 * @param choice выбор игрока: «камень», «ножницы» или «бумага»
+	 * @return обновлённый объект игрока с изменённым количеством денег
+	 */
 	public Player rockPaperScissors(MessageReceivedEvent event, Player player, int bid, String choice) {
 		if (player.getMoney() < bid) {
 			event.getChannel().sendMessage("У вас недостаточно денег для этой ставки!").queue();
@@ -110,6 +151,16 @@ public class Tavern {
 		return player;
 	}
 
+	/**
+	 * Проводит игру «угадай число» (от 1 до 10).
+	 * При угадывании игрок получает пятикратную ставку.
+	 *
+	 * @param event  событие Discord-сообщения (может быть null в тестах)
+	 * @param player объект игрока
+	 * @param bid    сумма ставки
+	 * @param guess  предположение игрока (число от 1 до 10)
+	 * @return обновлённый объект игрока с изменённым количеством денег
+	 */
 	public Player guessTheNumber(MessageReceivedEvent event, Player player, int bid, int guess) {
 		if (player.getMoney() < bid) {
 			if (event != null) {

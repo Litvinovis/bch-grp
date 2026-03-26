@@ -12,6 +12,9 @@ public class RaidCommand implements Command {
 
     private final RaidManager raidManager;
 
+    /**
+     * @param raidManager менеджер рейдов
+     */
     public RaidCommand(RaidManager raidManager) {
         this.raidManager = raidManager;
     }
@@ -26,6 +29,9 @@ public class RaidCommand implements Command {
 
     /**
      * Основной вариант вызова — с уже загруженным объектом Player.
+     *
+     * @param event  событие Discord-сообщения
+     * @param player объект игрока, инициирующего рейд
      */
     public void execute(MessageReceivedEvent event, Player player) {
         String result = raidManager.createRaid(player, event.getChannel());

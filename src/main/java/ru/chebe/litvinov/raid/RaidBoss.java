@@ -9,6 +9,14 @@ public class RaidBoss extends Person {
 
     private final int maxHp;
 
+    /**
+     * Создаёт рейдового босса с указанными характеристиками.
+     * Броня устанавливается в 5 автоматически.
+     *
+     * @param name     имя босса
+     * @param hp       начальное (и максимальное) количество HP
+     * @param strength сила атаки
+     */
     public RaidBoss(String name, int hp, int strength) {
         this.nickName = name;
         this.hp = hp;
@@ -17,11 +25,20 @@ public class RaidBoss extends Person {
         this.armor = 5;
     }
 
+    /**
+     * Возвращает максимальное HP рейдового босса.
+     *
+     * @return начальное значение HP
+     */
     public int getMaxHp() {
         return maxHp;
     }
 
-    /** Стандартный рейдовый босс — Рейд-Чебеш */
+    /**
+     * Создаёт стандартного рейдового босса «Рейд-Чебеш» с характеристиками HP: 5000, Сила: 25.
+     *
+     * @return экземпляр стандартного рейдового босса
+     */
     public static RaidBoss createDefault() {
         return new RaidBoss("Рейд-Чебеш", 5000, 25);
     }

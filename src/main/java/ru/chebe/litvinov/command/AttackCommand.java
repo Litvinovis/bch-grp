@@ -9,6 +9,11 @@ import ru.chebe.litvinov.service.interfaces.IPlayersManager;
 public class AttackCommand implements Command {
     private final IPlayersManager playersManager;
 
+    /**
+     * Создаёт команду атаки босса.
+     *
+     * @param playersManager менеджер игроков
+     */
     public AttackCommand(IPlayersManager playersManager) {
         this.playersManager = playersManager;
     }

@@ -8,6 +8,10 @@ import java.util.List;
 
 import static ru.chebe.litvinov.Constants.MAX_CLAN_SIZE;
 
+/**
+ * Клан — объединение игроков под одним названием.
+ * Содержит лидера, список участников и список поданных заявок на вступление.
+ */
 @Getter
 @Setter
 public class Clan {
@@ -16,6 +20,13 @@ public class Clan {
 	private List<String> members;
 	private List<String> appliers;
 
+	/**
+	 * Создаёт новый клан с указанным именем и лидером.
+	 * Лидер автоматически добавляется в список участников.
+	 *
+	 * @param name   название клана
+	 * @param leader идентификатор игрока-лидера
+	 */
 	public Clan(String name, String leader) {
 		this.name = name;
 		this.leaderId = leader;
