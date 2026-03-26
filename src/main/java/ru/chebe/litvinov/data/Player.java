@@ -7,6 +7,10 @@ import org.apache.ignite.cache.query.annotations.QuerySqlField;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * Игровой персонаж, привязанный к Discord-пользователю.
+ * Хранит все характеристики игрока: уровень, опыт, деньги, инвентарь, текущую локацию и активный квест.
+ */
 @Getter
 @Setter
 public class Player extends Person {
@@ -30,6 +34,12 @@ public class Player extends Person {
 	private long dailyTime;
 	private String clanName;
 
+	/**
+	 * Создаёт нового игрока с начальными характеристиками и стартовым инвентарём.
+	 *
+	 * @param nickName никнейм игрока из Discord
+	 * @param id       Discord-идентификатор пользователя
+	 */
 	public Player(String nickName, String id) {
 		this.id = id;
 		this.nickName = nickName;
@@ -77,6 +87,12 @@ public class Player extends Person {
 						quest;
 	}
 
+	/**
+	 * Возвращает строковое представление инвентаря игрока.
+	 * Исправляет некорректные значения количества предметов (null заменяется на 3).
+	 *
+	 * @return строка с содержимым инвентаря
+	 */
 	public String inventoryInfo() {
 		for (Map.Entry<String, Integer> entry : inventory.entrySet()) {
 			if (entry.getValue() == null) {

@@ -11,16 +11,32 @@ import ru.chebe.litvinov.data.Player;
 import java.io.File;
 import java.util.*;
 
+/**
+ * Менеджер игровых локаций.
+ * Инициализирует карту мира в Ignite-кэше, обрабатывает перемещение игроков между локациями
+ * и предоставляет информацию о локациях.
+ */
 public class LocationManager implements ru.chebe.litvinov.service.interfaces.ILocationManager {
 
 	private final IgniteCache<String, Location> locationCache;
 	public static final List<String> locationList = new ArrayList<>(50);
 
+	/**
+	 * Создаёт менеджер локаций и инициализирует карту мира в кэше.
+	 *
+	 * @param locationCache Ignite-кэш для хранения локаций
+	 */
 	public LocationManager(IgniteCache<String, Location> locationCache) {
 		this.locationCache = locationCache;
 		init(locationCache);
 	}
 
+	/**
+	 * Инициализирует кэш локаций полным набором игровых локаций.
+	 * Локации добавляются только если ещё не существуют в кэше.
+	 *
+	 * @param locationCache Ignite-кэш для инициализации
+	 */
 	public static void init(IgniteCache<String, Location> locationCache) {
 		Map<String, Location> map = new HashMap<>();
 		map.put("загадка", Location.builder().name("загадка").pvp(true).paths(new ArrayList<>(List.of("кушетка"))).dangerous(70).populationByName(new ArrayList<>()).populationById(new ArrayList<>()).populationById(new ArrayList<>()).boss("cynic mansion").bossItem("кисточка циника").teleport(false).build());
@@ -61,6 +77,13 @@ public class LocationManager implements ru.chebe.litvinov.service.interfaces.ILo
 		locationList.addAll(map.keySet());
 	}
 
+	/**
+	 * Перемещает игрока между локациями, обновляя списки населения обеих локаций в кэше.
+	 *
+	 * @param player       игрок, который перемещается
+	 * @param nextLocation название целевой локации
+	 * @return обновлённый объект целевой локации
+	 */
 	public Location movePlayerInPopulation(Player player, String nextLocation) {
 		Location current = locationCache.get(player.getLocation());
 		Location next = locationCache.get(nextLocation);
@@ -73,6 +96,12 @@ public class LocationManager implements ru.chebe.litvinov.service.interfaces.ILo
 		return next;
 	}
 
+	/**
+	 * Отправляет игроку информацию о запрошенной или текущей локации.
+	 *
+	 * @param event           событие Discord-сообщения
+	 * @param currentLocation текущая локация игрока (используется при запросе «моя»)
+	 */
 	public void locationInfo(MessageReceivedEvent event, String currentLocation) {
 		String target = event.getMessage().getContentDisplay().substring(8).trim().toLowerCase();
 		if (target.equals("моя")) {
@@ -84,6 +113,11 @@ public class LocationManager implements ru.chebe.litvinov.service.interfaces.ILo
 		}
 	}
 
+	/**
+	 * Отправляет изображение карты игрового мира в Discord-канал.
+	 *
+	 * @param event событие Discord-сообщения
+	 */
 	public void map(MessageReceivedEvent event) {
 		FileUpload file = FileUpload.fromData(new File("src/main/resources/map.png"), "map.png");
 
@@ -96,10 +130,21 @@ public class LocationManager implements ru.chebe.litvinov.service.interfaces.ILo
 						.queue();
 	}
 
+	/**
+	 * Возвращает список всех названий локаций в игре.
+	 *
+	 * @return список названий локаций
+	 */
 	public List<String> getLocationList() {
 		return locationList;
 	}
 
+	/**
+	 * Возвращает локацию по её названию.
+	 *
+	 * @param location название локации
+	 * @return объект Location или null если локация не найдена
+	 */
 	public Location getLocation(String location) {
 		return locationCache.get(location);
 	}

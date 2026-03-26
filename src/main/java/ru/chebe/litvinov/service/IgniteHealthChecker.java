@@ -27,11 +27,19 @@ public class IgniteHealthChecker {
         return t;
     });
 
+    /**
+     * Создаёт сервис проверки состояния Ignite.
+     *
+     * @param ignite запущенный экземпляр Apache Ignite
+     */
     public IgniteHealthChecker(Ignite ignite) {
         this.ignite = ignite;
     }
 
-    /** Запустить периодическую проверку. */
+    /**
+     * Запускает периодическую проверку доступности Ignite-кэшей.
+     * Проверка выполняется каждые {@value CHECK_INTERVAL_MINUTES} минут.
+     */
     public void start() {
         scheduler.scheduleAtFixedRate(
                 this::check,
@@ -41,7 +49,11 @@ public class IgniteHealthChecker {
         log.info("IgniteHealthChecker запущен: проверка каждые {} минут", CHECK_INTERVAL_MINUTES);
     }
 
-    /** Выполнить разовую проверку и вернуть статус. */
+    /**
+     * Выполняет разовую проверку доступности Ignite-кластера и всех основных кэшей.
+     *
+     * @return true если кластер доступен и все кэши отвечают
+     */
     public boolean check() {
         try {
             if (ignite == null || ignite.cluster() == null) {
@@ -94,13 +106,20 @@ public class IgniteHealthChecker {
         healthy.set(false);
     }
 
-    /** @return true если последняя проверка прошла успешно */
+    /**
+     * Возвращает результат последней проверки доступности Ignite.
+     *
+     * @return true если последняя проверка прошла успешно
+     */
     public boolean isHealthy() {
         return healthy.get();
     }
 
     /**
-     * Получить текстовый статус для команды +статус.
+     * Формирует текстовый отчёт о состоянии Ignite-кластера и всех кэшей.
+     * Используется командой +статус.
+     *
+     * @return строка с детальным статусом кластера и кэшей
      */
     public String getStatusReport() {
         boolean ok = check();
@@ -136,7 +155,10 @@ public class IgniteHealthChecker {
         return sb.toString();
     }
 
-    /** Остановить планировщик. */
+    /**
+     * Останавливает планировщик периодических проверок.
+     * Необходимо вызывать при завершении работы приложения.
+     */
     public void shutdown() {
         scheduler.shutdown();
     }

@@ -46,6 +46,14 @@ public class RaidManager {
         return t;
     });
 
+    /**
+     * Создаёт менеджер рейдов и запускает планировщик проверки таймаутов.
+     *
+     * @param battleManager    менеджер боевой системы
+     * @param playersManager   менеджер игроков для начисления наград и обработки смерти
+     * @param allowedChannelIds список идентификаторов каналов, в которых разрешены рейды
+     *                          (пустое множество означает отсутствие ограничений)
+     */
     public RaidManager(BattleManager battleManager,
                        IPlayersManager playersManager,
                        Set<String> allowedChannelIds) {
@@ -100,8 +108,10 @@ public class RaidManager {
     }
 
     /**
-     * Присоединить игрока к активному рейду в данном канале.
+     * Присоединяет игрока к активному рейду в данном канале.
      *
+     * @param player  присоединяющийся игрок
+     * @param channel Discord-канал
      * @return сообщение для пользователя
      */
     public String joinRaid(Player player, MessageChannelUnion channel) {
@@ -171,7 +181,10 @@ public class RaidManager {
     }
 
     /**
-     * Провести рейдовый бой. Вызывается в отдельном потоке.
+     * Проводит рейдовый бой для указанной сессии. Вызывается в отдельном потоке.
+     * Распределяет лут пропорционально нанесённому урону после победы.
+     *
+     * @param session активная сессия рейда
      */
     void executeRaid(RaidSession session) {
         if (!session.markStarted()) {
@@ -294,7 +307,10 @@ public class RaidManager {
         return Math.max(1, (int) (base * (1 + pct)));
     }
 
-    /** Закрыть планировщик (вызывать при завершении приложения). */
+    /**
+     * Останавливает планировщик проверки таймаутов.
+     * Необходимо вызывать при завершении работы приложения.
+     */
     public void shutdown() {
         scheduler.shutdown();
     }

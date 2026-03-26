@@ -3,9 +3,17 @@ package ru.chebe.litvinov.command;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import ru.chebe.litvinov.service.interfaces.IPlayersManager;
 
+/**
+ * Команда (+инвентарь) для просмотра содержимого инвентаря игрока.
+ */
 public class InventoryCommand implements Command {
     private final IPlayersManager playersManager;
 
+    /**
+     * Создаёт команду просмотра инвентаря.
+     *
+     * @param playersManager менеджер игроков
+     */
     public InventoryCommand(IPlayersManager playersManager) {
         this.playersManager = playersManager;
     }

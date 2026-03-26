@@ -9,11 +9,20 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Менеджер игровых предметов.
+ * Инициализирует каталог предметов в Ignite-кэше и предоставляет методы для получения информации о них.
+ */
 public class ItemsManager {
 
 	private final IgniteCache<String, Item> itemsCache;
 	private static final List<String> itemsForSale = new ArrayList<>(100);
 
+	/**
+	 * Создаёт менеджер предметов и заполняет кэш начальным набором предметов.
+	 *
+	 * @param itemsCache Ignite-кэш для хранения предметов
+	 */
 	public ItemsManager(IgniteCache<String, Item> itemsCache) {
 		this.itemsCache = itemsCache;
 		init(itemsCache);
@@ -90,6 +99,11 @@ public class ItemsManager {
 		});
 	}
 
+	/**
+	 * Отправляет игроку подробную информацию о предмете по его названию из текста сообщения.
+	 *
+	 * @param event событие Discord-сообщения с названием предмета
+	 */
 	public void getItemInfo(MessageReceivedEvent event) {
 		String message = event.getMessage().getContentDisplay().substring(8).trim().toLowerCase();
 		var item = itemsCache.get(message);
@@ -100,10 +114,21 @@ public class ItemsManager {
 		}
 	}
 
+	/**
+	 * Возвращает предмет по его названию.
+	 *
+	 * @param itemName название предмета
+	 * @return объект Item или null если предмет не найден
+	 */
 	public Item getItem(String itemName) {
 		return itemsCache.get(itemName);
 	}
 
+	/**
+	 * Возвращает строковый список названий предметов, доступных для покупки в магазине и таверне.
+	 *
+	 * @return строковое представление списка активируемых предметов
+	 */
 	public String getItemsForSale() {
 		return itemsForSale.toString();
 	}

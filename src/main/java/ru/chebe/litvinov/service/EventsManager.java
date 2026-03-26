@@ -8,6 +8,11 @@ import ru.chebe.litvinov.data.Player;
 import java.util.*;
 import java.util.function.Predicate;
 
+/**
+ * Менеджер игровых событий (квестов).
+ * Генерирует квесты двух типов: «Ходилка» (достичь определённой локации) и «Загадка» (дать правильный ответ).
+ * Также обрабатывает случайные встречи с мобами при перемещении.
+ */
 public class EventsManager {
 
 	private static Map<String, Predicate<Player>> predicateMap;
@@ -16,6 +21,9 @@ public class EventsManager {
 	private static List<String> endQuest;
 	private final Random rand = new Random();
 
+	/**
+	 * Создаёт менеджер событий и инициализирует наборы данных для генерации квестов.
+	 */
 	public EventsManager() {
 		init();
 	}
@@ -39,14 +47,36 @@ public class EventsManager {
 
 	}
 
+	/**
+	 * Генерирует случайное игровое событие (квест).
+	 * С вероятностью 25% создаётся квест-загадка, иначе — квест-ходилка.
+	 *
+	 * @param locationList список доступных игровых локаций
+	 * @return сгенерированное игровое событие
+	 */
 	public Event assignEvent(List<String> locationList) {
 		return rand.nextInt(4) == 1 ? createAnswerEvent() : createPathFinderEvent(locationList);
 	}
 
+	/**
+	 * Проверяет, выполнил ли игрок условие активного квеста.
+	 *
+	 * @param activeEvent активный квест игрока
+	 * @param player      игрок, выполняющий квест
+	 * @return true если условие квеста выполнено
+	 */
 	public boolean checkEvent(Event activeEvent, Player player) {
 		return predicateMap.get(activeEvent.getType()).test(player);
 	}
 
+	/**
+	 * Определяет, произошла ли случайная встреча с мобом при переходе в новую локацию.
+	 * Встреча возможна только в PvP-локациях с учётом уровня опасности.
+	 *
+	 * @param event    событие Discord-сообщения
+	 * @param location локация, в которую переходит игрок
+	 * @return true если произошла встреча с мобом
+	 */
 	public boolean transferEvent(MessageReceivedEvent event, Location location) {
 		if (location.isPvp() && rand.nextInt(100) > location.getDangerous()) {
 			event.getChannel().sendMessage("Во время перемещения ты наткнулся на зомбака из руин...тебе придётся сразится с ним").submit();

@@ -7,6 +7,10 @@ import lombok.Setter;
 import java.time.Instant;
 import java.util.concurrent.TimeUnit;
 
+/**
+ * Игровое событие (квест), которое может быть назначено игроку.
+ * Поддерживает два типа: «Ходилка» (добраться до локации) и «Загадка» (дать правильный ответ).
+ */
 @Getter
 @Setter
 @Builder

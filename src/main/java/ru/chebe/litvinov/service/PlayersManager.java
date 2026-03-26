@@ -15,6 +15,12 @@ import java.util.stream.Collectors;
 import static ru.chebe.litvinov.Constants.MIN_LVL_TO_CLAN_CREATE;
 import static ru.chebe.litvinov.Constants.MIN_LVL_TO_CLAN_JOIN;
 
+/**
+ * Главный сервис управления игроками.
+ * Координирует все игровые действия: создание персонажа, перемещение, бой, квесты,
+ * инвентарь, торговля, игры в таверне, клановые операции и ежедневные бонусы.
+ * Использует per-player блокировки для потокобезопасного изменения характеристик.
+ */
 public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPlayersManager {
 	private final IgniteCache<String, Player> playerCache;
 	private final LocationManager locationManager;
@@ -41,6 +47,17 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 	List<String> words1 = List.of("Унылый", "Гейский", "Стрёмный", "Тупой", "Дрищавый", "Жирный");
 	List<String> words2 = List.of("Пидор", "Мудила", "Хуй", "Гей", "Лох", "Шлюха");
 
+	/**
+	 * Создаёт менеджер игроков со всеми зависимостями.
+	 *
+	 * @param playerCache    Ignite-кэш для хранения данных игроков
+	 * @param locationManager менеджер локаций
+	 * @param itemsManager    менеджер предметов
+	 * @param battleManager   менеджер боевой системы
+	 * @param eventsManager   менеджер квестов и событий
+	 * @param clanManager     менеджер кланов
+	 * @param tavern          сервис таверны (азартные игры)
+	 */
 	public PlayersManager(IgniteCache<String, Player> playerCache, LocationManager locationManager, ItemsManager itemsManager,
 	                      BattleManager battleManager, EventsManager eventsManager, ClanManager clanManager, Tavern tavern) {
 		this.playerCache = playerCache;
@@ -52,19 +69,42 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		this.tavern = tavern;
 	}
 
+	/**
+	 * Отправляет игроку его текущие характеристики.
+	 *
+	 * @param event событие Discord-сообщения
+	 */
 	public void getPlayerInfo(MessageReceivedEvent event) {
 		String id = event.getMessage().getAuthor().getId();
 		event.getChannel().sendMessage(playerCache.get(id).toString()).submit();
 	}
 
+	/**
+	 * Возвращает количество опыта, необходимое для достижения следующего уровня.
+	 *
+	 * @param player игрок
+	 * @return количество опыта до следующего уровня
+	 */
 	public int getXp(Player player) {
 		return xpMap.get(player.getLevel() + 1);
 	}
 
+	/**
+	 * Возвращает максимальное значение HP для текущего уровня игрока.
+	 *
+	 * @param player игрок
+	 * @return максимальное значение HP
+	 */
 	public int getMaxHp(Player player) {
 		return hpMap.get(player.getLevel());
 	}
 
+	/**
+	 * Устанавливает точное значение HP игроку.
+	 *
+	 * @param id идентификатор игрока
+	 * @param hp новое значение HP
+	 */
 	public void changeHp(String id, int hp) {
 		ReentrantLock lock = getPlayerLock(id);
 		lock.lock();
@@ -78,6 +118,14 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		}
 	}
 
+	/**
+	 * Изменяет HP игрока на указанное значение.
+	 *
+	 * @param id       идентификатор игрока
+	 * @param hp       величина изменения HP
+	 * @param increase true — увеличить HP (не превышая максимум), false — уменьшить
+	 * @return актуальное значение HP после изменения
+	 */
 	public int changeHp(String id, int hp, boolean increase) {
 		ReentrantLock lock = getPlayerLock(id);
 		lock.lock();
@@ -97,6 +145,12 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		}
 	}
 
+	/**
+	 * Отправляет игроку информацию об инвентаре или конкретном предмете.
+	 * Если имя предмета не указано — выводит весь инвентарь.
+	 *
+	 * @param event событие Discord-сообщения
+	 */
 	public void getInventoryInfo(MessageReceivedEvent event) {
 		String id = event.getMessage().getAuthor().getId();
 		var player = playerCache.get(id);
@@ -117,6 +171,14 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		}
 	}
 
+	/**
+	 * Изменяет количество денег игрока.
+	 *
+	 * @param id       идентификатор игрока
+	 * @param money    сумма изменения
+	 * @param increase true — добавить деньги, false — вычесть
+	 * @return актуальное количество денег после изменения
+	 */
 	public int changeMoney(String id, int money, boolean increase) {
 		ReentrantLock lock = getPlayerLock(id);
 		lock.lock();
@@ -135,6 +197,14 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		}
 	}
 
+	/**
+	 * Изменяет репутацию игрока.
+	 *
+	 * @param id         идентификатор игрока
+	 * @param reputation величина изменения репутации
+	 * @param increase   true — увеличить, false — уменьшить
+	 * @return актуальное значение репутации после изменения
+	 */
 	public int changeReputation(String id, int reputation, boolean increase) {
 		ReentrantLock lock = getPlayerLock(id);
 		lock.lock();
@@ -153,6 +223,12 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		}
 	}
 
+	/**
+	 * Начисляет опыт игроку. При наборе достаточного количества — повышает уровень и восстанавливает HP.
+	 *
+	 * @param id идентификатор игрока
+	 * @param xp количество начисляемого опыта
+	 */
 	public void changeXp(String id, int xp) {
 		ReentrantLock lock = getPlayerLock(id);
 		lock.lock();
@@ -193,6 +269,11 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		return hpMap;
 	}
 
+	/**
+	 * Регистрирует нового игрока. Если игрок уже существует — сообщает об этом.
+	 *
+	 * @param event событие Discord-сообщения от регистрирующегося пользователя
+	 */
 	public void createPlayer(MessageReceivedEvent event) {
 		String id = event.getMessage().getAuthor().getId();
 		if (playerCache.get(id) == null) {
@@ -215,6 +296,12 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		return words1.get(index1) + words2.get(index2) + index3;
 	}
 
+	/**
+	 * Добавляет предмет в инвентарь игрока и применяет его постоянные эффекты к характеристикам.
+	 *
+	 * @param id   идентификатор игрока
+	 * @param item название предмета
+	 */
 	public void addNewItem(String id, String item) {
 		ReentrantLock lock = getPlayerLock(id);
 		lock.lock();
@@ -240,6 +327,12 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		}
 	}
 
+	/**
+	 * Удаляет предмет из инвентаря игрока и откатывает его постоянные эффекты (если предмет не активируемый).
+	 *
+	 * @param id   идентификатор игрока
+	 * @param item название предмета
+	 */
 	public void deleteItem(String id, String item) {
 		ReentrantLock lock = getPlayerLock(id);
 		lock.lock();
@@ -268,6 +361,11 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		}
 	}
 
+	/**
+	 * Обрабатывает смерть игрока: списывает 10% денег, восстанавливает HP и перемещает на Респаун.
+	 *
+	 * @param dead игрок, который погиб
+	 */
 	public void deathOfPlayer(Player dead) {
 		dead.setMoney((int) (dead.getMoney() * 0.9));
 		dead.setHp(dead.getMaxHp());
@@ -276,6 +374,11 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		locationManager.movePlayerInPopulation(dead, "респаун");
 	}
 
+	/**
+	 * Обрабатывает команду использования активируемого предмета из инвентаря игрока.
+	 *
+	 * @param event событие Discord-сообщения с названием предмета
+	 */
 	public void useItem(MessageReceivedEvent event) {
 		var player = playerCache.get(event.getAuthor().getId());
 		String message = event.getMessage().getContentDisplay().substring(13).trim().toLowerCase();
@@ -327,6 +430,14 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		}
 	}
 
+	/**
+	 * Изменяет удачу игрока.
+	 *
+	 * @param id       идентификатор игрока
+	 * @param luck     величина изменения удачи
+	 * @param increase true — увеличить, false — уменьшить
+	 * @return актуальное значение удачи после изменения
+	 */
 	public int changeLuck(String id, int luck, boolean increase) {
 		ReentrantLock lock = getPlayerLock(id);
 		lock.lock();
@@ -345,6 +456,14 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		}
 	}
 
+	/**
+	 * Изменяет силу игрока.
+	 *
+	 * @param id       идентификатор игрока
+	 * @param strength величина изменения силы
+	 * @param increase true — увеличить, false — уменьшить
+	 * @return актуальное значение силы после изменения
+	 */
 	public int changeStrength(String id, int strength, boolean increase) {
 		ReentrantLock lock = getPlayerLock(id);
 		lock.lock();
@@ -363,6 +482,11 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		}
 	}
 
+	/**
+	 * Продаёт предмет из инвентаря игрока. Цена продажи зависит от репутации игрока.
+	 *
+	 * @param event событие Discord-сообщения с названием продаваемого предмета
+	 */
 	public void sellItem(MessageReceivedEvent event) {
 		var player = playerCache.get(event.getAuthor().getId());
 		String message = event.getMessage().getContentDisplay().substring(8).trim().toLowerCase();
@@ -376,6 +500,11 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		}
 	}
 
+	/**
+	 * Обрабатывает команду игры в кости. Доступно только в локации «таверна».
+	 *
+	 * @param event событие Discord-сообщения со ставкой
+	 */
 	public void dieCast(MessageReceivedEvent event) {
 		var player = playerCache.get(event.getAuthor().getId());
 		if (!player.getLocation().equals("таверна")) {
@@ -409,6 +538,12 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		playerCache.put(player.getId(), player);
 	}
 
+	/**
+	 * Обрабатывает команду перемещения игрока в другую локацию.
+	 * Поддерживает обычные переходы и телепортацию с токеном телепорта.
+	 *
+	 * @param event событие Discord-сообщения с названием целевой локации
+	 */
 	public void move(MessageReceivedEvent event) {
 		String message = event.getMessage().getContentDisplay().substring(5).trim().toLowerCase();
 		var player = playerCache.get(event.getAuthor().getId());
@@ -460,6 +595,11 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		}
 	}
 
+	/**
+	 * Назначает игроку новый случайный квест.
+	 *
+	 * @param event событие Discord-сообщения
+	 */
 	public void assignEvent(MessageReceivedEvent event) {
 		var player = playerCache.get(event.getAuthor().getId());
 		if (player.getActiveEvent() != null) {
@@ -471,6 +611,11 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		}
 	}
 
+	/**
+	 * Заменяет текущий квест игрока на новый за 5 монет.
+	 *
+	 * @param event событие Discord-сообщения
+	 */
 	public void changeEvent(MessageReceivedEvent event) {
 		var player = playerCache.get(event.getAuthor().getId());
 		if (player.getActiveEvent() == null) {
@@ -485,6 +630,12 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		}
 	}
 
+	/**
+	 * Проверяет выполнение условия активного квеста.
+	 * При успехе начисляет награду и снимает квест.
+	 *
+	 * @param event событие Discord-сообщения с ответом игрока (для квестов-загадок)
+	 */
 	public void checkEvent(MessageReceivedEvent event) {
 		var player = playerCache.get(event.getAuthor().getId());
 		String message = event.getMessage().getContentDisplay().substring(16).trim().toLowerCase();
@@ -503,6 +654,11 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		}
 	}
 
+	/**
+	 * Обрабатывает покупку предмета игроком. Доступно только в локациях «магазин» и «таверна».
+	 *
+	 * @param event событие Discord-сообщения с названием предмета
+	 */
 	public void buyItem(MessageReceivedEvent event) {
 		String message = event.getMessage().getContentDisplay().substring(7).trim().toLowerCase();
 		Player player = playerCache.get(event.getAuthor().getId());
@@ -525,6 +681,12 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		}
 	}
 
+	/**
+	 * Инициирует бой с боссом текущей локации.
+	 * Клановые участники в той же локации сражаются вместе.
+	 *
+	 * @param event событие Discord-сообщения
+	 */
 	public void bossFight(MessageReceivedEvent event) {
 		Player player = playerCache.get(event.getAuthor().getId());
 		var loc = locationManager.getLocation(player.getLocation());
@@ -553,6 +715,12 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		}
 	}
 
+	/**
+	 * Инициирует PvP-бой со случайным игроком в текущей локации.
+	 * Доступно только в PvP-зонах; члены клана не атакуются.
+	 *
+	 * @param event событие Discord-сообщения
+	 */
 	public void playersFight(MessageReceivedEvent event) {
 		Player player = playerCache.get(event.getAuthor().getId());
 		var loc = locationManager.getLocation(player.getLocation());
@@ -623,6 +791,12 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		event.getChannel().sendMessage("Оставшиеся игроки: " + updatedLoc.getPopulationByName()).queue();
 	}
 
+	/**
+	 * Начисляет игроку ежедневный бонус (100 монет).
+	 * Бонус доступен раз в 24 часа.
+	 *
+	 * @param event событие Discord-сообщения
+	 */
 	public void dailyBonus(MessageReceivedEvent event) {
 		var player = playerCache.get(event.getAuthor().getId());
 		if (player.getDailyTime() < System.currentTimeMillis() - (24 * 60 * 60 * 1000)) {
@@ -636,6 +810,11 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		}
 	}
 
+	/**
+	 * Обрабатывает команду создания нового клана. Требует минимального 10-го уровня.
+	 *
+	 * @param event событие Discord-сообщения с названием клана
+	 */
 	public void clanRegister(MessageReceivedEvent event) {
 		var player = playerCache.get(event.getAuthor().getId());
 		if (player.getLevel() < MIN_LVL_TO_CLAN_CREATE) {
@@ -657,6 +836,11 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		}
 	}
 
+	/**
+	 * Обрабатывает команду выхода игрока из клана.
+	 *
+	 * @param event событие Discord-сообщения
+	 */
 	public void clanLeave(MessageReceivedEvent event) {
 		var player = playerCache.get(event.getAuthor().getId());
 		if (player.getClanName() == null || player.getClanName().isEmpty()) {
@@ -667,6 +851,11 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		}
 	}
 
+	/**
+	 * Обрабатывает команду подачи заявки на вступление в клан. Требует минимального 3-го уровня.
+	 *
+	 * @param event событие Discord-сообщения с названием клана
+	 */
 	public void clanJoin(MessageReceivedEvent event) {
 		String clanName = event.getMessage().getContentDisplay().substring(16).trim().toLowerCase();
 		var player = playerCache.get(event.getAuthor().getId());
@@ -688,6 +877,11 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		}
 	}
 
+	/**
+	 * Обрабатывает команду принятия всех заявок на вступление в клан лидером.
+	 *
+	 * @param event событие Discord-сообщения
+	 */
 	public void acceptApply(MessageReceivedEvent event) {
 		var player = playerCache.get(event.getAuthor().getId());
 		if (player.getClanName() == null || player.getClanName().isEmpty()) {
@@ -702,6 +896,11 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		}
 	}
 
+	/**
+	 * Обрабатывает команду отклонения всех заявок на вступление в клан лидером.
+	 *
+	 * @param event событие Discord-сообщения
+	 */
 	public void rejectApply(MessageReceivedEvent event) {
 		var player = playerCache.get(event.getAuthor().getId());
 		if (player.getClanName() == null || player.getClanName().isEmpty()) {
@@ -716,6 +915,11 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		}
 	}
 
+	/**
+	 * Отправляет информацию о клане по его названию.
+	 *
+	 * @param event событие Discord-сообщения с названием клана
+	 */
 	public void clanInfo(MessageReceivedEvent event) {
 		String clanName = event.getMessage().getContentDisplay().substring(10).trim().toLowerCase();
 		event.getChannel().sendMessage(clanManager.getClanInfo(clanName)).submit();
@@ -729,6 +933,11 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 						.collect(Collectors.toList());
 	}
 
+	/**
+	 * Обрабатывает команду игры в рулетку. Доступно только в локации «таверна».
+	 *
+	 * @param event событие Discord-сообщения со ставкой и выбором
+	 */
 	public void playRoulette(MessageReceivedEvent event) {
 		Player player = playerCache.get(event.getAuthor().getId());
 		if (!player.getLocation().equals("таверна")) {
@@ -752,6 +961,11 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		}
 	}
 
+	/**
+	 * Обрабатывает команду игры «камень-ножницы-бумага». Доступно только в локации «таверна».
+	 *
+	 * @param event событие Discord-сообщения со ставкой и выбором
+	 */
 	public void rockPaperScissors(MessageReceivedEvent event) {
 		Player player = playerCache.get(event.getAuthor().getId());
 		if (!player.getLocation().equals("таверна")) {
@@ -775,6 +989,11 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		}
 	}
 
+	/**
+	 * Обрабатывает команду игры «угадай число». Доступно только в локации «таверна».
+	 *
+	 * @param event событие Discord-сообщения со ставкой и числом-предположением
+	 */
 	public void guessTheNumber(MessageReceivedEvent event) {
 		Player player = playerCache.get(event.getAuthor().getId());
 		if (!player.getLocation().equals("таверна")) {

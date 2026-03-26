@@ -10,6 +10,11 @@ public class StatusCommand implements Command {
 
     private final IgniteHealthChecker healthChecker;
 
+    /**
+     * Создаёт команду отображения статуса Ignite-кэшей.
+     *
+     * @param healthChecker сервис проверки состояния Ignite
+     */
     public StatusCommand(IgniteHealthChecker healthChecker) {
         this.healthChecker = healthChecker;
     }

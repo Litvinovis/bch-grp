@@ -4,6 +4,10 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
 
+/**
+ * Идея или предложение, поданное игроком разработчикам бота.
+ * Хранит текст, автора и текущий статус рассмотрения.
+ */
 @Getter
 @Setter
 @Builder

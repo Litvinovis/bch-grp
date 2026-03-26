@@ -7,6 +7,10 @@ import lombok.Setter;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Игровая локация на карте мира.
+ * Содержит информацию об опасности, PvP-режиме, боссе, доступных путях и текущем населении.
+ */
 @Getter
 @Setter
 @Builder

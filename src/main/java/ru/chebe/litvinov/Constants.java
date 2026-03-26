@@ -1,5 +1,8 @@
 package ru.chebe.litvinov;
 
+/**
+ * Глобальные константы приложения: строки сообщений и игровые ограничения.
+ */
 public class Constants {
     public static final String MESSAGE_PROCESS_FAILED = "Ошибка при обработке сообщения - {}";
     public static final String UNKNOWN_COMMAND = "Неизвестная команда, набери +помощь для инструкции";
