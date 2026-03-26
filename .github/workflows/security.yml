@@ -34,25 +34,24 @@ jobs:
           if-no-files-found: ignore
 
   sca:
-    name: SCA — OWASP Dependency-Check
-    runs-on: self-hosted
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    name: SCA (Trivy)
+    runs-on: [self-hosted, linux]
     steps:
-      - uses: actions/checkout@v4
-      - name: Set up JDK 21
-        uses: actions/setup-java@v4
+      - uses: actions/checkout@v3
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
         with:
-          java-version: '21'
-          distribution: 'temurin'
-          cache: maven
-      - name: Run OWASP Dependency-Check
-        run: mvn dependency-check:check -Dmaven.test.skip=true --no-transfer-progress
-        continue-on-error: true
-      - name: Upload Dependency-Check report
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'table'
+          exit-code: '0'
+          ignore-unfixed: true
+          vuln-type: 'library'
+          severity: 'CRITICAL,HIGH'
+      - name: Upload Trivy scan results
+        uses: actions/upload-artifact@v3
         if: always()
-        uses: actions/upload-artifact@v4
         with:
-          name: dependency-check-report
-          path: target/dependency-check-report/
-          if-no-files-found: ignore
+          name: trivy-results
+          path: trivy-results.txt
+          retention-days: 30
