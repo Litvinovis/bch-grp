@@ -31,6 +31,24 @@
     <exec.maven.plugin.version>3.1.0</exec.maven.plugin.version>
   </properties>
 
+  <!-- Security: override vulnerable transitive dependencies -->
+  <dependencyManagement>
+    <dependencies>
+      <!-- Override jackson-core from JDA: CVE GHSA-72hv-8253-57qq (HIGH) -->
+      <dependency>
+        <groupId>com.fasterxml.jackson.core</groupId>
+        <artifactId>jackson-core</artifactId>
+        <version>2.18.6</version>
+      </dependency>
+      <!-- Override H2 from ignite-indexing: CVE-2021-42392, CVE-2022-23221 (CRITICAL) -->
+      <dependency>
+        <groupId>com.h2database</groupId>
+        <artifactId>h2</artifactId>
+        <version>2.2.224</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
   <dependencies>
     <dependency>
       <groupId>junit</groupId>
