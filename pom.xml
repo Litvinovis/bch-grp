@@ -149,6 +149,44 @@
           </jvmArgs>
         </configuration>
       </plugin>
+
+      <!-- SpotBugs SAST -->
+      <plugin>
+        <groupId>com.github.spotbugs</groupId>
+        <artifactId>spotbugs-maven-plugin</artifactId>
+        <version>4.8.3.1</version>
+        <configuration>
+          <effort>Max</effort>
+          <threshold>Medium</threshold>
+          <failOnError>false</failOnError>
+          <plugins>
+            <plugin>
+              <groupId>com.h3xstream.findsecbugs</groupId>
+              <artifactId>findsecbugs-plugin</artifactId>
+              <version>1.13.0</version>
+            </plugin>
+          </plugins>
+        </configuration>
+        <executions>
+          <execution>
+            <goals>
+              <goal>check</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+
+      <!-- OWASP Dependency-Check SCA -->
+      <plugin>
+        <groupId>org.owasp</groupId>
+        <artifactId>dependency-check-maven</artifactId>
+        <version>9.2.0</version>
+        <configuration>
+          <failBuildOnCVSS>9</failBuildOnCVSS>
+          <format>HTML</format>
+          <outputDirectory>${project.build.directory}/dependency-check-report</outputDirectory>
+        </configuration>
+      </plugin>
     </plugins>
   </build>
 </project>
