@@ -40,7 +40,7 @@ public class PlayerRepository {
         Tuple key = Tuple.create().set("id", id);
         Tuple row = view.get(null, key);
         if (row == null) return null;
-        return rowToPlayer(row);
+        return rowToPlayer(row, id);
     }
 
     /**
@@ -78,9 +78,8 @@ public class PlayerRepository {
 
     // ---- маппинг ----
 
-    private Player rowToPlayer(Tuple row) {
+    private Player rowToPlayer(Tuple row, String id) {
         String nickName = row.stringValue("nick_name");
-        String id = row.stringValue("id");
         Player p = new Player(nickName, id);
         p.setHp(row.intValue("hp"));
         p.setMaxHp(row.intValue("max_hp"));

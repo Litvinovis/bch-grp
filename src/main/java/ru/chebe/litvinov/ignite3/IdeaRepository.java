@@ -37,7 +37,7 @@ public class IdeaRepository {
         Tuple key = Tuple.create().set("id", id);
         Tuple row = view.get(null, key);
         if (row == null) return null;
-        return rowToIdea(row);
+        return rowToIdea(row, id);
     }
 
     /**
@@ -114,9 +114,9 @@ public class IdeaRepository {
 
     // ---- маппинг ----
 
-    private Idea rowToIdea(Tuple row) {
+    private Idea rowToIdea(Tuple row, int id) {
         return Idea.builder()
-                .id(row.intValue("id"))
+                .id(id)
                 .description(row.stringValue("description"))
                 .author(row.stringValue("author"))
                 .resolution(row.stringValue("resolution"))
