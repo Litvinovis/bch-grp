@@ -3,14 +3,14 @@ package ru.chebe.litvinov.eventHandlers;
 import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
-import org.apache.ignite.Ignite;
-import org.apache.ignite.IgniteCache;
+import org.apache.ignite.client.IgniteClient;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.chebe.litvinov.Constants;
 import ru.chebe.litvinov.command.*;
 import ru.chebe.litvinov.data.Player;
+import ru.chebe.litvinov.ignite3.*;
 import ru.chebe.litvinov.raid.RaidCommand;
 import ru.chebe.litvinov.raid.RaidJoinCommand;
 import ru.chebe.litvinov.raid.RaidManager;
@@ -41,7 +41,7 @@ public class MessageHandler extends ListenerAdapter {
 	private final Set<String> adminIds;
 	private final Logger logger = LoggerFactory.getLogger("adminLog");
 
-	private final IgniteCache<String, Player> playerCache;
+	private final PlayerRepository playerRepository;
 	private final LocationManager locationManager;
 	private final ItemsManager itemsManager;
 	private final PlayersManager playersManager;
@@ -54,36 +54,39 @@ public class MessageHandler extends ListenerAdapter {
 			NUM_THREADS, NUM_THREADS, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>());
 
 	/**
-	 * Создаёт обработчик сообщений, инициализируя все игровые сервисы через Ignite-кэши.
+	 * Создаёт обработчик сообщений, инициализируя все игровые сервисы через Ignite 3 репозитории.
 	 *
-	 * @param ignite            запущенный экземпляр Apache Ignite
+	 * @param igniteClient      подключённый Ignite 3 thin client
 	 * @param allowedChannelIds список идентификаторов Discord-каналов, в которых работает бот
 	 * @param adminIds          список идентификаторов Discord-пользователей с правами администратора
 	 */
-	public MessageHandler(Ignite ignite, java.util.List<String> allowedChannelIds, java.util.List<String> adminIds) {
+	public MessageHandler(IgniteClient igniteClient, java.util.List<String> allowedChannelIds, java.util.List<String> adminIds) {
 		this.allowedChannelIds = new HashSet<>(allowedChannelIds == null ? java.util.List.of() : allowedChannelIds);
 		this.adminIds = new HashSet<>(adminIds == null ? java.util.List.of() : adminIds);
 
-		playerCache = ignite.getOrCreateCache("players");
-		this.locationManager = new LocationManager(ignite.getOrCreateCache("locations"));
-		this.itemsManager = new ItemsManager(ignite.getOrCreateCache("items"));
-		this.ideasManager = new IdeasManager(ignite.getOrCreateCache("ideas"));
-		ClanManager clanManager = new ClanManager(ignite.getOrCreateCache("clans"), playerCache);
-		BattleManager battleManager = new BattleManager(ignite.getOrCreateCache("bosses"));
+		// Инициализация схемы Ignite 3
+		new SchemaInitializer(igniteClient).init();
 
-		this.playersManager = new PlayersManager(playerCache, locationManager, itemsManager,
+		this.playerRepository = new PlayerRepository(igniteClient);
+		this.locationManager = new LocationManager(new LocationRepository(igniteClient));
+		this.itemsManager = new ItemsManager(new ItemRepository(igniteClient));
+		this.ideasManager = new IdeasManager(new IdeaRepository(igniteClient));
+		ClanManager clanManager = new ClanManager(new ClanRepository(igniteClient), playerRepository);
+		BattleManager battleManager = new BattleManager(new BossRepository(igniteClient));
+
+		this.playersManager = new PlayersManager(playerRepository, locationManager, itemsManager,
 				battleManager, new EventsManager(), clanManager, new Tavern());
 
 		this.raidManager = new RaidManager(battleManager, playersManager, this.allowedChannelIds);
 
-		this.healthChecker = new IgniteHealthChecker(ignite);
+		this.healthChecker = new IgniteHealthChecker(igniteClient);
 		this.healthChecker.start();
 
 		this.commandRegistry = CommandRegistry.build(
 				playersManager, ideasManager, locationManager, itemsManager,
 				raidManager, HELP_MESSAGE, INFO_MESSAGE);
 
-		// Регистрируем дополнительные команды, которым нужен playerCache или healthChecker
+		// Регистрируем дополнительные команды, которым нужен healthChecker
 		commandRegistry.register("+статус", new StatusCommand(healthChecker));
 	}
 
@@ -116,13 +119,13 @@ public class MessageHandler extends ListenerAdapter {
 			}
 
 			// Проверка доступности Ignite
-			if (playerCache == null) {
+			if (playerRepository == null) {
 				event.getChannel().sendMessage("Сервис базы данных временно недоступен, попробуйте через минуту.").submit();
 				return;
 			}
 
 			// Проверка регистрации
-			Player player = playerCache.get(event.getMessage().getAuthor().getId());
+			Player player = playerRepository.get(event.getMessage().getAuthor().getId());
 			if (player == null) {
 				event.getChannel().sendMessage(Constants.NEED_REGISTRATION).submit();
 				return;

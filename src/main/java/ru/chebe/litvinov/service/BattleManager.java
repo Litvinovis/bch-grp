@@ -1,10 +1,10 @@
 package ru.chebe.litvinov.service;
 
 import net.dv8tion.jda.api.entities.channel.unions.MessageChannelUnion;
-import org.apache.ignite.IgniteCache;
 import ru.chebe.litvinov.data.Boss;
 import ru.chebe.litvinov.data.Person;
 import ru.chebe.litvinov.data.Player;
+import ru.chebe.litvinov.ignite3.BossRepository;
 
 import java.util.*;
 
@@ -14,15 +14,15 @@ import java.util.*;
  */
 public class BattleManager {
 
-	private final IgniteCache<String, Boss> bossCache;
+	private final BossRepository bossCache;
 	private final Random rand = new Random();
 
 	/**
-	 * Создаёт менеджер боёв и инициализирует кэш боссов начальными данными.
+	 * Создаёт менеджер боёв и инициализирует репозиторий боссов начальными данными.
 	 *
-	 * @param bossCache Ignite-кэш для хранения состояния боссов
+	 * @param bossCache репозиторий Ignite 3 для хранения состояния боссов
 	 */
-	public BattleManager(IgniteCache<String, Boss> bossCache) {
+	public BattleManager(BossRepository bossCache) {
 		this.bossCache = bossCache;
 		init();
 	}
@@ -58,7 +58,7 @@ public class BattleManager {
 
 		if (bossCache != null) {
 			map.forEach((name, boss) -> {
-				if (bossCache.get(name) == null) {
+				if (!bossCache.contains(name)) {
 					bossCache.put(name, boss);
 				}
 			});

@@ -1,8 +1,9 @@
 package ru.chebe.litvinov.service;
 
-import org.apache.ignite.IgniteCache;
 import ru.chebe.litvinov.data.Clan;
 import ru.chebe.litvinov.data.Player;
+import ru.chebe.litvinov.ignite3.ClanRepository;
+import ru.chebe.litvinov.ignite3.PlayerRepository;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -16,16 +17,16 @@ import static ru.chebe.litvinov.Constants.MAX_CLAN_SIZE;
  */
 public class ClanManager {
 
-	private final IgniteCache<String, Clan> clanCache;
-	private final IgniteCache<String, Player> playerCache;
+	private final ClanRepository clanCache;
+	private final PlayerRepository playerCache;
 
 	/**
 	 * Создаёт менеджер кланов.
 	 *
-	 * @param clanCache   Ignite-кэш для хранения данных кланов
-	 * @param playerCache Ignite-кэш для хранения данных игроков
+	 * @param clanCache   репозиторий Ignite 3 для хранения данных кланов
+	 * @param playerCache репозиторий Ignite 3 для хранения данных игроков
 	 */
-	public ClanManager(IgniteCache<String, Clan> clanCache, IgniteCache<String, Player> playerCache) {
+	public ClanManager(ClanRepository clanCache, PlayerRepository playerCache) {
 		this.clanCache = clanCache;
 		this.playerCache = playerCache;
 	}
@@ -38,7 +39,7 @@ public class ClanManager {
 	 * @return пустую строку при успехе или сообщение об ошибке
 	 */
 	public String registerClan(String clanName, String leaderId) {
-		if (clanCache.containsKey(clanName)) {
+		if (clanCache.contains(clanName)) {
 			return "Клан с таким именем уже существует, подай заявку на вступление или придумай другое название";
 		}
 		var clan = new Clan(clanName, leaderId);
@@ -59,8 +60,11 @@ public class ClanManager {
 		clan.getMembers().remove(id);
 		if (clan.getMembers().isEmpty()) {
 			clanCache.remove(clanName);
-		} else if (clan.getLeaderId().equals(id)) {
-			clan.setLeaderId(clan.getMembers().getFirst());
+		} else {
+			if (clan.getLeaderId().equals(id)) {
+				clan.setLeaderId(clan.getMembers().getFirst());
+			}
+			clanCache.put(clanName, clan);
 		}
 	}
 

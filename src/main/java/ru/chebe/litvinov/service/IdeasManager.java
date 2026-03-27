@@ -1,13 +1,8 @@
 package ru.chebe.litvinov.service;
 
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
-import org.apache.ignite.IgniteCache;
-import org.apache.ignite.cache.query.QueryCursor;
-import org.apache.ignite.cache.query.ScanQuery;
-import org.apache.ignite.lang.IgniteBiPredicate;
 import ru.chebe.litvinov.data.Idea;
-
-import javax.cache.Cache;
+import ru.chebe.litvinov.ignite3.IdeaRepository;
 
 /**
  * Менеджер пользовательских идей и предложений.
@@ -15,14 +10,14 @@ import javax.cache.Cache;
  */
 public class IdeasManager implements ru.chebe.litvinov.service.interfaces.IIdeasManager {
 
-	private final IgniteCache<Integer, Idea> ideaCache;
+	private final IdeaRepository ideaCache;
 
 	/**
 	 * Создаёт менеджер идей.
 	 *
-	 * @param ideaCache Ignite-кэш для хранения идей
+	 * @param ideaCache репозиторий Ignite 3 для хранения идей
 	 */
-	public IdeasManager(IgniteCache<Integer, Idea> ideaCache) {
+	public IdeasManager(IdeaRepository ideaCache) {
 		this.ideaCache = ideaCache;
 	}
 
@@ -58,11 +53,8 @@ public class IdeasManager implements ru.chebe.litvinov.service.interfaces.IIdeas
 	 * @param event событие Discord-сообщения
 	 */
 	public void getNewIdeas(MessageReceivedEvent event) {
-		IgniteBiPredicate<Integer, Idea> filter = (key, p) -> p.getResolution().equals("Новая");
-		try (QueryCursor<Cache.Entry<Integer, Idea>> qryCursor = ideaCache.query(new ScanQuery<>(filter))) {
-			qryCursor.forEach(
-							entry -> event.getChannel().sendMessage(entry.getValue().toString()).submit());
-		}
+		ideaCache.findByResolution("Новая")
+				.forEach(idea -> event.getChannel().sendMessage(idea.toString()).submit());
 	}
 
 	/**
@@ -86,9 +78,8 @@ public class IdeasManager implements ru.chebe.litvinov.service.interfaces.IIdeas
 	 * @param event событие Discord-сообщения
 	 */
 	public void getAllIdeas(MessageReceivedEvent event) {
-		try (QueryCursor<Cache.Entry<Integer, Idea>> qryCursor = ideaCache.query(new ScanQuery<>())) {
-			qryCursor.forEach(entry -> event.getChannel().sendMessage(entry.getValue().toString()).submit());
-		}
+		ideaCache.findAll()
+				.forEach(idea -> event.getChannel().sendMessage(idea.toString()).submit());
 	}
 
 	/**

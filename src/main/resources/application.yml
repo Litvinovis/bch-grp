@@ -5,8 +5,5 @@ discord:
   admin-ids:
     - "253576055317594114"
 
-ignite:
-  local-address: "192.168.1.120"
-  discovery-addresses:
-    - "192.168.1.120:47650..47659"
-  work-dir: "/tmp/ignite-bch-client"
+ignite3:
+  address: "127.0.0.1:10300"
