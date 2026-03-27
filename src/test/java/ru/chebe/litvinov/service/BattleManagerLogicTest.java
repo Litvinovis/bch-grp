@@ -2,7 +2,6 @@ package ru.chebe.litvinov.service;
 
 import net.dv8tion.jda.api.entities.channel.unions.MessageChannelUnion;
 import net.dv8tion.jda.api.requests.restaction.MessageCreateAction;
-import org.apache.ignite.IgniteCache;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
@@ -10,6 +9,7 @@ import org.mockito.MockitoAnnotations;
 import ru.chebe.litvinov.data.Boss;
 import ru.chebe.litvinov.data.Person;
 import ru.chebe.litvinov.data.Player;
+import ru.chebe.litvinov.ignite3.BossRepository;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -26,7 +26,7 @@ import static org.mockito.Mockito.*;
 public class BattleManagerLogicTest {
 
     @Mock
-    private IgniteCache<String, Boss> bossCache;
+    private BossRepository bossRepository;
 
     @Mock
     private MessageChannelUnion channel;
@@ -42,7 +42,7 @@ public class BattleManagerLogicTest {
         when(channel.sendMessage(anyString())).thenReturn(messageAction);
         when(messageAction.submit()).thenReturn(CompletableFuture.completedFuture(null));
         // queue() returns void — no stubbing needed; Mockito ignores void calls by default
-        battleManager = new BattleManager(bossCache);
+        battleManager = new BattleManager(bossRepository);
     }
 
     // ---- randomizeDamage -------------------------------------------------------
@@ -136,7 +136,7 @@ public class BattleManagerLogicTest {
     public void getBossItemName_forExistingBoss_returnsItemName() {
         Boss boss = Boss.builder().nickName("Darhalas").hp(1000).strength(10)
                 .defeat(0).win(0).bossItem("корона дарха").build();
-        when(bossCache.get("Darhalas")).thenReturn(boss);
+        when(bossRepository.get("Darhalas")).thenReturn(boss);
 
         String item = battleManager.getBossItemName("Darhalas");
 
@@ -145,7 +145,7 @@ public class BattleManagerLogicTest {
 
     @Test
     public void getBossItemName_forUnknownBoss_returnsNull() {
-        when(bossCache.get("Unknown")).thenReturn(null);
+        when(bossRepository.get("Unknown")).thenReturn(null);
 
         String item = battleManager.getBossItemName("Unknown");
 
@@ -156,7 +156,7 @@ public class BattleManagerLogicTest {
 
     @Test
     public void bossBattle_withNullBoss_sendsNotFoundMessage() {
-        when(bossCache.get("NonExistent")).thenReturn(null);
+        when(bossRepository.get("NonExistent")).thenReturn(null);
 
         battleManager.bossBattle(buildTeam(1, 100, 5, 0), "NonExistent", channel);
 
@@ -167,26 +167,26 @@ public class BattleManagerLogicTest {
     public void bossBattle_whenPlayersWin_incrementsBossDefeat() {
         Boss boss = Boss.builder().nickName("WeakBoss").hp(1).strength(1)
                 .defeat(0).win(0).bossItem("dagger").build();
-        when(bossCache.get("WeakBoss")).thenReturn(boss);
+        when(bossRepository.get("WeakBoss")).thenReturn(boss);
 
         // Players have massive HP/strength — guaranteed win
         battleManager.bossBattle(buildTeam(1, 10000, 1000, 100), "WeakBoss", channel);
 
         // Boss was defeated → defeat counter should have been incremented
-        verify(bossCache).put(eq("WeakBoss"), argThat(b -> b.getDefeat() == 1 && b.getWin() == 0));
+        verify(bossRepository).put(eq("WeakBoss"), argThat(b -> b.getDefeat() == 1 && b.getWin() == 0));
     }
 
     @Test
     public void bossBattle_whenBossWins_incrementsBossWin() {
         Boss boss = Boss.builder().nickName("StrongBoss").hp(10000).strength(1000)
                 .defeat(0).win(0).bossItem("sword").build();
-        when(bossCache.get("StrongBoss")).thenReturn(boss);
+        when(bossRepository.get("StrongBoss")).thenReturn(boss);
 
         // Player has 1 HP — will die immediately
         battleManager.bossBattle(buildTeam(1, 1, 1, 0), "StrongBoss", channel);
 
         // Boss won → win counter should have been incremented
-        verify(bossCache).put(eq("StrongBoss"), argThat(b -> b.getWin() == 1 && b.getDefeat() == 0));
+        verify(bossRepository).put(eq("StrongBoss"), argThat(b -> b.getWin() == 1 && b.getDefeat() == 0));
     }
 
     @Test
@@ -194,26 +194,27 @@ public class BattleManagerLogicTest {
         int initialHp = 500;
         Boss boss = Boss.builder().nickName("ResetBoss").hp(initialHp).strength(10)
                 .defeat(0).win(0).bossItem("item").build();
-        when(bossCache.get("ResetBoss")).thenReturn(boss);
+        when(bossRepository.get("ResetBoss")).thenReturn(boss);
 
         battleManager.bossBattle(buildTeam(1, 10000, 1000, 100), "ResetBoss", channel);
 
         // Boss HP must be restored to initialHp after the fight
-        verify(bossCache).put(eq("ResetBoss"), argThat(b -> b.getHp() == initialHp));
+        verify(bossRepository).put(eq("ResetBoss"), argThat(b -> b.getHp() == initialHp));
     }
 
     // ---- init (cache population) -----------------------------------------------
 
     @Test
     public void init_putsBossOnlyIfAbsentInCache() {
-        // bossCache.get() returns null → should put
-        when(bossCache.get(anyString())).thenReturn(null);
+        // bossRepository.get() returns null → should put
+        when(bossRepository.get(anyString())).thenReturn(null);
+        when(bossRepository.contains(anyString())).thenReturn(false);
 
         // Calling constructor again to trigger init explicitly
-        BattleManager bm = new BattleManager(bossCache);
+        BattleManager bm = new BattleManager(bossRepository);
 
         // At least one boss should have been put
-        verify(bossCache, atLeastOnce()).put(anyString(), any(Boss.class));
+        verify(bossRepository, atLeastOnce()).put(anyString(), any(Boss.class));
     }
 
     @Test
@@ -221,17 +222,18 @@ public class BattleManagerLogicTest {
         Boss existing = Boss.builder().nickName("Darhalas").hp(500).strength(10)
                 .defeat(5).win(3).bossItem("корона дарха").build();
 
-        // Return 'existing' for Darhalas; Mockito returns null by default for unstubbed calls
-        when(bossCache.get(eq("Darhalas"))).thenReturn(existing);
+        // Return true for contains("Darhalas"); Mockito returns false by default for unstubbed calls
+        when(bossRepository.contains(eq("Darhalas"))).thenReturn(true);
+        when(bossRepository.get(eq("Darhalas"))).thenReturn(existing);
         // Reset invocation history from @Before so previous put() calls don't interfere
-        clearInvocations(bossCache);
+        clearInvocations(bossRepository);
 
-        BattleManager bm = new BattleManager(bossCache);
+        BattleManager bm = new BattleManager(bossRepository);
 
         // The existing Darhalas boss must NOT be overwritten
-        verify(bossCache, never()).put(eq("Darhalas"), any(Boss.class));
+        verify(bossRepository, never()).put(eq("Darhalas"), any(Boss.class));
         // Other bosses (null in cache) should be put
-        verify(bossCache, atLeastOnce()).put(argThat(k -> !"Darhalas".equals(k)), any(Boss.class));
+        verify(bossRepository, atLeastOnce()).put(argThat(k -> !"Darhalas".equals(k)), any(Boss.class));
     }
 
     // ---- helpers ---------------------------------------------------------------

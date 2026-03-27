@@ -1,8 +1,8 @@
 package ru.chebe.litvinov.service;
 
 import junit.framework.TestCase;
-import org.apache.ignite.IgniteCache;
 import ru.chebe.litvinov.data.Player;
+import ru.chebe.litvinov.ignite3.PlayerRepository;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
@@ -13,7 +13,7 @@ import static org.mockito.Mockito.*;
 public class PlayersManagerTest extends TestCase {
 
     @Mock
-    private IgniteCache<String, Player> playerCache;
+    private PlayerRepository playerRepository;
 
     @Mock
     private LocationManager locationManager;
@@ -38,7 +38,7 @@ public class PlayersManagerTest extends TestCase {
     @Before
     public void setUp() {
         MockitoAnnotations.initMocks(this);
-        playersManager = new PlayersManager(playerCache, locationManager, itemsManager, battleManager, eventsManager, clanManager, tavern);
+        playersManager = new PlayersManager(playerRepository, locationManager, itemsManager, battleManager, eventsManager, clanManager, tavern);
     }
 
     @Test
@@ -46,26 +46,26 @@ public class PlayersManagerTest extends TestCase {
         Player player = new Player("TestPlayer", "123");
         player.setHp(50);
         player.setMaxHp(100);
-        
-        when(playerCache.get("123")).thenReturn(player);
-        
+
+        when(playerRepository.get("123")).thenReturn(player);
+
         int newHp = playersManager.changeHp("123", 30, true);
-        
+
         assertEquals(80, newHp);
-        verify(playerCache).put("123", player);
+        verify(playerRepository).put("123", player);
     }
 
     @Test
     public void testChangeHpDecrease() {
         Player player = new Player("TestPlayer", "123");
         player.setHp(50);
-        
-        when(playerCache.get("123")).thenReturn(player);
-        
+
+        when(playerRepository.get("123")).thenReturn(player);
+
         int newHp = playersManager.changeHp("123", 30, false);
-        
+
         assertEquals(20, newHp);
-        verify(playerCache).put("123", player);
+        verify(playerRepository).put("123", player);
     }
 
     @Test
@@ -74,21 +74,21 @@ public class PlayersManagerTest extends TestCase {
         player.setHp(90);
         player.setMaxHp(100);
 
-        when(playerCache.get("123")).thenReturn(player);
+        when(playerRepository.get("123")).thenReturn(player);
 
         int newHp = playersManager.changeHp("123", 30, true);
 
         assertEquals(100, newHp); // Should not exceed maxHp
-        verify(playerCache).put("123", player);
+        verify(playerRepository).put("123", player);
     }
 
     @Test
     public void testChangeHpWithNullPlayer_doesNotThrow() {
-        when(playerCache.get("unknown")).thenReturn(null);
+        when(playerRepository.get("unknown")).thenReturn(null);
         // Must not throw NPE — null player guard added as part of bug fix
         int result = playersManager.changeHp("unknown", 10, true);
         assertEquals(0, result);
-        verify(playerCache, never()).put(anyString(), any());
+        verify(playerRepository, never()).put(anyString(), any());
     }
 
     @Test
@@ -97,13 +97,13 @@ public class PlayersManagerTest extends TestCase {
         player.setLuck(5);
         player.setReputation(0);
 
-        when(playerCache.get("123")).thenReturn(player);
+        when(playerRepository.get("123")).thenReturn(player);
 
         int newLuck = playersManager.changeLuck("123", 3, true);
 
         assertEquals(8, newLuck);
         assertEquals(0, player.getReputation()); // reputation must be unchanged
-        verify(playerCache).put("123", player);
+        verify(playerRepository).put("123", player);
     }
 
     @Test
@@ -112,20 +112,20 @@ public class PlayersManagerTest extends TestCase {
         player.setStrength(5);
         player.setReputation(0);
 
-        when(playerCache.get("123")).thenReturn(player);
+        when(playerRepository.get("123")).thenReturn(player);
 
         int newStrength = playersManager.changeStrength("123", 4, true);
 
         assertEquals(9, newStrength);
         assertEquals(0, player.getReputation()); // reputation must be unchanged
-        verify(playerCache).put("123", player);
+        verify(playerRepository).put("123", player);
     }
 
     @Test
     public void testChangeMoneyWithNullPlayer_doesNotThrow() {
-        when(playerCache.get("ghost")).thenReturn(null);
+        when(playerRepository.get("ghost")).thenReturn(null);
         int result = playersManager.changeMoney("ghost", 50, true);
         assertEquals(0, result);
-        verify(playerCache, never()).put(anyString(), any());
+        verify(playerRepository, never()).put(anyString(), any());
     }
 }

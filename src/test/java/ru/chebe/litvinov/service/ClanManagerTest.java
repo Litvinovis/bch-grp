@@ -1,12 +1,13 @@
 package ru.chebe.litvinov.service;
 
-import org.apache.ignite.IgniteCache;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import ru.chebe.litvinov.data.Clan;
 import ru.chebe.litvinov.data.Player;
+import ru.chebe.litvinov.ignite3.ClanRepository;
+import ru.chebe.litvinov.ignite3.PlayerRepository;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -22,46 +23,46 @@ import static ru.chebe.litvinov.Constants.MAX_CLAN_SIZE;
 public class ClanManagerTest {
 
     @Mock
-    private IgniteCache<String, Clan> clanCache;
+    private ClanRepository clanRepository;
 
     @Mock
-    private IgniteCache<String, Player> playerCache;
+    private PlayerRepository playerRepository;
 
     private ClanManager clanManager;
 
     @Before
     public void setUp() {
         MockitoAnnotations.initMocks(this);
-        clanManager = new ClanManager(clanCache, playerCache);
+        clanManager = new ClanManager(clanRepository, playerRepository);
     }
 
     // ---- registerClan ----------------------------------------------------------
 
     @Test
     public void registerClan_newName_createsClanAndReturnsEmpty() {
-        when(clanCache.containsKey("TestClan")).thenReturn(false);
+        when(clanRepository.contains("TestClan")).thenReturn(false);
 
         String result = clanManager.registerClan("TestClan", "leader1");
 
         assertEquals("", result);
-        verify(clanCache).put(eq("TestClan"), any(Clan.class));
+        verify(clanRepository).put(eq("TestClan"), any(Clan.class));
     }
 
     @Test
     public void registerClan_duplicateName_returnsErrorMessage() {
-        when(clanCache.containsKey("ExistingClan")).thenReturn(true);
+        when(clanRepository.contains("ExistingClan")).thenReturn(true);
 
         String result = clanManager.registerClan("ExistingClan", "leader2");
 
         assertFalse(result.isEmpty());
-        verify(clanCache, never()).put(anyString(), any(Clan.class));
+        verify(clanRepository, never()).put(anyString(), any(Clan.class));
     }
 
     // ---- joinClan --------------------------------------------------------------
 
     @Test
     public void joinClan_nonExistentClan_returnsErrorMessage() {
-        when(clanCache.get("Ghost")).thenReturn(null);
+        when(clanRepository.get("Ghost")).thenReturn(null);
 
         String result = clanManager.joinClan("Ghost", "player1");
 
@@ -72,7 +73,7 @@ public class ClanManagerTest {
     @Test
     public void joinClan_clanAtCapacity_returnsCapacityMessage() {
         Clan full = buildClan("Full", "leader", MAX_CLAN_SIZE, 0);
-        when(clanCache.get("Full")).thenReturn(full);
+        when(clanRepository.get("Full")).thenReturn(full);
 
         String result = clanManager.joinClan("Full", "newcomer");
 
@@ -84,7 +85,7 @@ public class ClanManagerTest {
     public void joinClan_clanWithRoomForApplier_addsApplierAndReturnsEmpty() {
         // Empty clan with one leader-member — room for (MAX_CLAN_SIZE - 1) appliers
         Clan clan = buildClan("OpenClan", "leader1", 1, 0);
-        when(clanCache.get("OpenClan")).thenReturn(clan);
+        when(clanRepository.get("OpenClan")).thenReturn(clan);
 
         String result = clanManager.joinClan("OpenClan", "newPlayer");
 
@@ -96,7 +97,7 @@ public class ClanManagerTest {
     public void joinClan_membersAndAppliersExceedCap_returnsCapacityMessage() {
         // members=1, appliers=MAX_CLAN_SIZE-1 → total slots occupied
         Clan clan = buildClan("FullWithAppliers", "leader", 1, MAX_CLAN_SIZE - 1);
-        when(clanCache.get("FullWithAppliers")).thenReturn(clan);
+        when(clanRepository.get("FullWithAppliers")).thenReturn(clan);
 
         String result = clanManager.joinClan("FullWithAppliers", "extra");
 
@@ -108,11 +109,11 @@ public class ClanManagerTest {
     @Test
     public void leaveClan_lastMemberLeaves_removesEntireClan() {
         Clan clan = buildClan("Solo", "only", 1, 0);
-        when(clanCache.get("Solo")).thenReturn(clan);
+        when(clanRepository.get("Solo")).thenReturn(clan);
 
         clanManager.leaveClan("Solo", "only");
 
-        verify(clanCache).remove("Solo");
+        verify(clanRepository).remove("Solo");
     }
 
     @Test
@@ -120,7 +121,7 @@ public class ClanManagerTest {
         Clan clan = buildClan("Alpha", "leader", 2, 0);
         // members = ["leader", "member2"]
         String secondMember = clan.getMembers().get(1);
-        when(clanCache.get("Alpha")).thenReturn(clan);
+        when(clanRepository.get("Alpha")).thenReturn(clan);
 
         clanManager.leaveClan("Alpha", "leader");
 
@@ -132,13 +133,13 @@ public class ClanManagerTest {
     public void leaveClan_nonLeaderLeaves_clanIntact() {
         Clan clan = buildClan("Beta", "leader", 2, 0);
         String member = clan.getMembers().get(1);
-        when(clanCache.get("Beta")).thenReturn(clan);
+        when(clanRepository.get("Beta")).thenReturn(clan);
 
         clanManager.leaveClan("Beta", member);
 
         assertFalse(clan.getMembers().contains(member));
         assertEquals("leader", clan.getLeaderId()); // leader unchanged
-        verify(clanCache, never()).remove("Beta");
+        verify(clanRepository, never()).remove("Beta");
     }
 
     // ---- rejectApply -----------------------------------------------------------
@@ -146,7 +147,7 @@ public class ClanManagerTest {
     @Test
     public void rejectApply_byLeader_withActiveAppliers_clearsAppliersAndReturnsEmpty() {
         Clan clan = buildClan("Clan1", "lead", 1, 1);
-        when(clanCache.get("Clan1")).thenReturn(clan);
+        when(clanRepository.get("Clan1")).thenReturn(clan);
 
         String result = clanManager.rejectApply("Clan1", "lead");
 
@@ -157,7 +158,7 @@ public class ClanManagerTest {
     @Test
     public void rejectApply_byLeader_noAppliers_returnsNoApplicationsMessage() {
         Clan clan = buildClan("Clan2", "lead", 1, 0);
-        when(clanCache.get("Clan2")).thenReturn(clan);
+        when(clanRepository.get("Clan2")).thenReturn(clan);
 
         String result = clanManager.rejectApply("Clan2", "lead");
 
@@ -167,7 +168,7 @@ public class ClanManagerTest {
     @Test
     public void rejectApply_byNonLeader_returnsAccessDeniedMessage() {
         Clan clan = buildClan("Clan3", "lead", 1, 1);
-        when(clanCache.get("Clan3")).thenReturn(clan);
+        when(clanRepository.get("Clan3")).thenReturn(clan);
 
         String result = clanManager.rejectApply("Clan3", "intruder");
 
@@ -186,7 +187,7 @@ public class ClanManagerTest {
 
     @Test
     public void getClanInfo_nonExistentClan_returnsNotFoundMessage() {
-        when(clanCache.get("NoSuchClan")).thenReturn(null);
+        when(clanRepository.get("NoSuchClan")).thenReturn(null);
 
         String result = clanManager.getClanInfo("NoSuchClan");
 
@@ -196,13 +197,13 @@ public class ClanManagerTest {
     @Test
     public void getClanInfo_existingClan_containsClanNameAndLeader() {
         Clan clan = buildClan("Warriors", "lead1", 2, 0);
-        when(clanCache.get("Warriors")).thenReturn(clan);
+        when(clanRepository.get("Warriors")).thenReturn(clan);
 
         // Set up player lookup for members
         Player leader = new Player("LeaderNick", "lead1");
         Player member2 = new Player("Member2Nick", clan.getMembers().get(1));
-        when(playerCache.get("lead1")).thenReturn(leader);
-        when(playerCache.get(clan.getMembers().get(1))).thenReturn(member2);
+        when(playerRepository.get("lead1")).thenReturn(leader);
+        when(playerRepository.get(clan.getMembers().get(1))).thenReturn(member2);
 
         String result = clanManager.getClanInfo("Warriors");
 
@@ -215,7 +216,7 @@ public class ClanManagerTest {
     @Test
     public void getClanMembers_forExistingClan_returnsMemberList() {
         Clan clan = buildClan("Gamma", "leader", 2, 0);
-        when(clanCache.get("Gamma")).thenReturn(clan);
+        when(clanRepository.get("Gamma")).thenReturn(clan);
 
         List<String> members = clanManager.getClanMembers("Gamma");
 
@@ -225,7 +226,7 @@ public class ClanManagerTest {
 
     @Test
     public void getClanMembers_forNonExistentClan_returnsEmptyList() {
-        when(clanCache.get("Gone")).thenReturn(null);
+        when(clanRepository.get("Gone")).thenReturn(null);
 
         List<String> members = clanManager.getClanMembers("Gone");
 

@@ -1,48 +1,48 @@
 package ru.chebe.litvinov.service;
 
-import org.apache.ignite.IgniteCache;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import ru.chebe.litvinov.data.Item;
+import ru.chebe.litvinov.ignite3.ItemRepository;
 
 import static org.junit.Assert.*;
 import static org.mockito.Mockito.*;
 
 /**
  * Tests for ItemsManager: getItem delegation, getItemsForSale list format,
- * and init-time cache population behaviour.
+ * and init-time repository population behaviour.
  */
 public class ItemsManagerTest {
 
     @Mock
-    private IgniteCache<String, Item> itemsCache;
+    private ItemRepository itemRepository;
 
     private ItemsManager itemsManager;
 
     @Before
     public void setUp() {
         MockitoAnnotations.initMocks(this);
-        itemsManager = new ItemsManager(itemsCache);
+        itemsManager = new ItemsManager(itemRepository);
     }
 
     // ---- getItem ---------------------------------------------------------------
 
     @Test
-    public void getItem_knownItem_delegatesToCache() {
+    public void getItem_knownItem_delegatesToRepository() {
         Item sword = Item.builder().name("меч").price(100).action(false).build();
-        when(itemsCache.get("меч")).thenReturn(sword);
+        when(itemRepository.get("меч")).thenReturn(sword);
 
         Item result = itemsManager.getItem("меч");
 
         assertEquals("меч", result.getName());
-        verify(itemsCache).get("меч");
+        verify(itemRepository).get("меч");
     }
 
     @Test
     public void getItem_unknownItem_returnsNull() {
-        when(itemsCache.get("несуществующий")).thenReturn(null);
+        when(itemRepository.get("несуществующий")).thenReturn(null);
 
         Item result = itemsManager.getItem("несуществующий");
 
@@ -78,21 +78,20 @@ public class ItemsManagerTest {
                 forSale.contains("кисточка циника"));
     }
 
-    // ---- init cache population -------------------------------------------------
+    // ---- init repository population -------------------------------------------------
 
     @Test
-    public void init_putsAllItemsIntoCache() {
-        // Any ItemsManager construction triggers init → verify cache receives items
-        verify(itemsCache, atLeastOnce()).put(anyString(), any(Item.class));
+    public void init_putsAllItemsIntoRepository() {
+        // Any ItemsManager construction triggers init → verify repository receives items
+        verify(itemRepository, atLeastOnce()).put(anyString(), any(Item.class));
     }
 
     @Test
     public void init_actionItemsHaveCorrectActionFlag() {
         // Verify that the action flag is correctly set for consumables vs passives.
-        // We capture what was put into the mock cache via argument captor pattern.
-        // Since capture is complex, verify via the public getItemsForSale list indirectly:
+        // Validated indirectly through getItemsForSale():
         String forSale = itemsManager.getItemsForSale();
-        // All items in forSale must be action items — cross-check with cache calls:
+        // All items in forSale must be action items — cross-check with repository calls:
         // (The logic is validated by the above tests; this one just ensures no NPE)
         assertNotNull(forSale);
     }
