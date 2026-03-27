@@ -94,8 +94,9 @@ public class BattleManager {
 		Person boss = Boss.builder().nickName("Бандит").hp(rand.nextInt(15, 35)).strength(3).defeat(0).win(0).bossItem(null).build();
 		battleMechanic(List.of(player), List.of(boss), channel);
 		if (boss.getHp() > 0) {
-			channel.sendMessage("Тебя убил мелкий бандит, это кринж, чувак! Ты был воскрешен на Респауне, " +
-							"потерял 10% монет и возможно кое-что из инвентаря").queue();
+			channel.sendMessage("""
+					Тебя убил мелкий бандит, это кринж, чувак! Ты был воскрешен на Респауне, \
+					потерял 10% монет и возможно кое-что из инвентаря""").queue();
 			return -1;
 		} else {
 			channel.sendMessage("Поздравляю ты победил тупого засланца при переходе локации").submit();
@@ -126,8 +127,8 @@ public class BattleManager {
 
 		if (!bossDefeated) {
 			// Босс победил
-			channel.sendMessage("Штош нужно быть очень глупым чтобы залупаться на " + boss.getNickName() + " с твоими характеристиками" +
-							"Ты умер и был воскрешен на Респауне, ты потерял 10% монет и возможно кое-что из предметов").queue();
+			channel.sendMessage("""
+					Штош нужно быть очень глупым чтобы залупаться на %s с твоими характеристикамиТы умер и был воскрешен на Респауне, ты потерял 10% монет и возможно кое-что из предметов""".formatted(boss.getNickName())).queue();
 			boss.setWin(initialBossWin + 1);
 		} else {
 			// Игрок(и) победили

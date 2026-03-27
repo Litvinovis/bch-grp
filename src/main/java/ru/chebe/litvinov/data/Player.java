@@ -73,18 +73,19 @@ public class Player extends Person {
 	@Override
 	public String toString() {
 		String quest = activeEvent == null ? "" : "Квест - " + activeEvent.getDescription() + "\n";
-		return "Вот твои характристики, игрок\n" +
-						"Имя - " + nickName + "\n" +
-						"Уровень - " + level + "\n" +
-						"Опыт - " + exp + "/" + expToNextLvl + "\n" +
-						"Здоровье - " + hp + "/" + maxHp + "\n" +
-						"Удача - " + luck + "\n" +
-						"Броня - " + armor + "\n" +
-						"Деньги - " + money + "\n" +
-						"Репутация - " + reputation + "\n" +
-						"Сила - " + strength + "\n" +
-						"Локация - " + location + "\n" +
-						quest;
+		return """
+				Вот твои характристики, игрок
+				Имя - %s
+				Уровень - %d
+				Опыт - %d/%d
+				Здоровье - %d/%d
+				Удача - %d
+				Броня - %d
+				Деньги - %d
+				Репутация - %d
+				Сила - %d
+				Локация - %s
+				%s""".formatted(nickName, level, exp, expToNextLvl, hp, maxHp, luck, armor, money, reputation, strength, location, quest);
 	}
 
 	/**
