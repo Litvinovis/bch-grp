@@ -60,7 +60,7 @@ public class ClanManager {
 		if (clan.getMembers().isEmpty()) {
 			clanCache.remove(clanName);
 		} else if (clan.getLeaderId().equals(id)) {
-			clan.setLeaderId(clan.getMembers().get(0));
+			clan.setLeaderId(clan.getMembers().getFirst());
 		}
 	}
 
