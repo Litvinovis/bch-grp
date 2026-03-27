@@ -35,7 +35,7 @@ public class ClanRepository {
         Tuple key = Tuple.create().set("name", name);
         Tuple row = view.get(null, key);
         if (row == null) return null;
-        return rowToClan(row);
+        return rowToClan(row, name);
     }
 
     /**
@@ -73,8 +73,7 @@ public class ClanRepository {
 
     // ---- маппинг ----
 
-    private Clan rowToClan(Tuple row) {
-        String name = row.stringValue("name");
+    private Clan rowToClan(Tuple row, String name) {
         String leaderId = row.stringValue("leader_id");
         List<String> members = JsonUtil.fromJsonToListString(row.stringValue("members"));
         List<String> appliers = JsonUtil.fromJsonToListString(row.stringValue("appliers"));

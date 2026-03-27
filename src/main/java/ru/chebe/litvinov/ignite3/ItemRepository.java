@@ -31,7 +31,7 @@ public class ItemRepository {
         Tuple key = Tuple.create().set("name", name);
         Tuple row = view.get(null, key);
         if (row == null) return null;
-        return rowToItem(row);
+        return rowToItem(row, name);
     }
 
     /**
@@ -59,9 +59,9 @@ public class ItemRepository {
 
     // ---- маппинг ----
 
-    private Item rowToItem(Tuple row) {
+    private Item rowToItem(Tuple row, String name) {
         return Item.builder()
-                .name(row.stringValue("name"))
+                .name(name)
                 .description(row.stringValue("description"))
                 .price(row.intValue("price"))
                 .luck(row.intValue("luck"))

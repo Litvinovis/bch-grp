@@ -31,7 +31,7 @@ public class BossRepository {
         Tuple key = Tuple.create().set("nick_name", name);
         Tuple row = view.get(null, key);
         if (row == null) return null;
-        return rowToBoss(row);
+        return rowToBoss(row, name);
     }
 
     /**
@@ -59,9 +59,9 @@ public class BossRepository {
 
     // ---- маппинг ----
 
-    private Boss rowToBoss(Tuple row) {
+    private Boss rowToBoss(Tuple row, String name) {
         return Boss.builder()
-                .nickName(row.stringValue("nick_name"))
+                .nickName(name)
                 .hp(row.intValue("hp"))
                 .strength(row.intValue("strength"))
                 .armor(row.intValue("armor"))

@@ -40,7 +40,7 @@ public class PlayerRepository {
         Tuple key = Tuple.create().set("id", id);
         Tuple row = view.get(null, key);
         if (row == null) return null;
-        return rowToPlayer(row);
+        return rowToPlayer(row, id);
     }
 
     /**
@@ -78,9 +78,8 @@ public class PlayerRepository {
 
     // ---- маппинг ----
 
-    private Player rowToPlayer(Tuple row) {
+    private Player rowToPlayer(Tuple row, String id) {
         String nickName = row.stringValue("nick_name");
-        String id = row.stringValue("id");
         Player p = new Player(nickName, id);
         p.setHp(row.intValue("hp"));
         p.setMaxHp(row.intValue("max_hp"));
@@ -91,7 +90,7 @@ public class PlayerRepository {
         p.setStrength(row.intValue("strength"));
         p.setLocation(row.stringValue("location"));
         p.setLevel(row.intValue("level"));
-        p.setExp(row.intValue("exp"));
+        p.setExp(row.intValue("\"exp\""));
         p.setExpToNextLvl(row.intValue("exp_to_next"));
         p.setAnswer(row.stringValue("answer") != null ? row.stringValue("answer") : "");
         p.setDailyTime(row.longValue("daily_time"));
@@ -141,7 +140,7 @@ public class PlayerRepository {
                 .set("strength", p.getStrength())
                 .set("location", p.getLocation())
                 .set("level", p.getLevel())
-                .set("exp", p.getExp())
+                .set("\"exp\"", p.getExp())
                 .set("exp_to_next", p.getExpToNextLvl())
                 .set("inventory", inventoryJson)
                 .set("answer", p.getAnswer() != null ? p.getAnswer() : "")
