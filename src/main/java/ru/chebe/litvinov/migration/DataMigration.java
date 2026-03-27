@@ -192,7 +192,7 @@ public class DataMigration {
         log.info("=== Миграция завершена. Всего записей: {} ===", total);
 
         ignite3.close();
-        ignite2.close();
+        Ignition.stop(IGNITE2_INSTANCE_NAME, true);
     }
 
     private static Ignite connectIgnite2(String discoveryAddress) {
