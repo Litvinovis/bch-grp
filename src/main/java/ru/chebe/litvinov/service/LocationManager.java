@@ -4,9 +4,9 @@ import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.entities.MessageEmbed;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.utils.FileUpload;
-import org.apache.ignite.IgniteCache;
 import ru.chebe.litvinov.data.Location;
 import ru.chebe.litvinov.data.Player;
+import ru.chebe.litvinov.ignite3.LocationRepository;
 
 import java.io.File;
 import java.util.*;
@@ -18,26 +18,26 @@ import java.util.*;
  */
 public class LocationManager implements ru.chebe.litvinov.service.interfaces.ILocationManager {
 
-	private final IgniteCache<String, Location> locationCache;
+	private final LocationRepository locationCache;
 	public static final List<String> locationList = new ArrayList<>(50);
 
 	/**
-	 * Создаёт менеджер локаций и инициализирует карту мира в кэше.
+	 * Создаёт менеджер локаций и инициализирует карту мира в репозитории.
 	 *
-	 * @param locationCache Ignite-кэш для хранения локаций
+	 * @param locationCache репозиторий Ignite 3 для хранения локаций
 	 */
-	public LocationManager(IgniteCache<String, Location> locationCache) {
+	public LocationManager(LocationRepository locationCache) {
 		this.locationCache = locationCache;
 		init(locationCache);
 	}
 
 	/**
-	 * Инициализирует кэш локаций полным набором игровых локаций.
-	 * Локации добавляются только если ещё не существуют в кэше.
+	 * Инициализирует репозиторий локаций полным набором игровых локаций.
+	 * Локации добавляются только если ещё не существуют в репозитории.
 	 *
-	 * @param locationCache Ignite-кэш для инициализации
+	 * @param locationCache репозиторий Ignite 3 для инициализации
 	 */
-	public static void init(IgniteCache<String, Location> locationCache) {
+	public static void init(LocationRepository locationCache) {
 		Map<String, Location> map = new HashMap<>();
 		map.put("загадка", Location.builder().name("загадка").pvp(true).paths(new ArrayList<>(List.of("кушетка"))).dangerous(70).populationByName(new ArrayList<>()).populationById(new ArrayList<>()).populationById(new ArrayList<>()).boss("cynic mansion").bossItem("кисточка циника").teleport(false).build());
 		map.put("олимп", Location.builder().name("олимп").pvp(true).paths(new ArrayList<>(List.of("модерская"))).dangerous(80).populationByName(new ArrayList<>()).populationById(new ArrayList<>()).boss("Darhalas").bossItem("корона дарха").teleport(false).build());
@@ -68,7 +68,7 @@ public class LocationManager implements ru.chebe.litvinov.service.interfaces.ILo
 
 		if (locationCache != null) {
 			map.forEach((name, loc) -> {
-				if (locationCache.get(name) == null) {
+				if (!locationCache.contains(name)) {
 					locationCache.put(name, loc);
 				}
 			});

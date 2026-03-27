@@ -2,7 +2,6 @@ package ru.chebe.litvinov.data;
 
 import lombok.Getter;
 import lombok.Setter;
-import org.apache.ignite.cache.query.annotations.QuerySqlField;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -17,16 +16,11 @@ public class Player extends Person {
 	private String id;
 	private int maxHp;
 	private int luck;
-	@QuerySqlField(index = true)
-	private int money;
-	@QuerySqlField(index = true)
-	private int reputation;
-	@QuerySqlField(index = true)
-	private String location;
-	@QuerySqlField(index = true)
-	private int level;
-	@QuerySqlField(index = true)
-	private int exp;
+private int money;
+private int reputation;
+private String location;
+private int level;
+private int exp;
 	private int expToNextLvl;
 	private Map<String, Integer> inventory;
 	private String answer;

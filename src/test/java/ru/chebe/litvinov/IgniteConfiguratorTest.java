@@ -10,10 +10,10 @@ import static org.junit.Assert.*;
 public class IgniteConfiguratorTest {
 
     @Test
-    public void class_hasGetIgniteMethod() throws Exception {
-        IgniteConfigurator cfg = new IgniteConfigurator("127.0.0.1", List.of("127.0.0.1:47500"), "/tmp/ignite-test");
+    public void class_hasGetClientMethod() throws Exception {
+        Ignite3Configurator cfg = new Ignite3Configurator("127.0.0.1:10300");
         assertNotNull(cfg);
-        Method m = IgniteConfigurator.class.getMethod("getIgnite");
+        Method m = Ignite3Configurator.class.getMethod("getClient");
         assertNotNull(m);
     }
 }

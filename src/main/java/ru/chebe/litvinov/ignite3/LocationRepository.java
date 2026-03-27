@@ -1,0 +1,95 @@
+package ru.chebe.litvinov.ignite3;
+
+import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.table.KeyValueView;
+import org.apache.ignite.table.Tuple;
+import ru.chebe.litvinov.data.Location;
+import ru.chebe.litvinov.util.JsonUtil;
+
+import java.util.List;
+
+/**
+ * Репозиторий локаций для Ignite 3.
+ * Маппит Location (с List-полями paths/populationByName/populationById) через JSON.
+ */
+public class LocationRepository {
+
+    private final KeyValueView<Tuple, Tuple> view;
+
+    /**
+     * Создаёт репозиторий.
+     *
+     * @param client подключённый Ignite 3 thin client
+     */
+    public LocationRepository(IgniteClient client) {
+        this.view = client.tables().table("locations").keyValueView();
+    }
+
+    /**
+     * Возвращает локацию по названию или null если не найдена.
+     *
+     * @param name название локации
+     * @return объект Location или null
+     */
+    public Location get(String name) {
+        Tuple key = Tuple.create().set("name", name);
+        Tuple row = view.get(null, key);
+        if (row == null) return null;
+        return rowToLocation(row);
+    }
+
+    /**
+     * Проверяет наличие локации в таблице.
+     *
+     * @param name название локации
+     * @return true если локация существует
+     */
+    public boolean contains(String name) {
+        Tuple key = Tuple.create().set("name", name);
+        return view.contains(null, key);
+    }
+
+    /**
+     * Сохраняет или обновляет локацию.
+     *
+     * @param name     название локации
+     * @param location объект Location
+     */
+    public void put(String name, Location location) {
+        Tuple key = Tuple.create().set("name", name);
+        Tuple val = locationToRow(location);
+        view.put(null, key, val);
+    }
+
+    // ---- маппинг ----
+
+    private Location rowToLocation(Tuple row) {
+        List<String> paths = JsonUtil.fromJsonToListString(row.stringValue("paths"));
+        List<String> popByName = JsonUtil.fromJsonToListString(row.stringValue("population_by_name"));
+        List<String> popById = JsonUtil.fromJsonToListString(row.stringValue("population_by_id"));
+
+        return Location.builder()
+                .name(row.stringValue("name"))
+                .dangerous(row.intValue("dangerous"))
+                .paths(paths)
+                .populationByName(popByName)
+                .populationById(popById)
+                .pvp(row.booleanValue("pvp"))
+                .boss(row.stringValue("boss"))
+                .bossItem(row.stringValue("boss_item"))
+                .teleport(row.booleanValue("teleport"))
+                .build();
+    }
+
+    private Tuple locationToRow(Location loc) {
+        return Tuple.create()
+                .set("dangerous", loc.getDangerous())
+                .set("paths", JsonUtil.toJson(loc.getPaths()))
+                .set("population_by_name", JsonUtil.toJson(loc.getPopulationByName()))
+                .set("population_by_id", JsonUtil.toJson(loc.getPopulationById()))
+                .set("pvp", loc.isPvp())
+                .set("boss", loc.getBoss())
+                .set("boss_item", loc.getBossItem())
+                .set("teleport", loc.isTeleport());
+    }
+}

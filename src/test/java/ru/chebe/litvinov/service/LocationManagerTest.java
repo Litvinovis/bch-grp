@@ -1,12 +1,12 @@
 package ru.chebe.litvinov.service;
 
-import org.apache.ignite.IgniteCache;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import ru.chebe.litvinov.data.Location;
 import ru.chebe.litvinov.data.Player;
+import ru.chebe.litvinov.ignite3.LocationRepository;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -21,14 +21,14 @@ import static org.mockito.Mockito.*;
 public class LocationManagerTest {
 
     @Mock
-    private IgniteCache<String, Location> locationCache;
+    private LocationRepository locationRepository;
 
     private LocationManager locationManager;
 
     @Before
     public void setUp() {
         MockitoAnnotations.initMocks(this);
-        locationManager = new LocationManager(locationCache);
+        locationManager = new LocationManager(locationRepository);
     }
 
     // ---- locationList (populated during init) ----------------------------------
@@ -57,12 +57,12 @@ public class LocationManagerTest {
         assertEquals("Location list must have exactly 26 unique locations", 26, uniqueCount);
     }
 
-    // ---- init cache population -------------------------------------------------
+    // ---- init repository population -------------------------------------------------
 
     @Test
-    public void init_putsLocationsIntoCacheWhenAbsent() {
-        when(locationCache.get(anyString())).thenReturn(null);
-        verify(locationCache, atLeastOnce()).put(anyString(), any(Location.class));
+    public void init_putsLocationsIntoRepositoryWhenAbsent() {
+        when(locationRepository.contains(anyString())).thenReturn(false);
+        verify(locationRepository, atLeastOnce()).put(anyString(), any(Location.class));
     }
 
     @Test
@@ -72,25 +72,25 @@ public class LocationManagerTest {
                 .dangerous(99).populationByName(new ArrayList<>())
                 .populationById(new ArrayList<>()).teleport(true).build();
 
-        // Return 'existing' only for "мейн"; Mockito returns null by default for unstubbed calls
-        when(locationCache.get(eq("мейн"))).thenReturn(existing);
+        // Return true for contains("мейн"); Mockito returns false by default for unstubbed calls
+        when(locationRepository.contains(eq("мейн"))).thenReturn(true);
         // Reset invocation history from @Before so previous put() calls don't interfere
-        clearInvocations(locationCache);
+        clearInvocations(locationRepository);
 
-        LocationManager.init(locationCache);
+        LocationManager.init(locationRepository);
 
         // "мейн" already existed → must NOT be overwritten
-        verify(locationCache, never()).put(eq("мейн"), any(Location.class));
-        // Other locations (null in cache) must be put
-        verify(locationCache, atLeastOnce()).put(argThat(k -> !"мейн".equals(k)), any(Location.class));
+        verify(locationRepository, never()).put(eq("мейн"), any(Location.class));
+        // Other locations (not in repository) must be put
+        verify(locationRepository, atLeastOnce()).put(argThat(k -> !"мейн".equals(k)), any(Location.class));
     }
 
     // ---- getLocation -----------------------------------------------------------
 
     @Test
-    public void getLocation_delegatesToCache() {
+    public void getLocation_delegatesToRepository() {
         Location loc = buildLocation("таверна", false, 10);
-        when(locationCache.get("таверна")).thenReturn(loc);
+        when(locationRepository.get("таверна")).thenReturn(loc);
 
         Location result = locationManager.getLocation("таверна");
 
@@ -100,7 +100,7 @@ public class LocationManagerTest {
 
     @Test
     public void getLocation_unknownLocation_returnsNull() {
-        when(locationCache.get("void")).thenReturn(null);
+        when(locationRepository.get("void")).thenReturn(null);
 
         Location result = locationManager.getLocation("void");
 
@@ -128,8 +128,8 @@ public class LocationManagerTest {
         Player player = new Player("Hero", "hero1");
         player.setLocation("дом");
 
-        when(locationCache.get("дом")).thenReturn(current);
-        when(locationCache.get("мейн")).thenReturn(next);
+        when(locationRepository.get("дом")).thenReturn(current);
+        when(locationRepository.get("мейн")).thenReturn(next);
 
         Location result = locationManager.movePlayerInPopulation(player, "мейн");
 
@@ -142,8 +142,8 @@ public class LocationManagerTest {
         assertFalse(current.getPopulationById().contains("hero1"));
 
         // Both updated locations must be written back
-        verify(locationCache).put("мейн", next);
-        verify(locationCache).put("дом", current);
+        verify(locationRepository).put("мейн", next);
+        verify(locationRepository).put("дом", current);
 
         // Returned location is the new location
         assertEquals("мейн", result.getName());
@@ -160,13 +160,13 @@ public class LocationManagerTest {
         Player player = new Player("Hero", "hero1");
         player.setLocation("дом");
 
-        when(locationCache.get("дом")).thenReturn(current);
-        when(locationCache.get("мейн")).thenReturn(next);
+        when(locationRepository.get("дом")).thenReturn(current);
+        when(locationRepository.get("мейн")).thenReturn(next);
 
         locationManager.movePlayerInPopulation(player, "мейн");
 
         // Only one entry of the player should exist (ArrayList.add always appends, so we just verify call happened)
-        verify(locationCache).put("мейн", next);
+        verify(locationRepository).put("мейн", next);
     }
 
     // ---- Location pvp flag and dangerous level ---------------------------------
@@ -175,7 +175,7 @@ public class LocationManagerTest {
     public void location_pvpFlagAndDangerous_reflectInit() {
         // "модерская" is PvP with dangerous=50 per init
         Location loc = buildLocation("модерская", true, 50);
-        when(locationCache.get("модерская")).thenReturn(loc);
+        when(locationRepository.get("модерская")).thenReturn(loc);
 
         Location result = locationManager.getLocation("модерская");
 
@@ -186,7 +186,7 @@ public class LocationManagerTest {
     @Test
     public void location_nonPvpLocation_hasZeroDangerous() {
         Location loc = buildLocation("таверна", false, 10);
-        when(locationCache.get("таверна")).thenReturn(loc);
+        when(locationRepository.get("таверна")).thenReturn(loc);
 
         Location result = locationManager.getLocation("таверна");
 

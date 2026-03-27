@@ -1,8 +1,8 @@
 package ru.chebe.litvinov.service;
 
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
-import org.apache.ignite.IgniteCache;
 import ru.chebe.litvinov.data.Item;
+import ru.chebe.litvinov.ignite3.ItemRepository;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -15,20 +15,20 @@ import java.util.Map;
  */
 public class ItemsManager {
 
-	private final IgniteCache<String, Item> itemsCache;
+	private final ItemRepository itemsCache;
 	private static final List<String> itemsForSale = new ArrayList<>(100);
 
 	/**
-	 * Создаёт менеджер предметов и заполняет кэш начальным набором предметов.
+	 * Создаёт менеджер предметов и заполняет репозиторий начальным набором предметов.
 	 *
-	 * @param itemsCache Ignite-кэш для хранения предметов
+	 * @param itemsCache репозиторий Ignite 3 для хранения предметов
 	 */
-	public ItemsManager(IgniteCache<String, Item> itemsCache) {
+	public ItemsManager(ItemRepository itemsCache) {
 		this.itemsCache = itemsCache;
 		init(itemsCache);
 	}
 
-	private static void init(IgniteCache<String, Item> itemsCache) {
+	private static void init(ItemRepository itemsCache) {
 		Map<String, Item> map = new HashMap<>();
 		// Предметы боссов
 		map.put("бицушка ровера", Item.builder().name("бицушка ровера").armor(0).price(1000).luck(0).health(10).reputation(0).strength(2).xpGeneration(0).action(false)

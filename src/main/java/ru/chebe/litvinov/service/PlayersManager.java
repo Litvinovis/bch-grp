@@ -1,11 +1,11 @@
 package ru.chebe.litvinov.service;
 
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
-import org.apache.ignite.IgniteCache;
 import ru.chebe.litvinov.data.Item;
 import ru.chebe.litvinov.data.Location;
 import ru.chebe.litvinov.data.Person;
 import ru.chebe.litvinov.data.Player;
+import ru.chebe.litvinov.ignite3.PlayerRepository;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -22,7 +22,7 @@ import static ru.chebe.litvinov.Constants.MIN_LVL_TO_CLAN_JOIN;
  * Использует per-player блокировки для потокобезопасного изменения характеристик.
  */
 public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPlayersManager {
-	private final IgniteCache<String, Player> playerCache;
+	private final PlayerRepository playerCache;
 	private final LocationManager locationManager;
 	private final ItemsManager itemsManager;
 	private final BattleManager battleManager;
@@ -50,7 +50,7 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 	/**
 	 * Создаёт менеджер игроков со всеми зависимостями.
 	 *
-	 * @param playerCache    Ignite-кэш для хранения данных игроков
+	 * @param playerCache    репозиторий Ignite 3 для хранения данных игроков
 	 * @param locationManager менеджер локаций
 	 * @param itemsManager    менеджер предметов
 	 * @param battleManager   менеджер боевой системы
@@ -58,7 +58,7 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 	 * @param clanManager     менеджер кланов
 	 * @param tavern          сервис таверны (азартные игры)
 	 */
-	public PlayersManager(IgniteCache<String, Player> playerCache, LocationManager locationManager, ItemsManager itemsManager,
+	public PlayersManager(PlayerRepository playerCache, LocationManager locationManager, ItemsManager itemsManager,
 	                      BattleManager battleManager, EventsManager eventsManager, ClanManager clanManager, Tavern tavern) {
 		this.playerCache = playerCache;
 		this.locationManager = locationManager;
@@ -276,7 +276,7 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 	 */
 	public void createPlayer(MessageReceivedEvent event) {
 		String id = event.getMessage().getAuthor().getId();
-		if (playerCache.get(id) == null) {
+		if (!playerCache.contains(id)) {
 			String nickName = event.getMessage().getAuthor().getName();
 			playerCache.put(id, new Player(nickName, id));
 			event.getChannel().sendMessage("""

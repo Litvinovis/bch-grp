@@ -10,30 +10,24 @@ import java.util.Map;
 
 /**
  * Конфигурация бота, загружаемая из файла application.yml.
- * Содержит параметры Discord-каналов, администраторов и настройки Apache Ignite.
+ * Содержит параметры Discord-каналов, администраторов и настройки Apache Ignite 3.
  */
 public class BotConfig {
     private final List<String> allowedChannelIds;
     private final List<String> adminIds;
-    private final String igniteLocalAddress;
-    private final List<String> igniteDiscoveryAddresses;
-    private final String igniteWorkDir;
+    private final String ignite3Address;
 
     /**
      * Создаёт конфигурацию бота с указанными параметрами.
      *
-     * @param allowedChannelIds       список идентификаторов Discord-каналов, в которых работает бот
-     * @param adminIds                список идентификаторов администраторов
-     * @param igniteLocalAddress      локальный IP-адрес для Apache Ignite
-     * @param igniteDiscoveryAddresses список адресов для обнаружения узлов Ignite-кластера
-     * @param igniteWorkDir           рабочий каталог Apache Ignite
+     * @param allowedChannelIds список идентификаторов Discord-каналов, в которых работает бот
+     * @param adminIds          список идентификаторов администраторов
+     * @param ignite3Address    адрес Ignite 3 thin client (host:port)
      */
-    public BotConfig(List<String> allowedChannelIds, List<String> adminIds, String igniteLocalAddress, List<String> igniteDiscoveryAddresses, String igniteWorkDir) {
+    public BotConfig(List<String> allowedChannelIds, List<String> adminIds, String ignite3Address) {
         this.allowedChannelIds = allowedChannelIds;
         this.adminIds = adminIds;
-        this.igniteLocalAddress = igniteLocalAddress;
-        this.igniteDiscoveryAddresses = igniteDiscoveryAddresses;
-        this.igniteWorkDir = igniteWorkDir;
+        this.ignite3Address = ignite3Address;
     }
 
     /**
@@ -55,30 +49,12 @@ public class BotConfig {
     }
 
     /**
-     * Возвращает локальный IP-адрес Ignite-узла.
+     * Возвращает адрес Ignite 3 thin client.
      *
-     * @return строка с IP-адресом
+     * @return строка вида host:port
      */
-    public String getIgniteLocalAddress() {
-        return igniteLocalAddress;
-    }
-
-    /**
-     * Возвращает список адресов для обнаружения узлов Ignite-кластера.
-     *
-     * @return список адресов в формате host:port или диапазона портов
-     */
-    public List<String> getIgniteDiscoveryAddresses() {
-        return igniteDiscoveryAddresses;
-    }
-
-    /**
-     * Возвращает рабочий каталог Apache Ignite.
-     *
-     * @return путь к рабочему каталогу
-     */
-    public String getIgniteWorkDir() {
-        return igniteWorkDir;
+    public String getIgnite3Address() {
+        return ignite3Address;
     }
 
     /**
@@ -100,14 +76,9 @@ public class BotConfig {
 
             List<String> channelIds = readStringList(root, "discord", "allowed-channel-ids");
             List<String> adminIds = readStringList(root, "discord", "admin-ids");
-            String igniteLocal = readString(root, "ignite", "local-address", "192.168.1.120");
-            List<String> igniteDiscovery = readStringList(root, "ignite", "discovery-addresses");
-            if (igniteDiscovery.isEmpty()) {
-                igniteDiscovery = List.of("192.168.1.120:47650..47659");
-            }
-            String igniteWorkDir = readString(root, "ignite", "work-dir", "/tmp/ignite-bch-client");
+            String ignite3Addr = readString(root, "ignite3", "address", "127.0.0.1:10300");
 
-            return new BotConfig(channelIds, adminIds, igniteLocal, igniteDiscovery, igniteWorkDir);
+            return new BotConfig(channelIds, adminIds, ignite3Addr);
         } catch (Exception e) {
             return defaults();
         }
@@ -140,7 +111,7 @@ public class BotConfig {
     }
 
     private static BotConfig defaults() {
-        return new BotConfig(Collections.emptyList(), Collections.emptyList(), "192.168.1.120", List.of("192.168.1.120:47650..47659"), "/tmp/ignite-bch-client");
+        return new BotConfig(Collections.emptyList(), Collections.emptyList(), "127.0.0.1:10300");
     }
 }
 

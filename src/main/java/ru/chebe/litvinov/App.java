@@ -5,10 +5,9 @@ import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.entities.Activity;
 import net.dv8tion.jda.api.requests.GatewayIntent;
+import org.apache.ignite.client.IgniteClient;
 
 import java.util.Optional;
-import org.apache.ignite.Ignite;
-import org.apache.ignite.cluster.ClusterState;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.chebe.litvinov.eventHandlers.MessageHandler;
@@ -44,20 +43,16 @@ public class App {
         try {
             BotConfig botConfig = BotConfig.load();
 
-            logger.info("Инициализация Apache Ignite");
-            Ignite ignite = new IgniteConfigurator(botConfig.getIgniteLocalAddress(), botConfig.getIgniteDiscoveryAddresses(), botConfig.getIgniteWorkDir()).getIgnite();
-            logger.info("Apache Ignite успешно инициализирован");
-            
-            logger.info("Активация кластера Ignite");
-            ignite.cluster().state(ClusterState.ACTIVE);
-            logger.info("Кластер Ignite активирован");
-            
+            logger.info("Инициализация Apache Ignite 3 thin client");
+            IgniteClient igniteClient = new Ignite3Configurator(botConfig.getIgnite3Address()).getClient();
+            logger.info("Apache Ignite 3 thin client успешно инициализирован");
+
             logger.info("Инициализация Discord бота");
             String token = resolveDiscordToken()
                     .orElseThrow(() -> new IllegalStateException("Не задан токен Discord. Установите переменную окружения BCHGRP_DISCORD_TOKEN"));
             JDA jda = JDABuilder.createDefault(token)
                     .enableIntents(GatewayIntent.MESSAGE_CONTENT)
-                    .addEventListeners(new MessageHandler(ignite, botConfig.getAllowedChannelIds(), botConfig.getAdminIds()))
+                    .addEventListeners(new MessageHandler(igniteClient, botConfig.getAllowedChannelIds(), botConfig.getAdminIds()))
                     .setActivity(Activity.playing("БЧ-ГРП"))
                     .setMaxReconnectDelay(60)
                     .build();

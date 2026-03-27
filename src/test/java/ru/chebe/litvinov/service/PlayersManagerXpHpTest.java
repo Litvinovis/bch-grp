@@ -1,6 +1,5 @@
 package ru.chebe.litvinov.service;
 
-import org.apache.ignite.IgniteCache;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
@@ -8,6 +7,7 @@ import org.mockito.MockitoAnnotations;
 import ru.chebe.litvinov.data.Item;
 import ru.chebe.litvinov.data.Location;
 import ru.chebe.litvinov.data.Player;
+import ru.chebe.litvinov.ignite3.PlayerRepository;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -23,7 +23,7 @@ import static org.mockito.Mockito.*;
 public class PlayersManagerXpHpTest {
 
     @Mock
-    private IgniteCache<String, Player> playerCache;
+    private PlayerRepository playerRepository;
     @Mock
     private LocationManager locationManager;
     @Mock
@@ -43,7 +43,7 @@ public class PlayersManagerXpHpTest {
     public void setUp() {
         MockitoAnnotations.initMocks(this);
         playersManager = new PlayersManager(
-                playerCache, locationManager, itemsManager,
+                playerRepository, locationManager, itemsManager,
                 battleManager, eventsManager, clanManager, tavern);
     }
 
@@ -98,13 +98,13 @@ public class PlayersManagerXpHpTest {
         player.setExp(50);
         player.setExpToNextLvl(100);
         player.setLevel(1);
-        when(playerCache.get("id1")).thenReturn(player);
+        when(playerRepository.get("id1")).thenReturn(player);
 
         playersManager.changeXp("id1", 30);
 
         assertEquals(80, player.getExp());
         assertEquals(1, player.getLevel());
-        verify(playerCache).put("id1", player);
+        verify(playerRepository).put("id1", player);
     }
 
     @Test
@@ -114,7 +114,7 @@ public class PlayersManagerXpHpTest {
         player.setExpToNextLvl(100);
         player.setLevel(1);
         player.setMaxHp(100);
-        when(playerCache.get("id1")).thenReturn(player);
+        when(playerRepository.get("id1")).thenReturn(player);
 
         // 50 + 50 = 100 >= expToNextLvl → level up
         playersManager.changeXp("id1", 50);
@@ -129,7 +129,7 @@ public class PlayersManagerXpHpTest {
         player.setExpToNextLvl(100);
         player.setLevel(1);
         player.setMaxHp(100);
-        when(playerCache.get("id1")).thenReturn(player);
+        when(playerRepository.get("id1")).thenReturn(player);
 
         // Level-up is triggered since 80+60=140 >= 100
         // Implementation: setExp(exp + xp % expToNextLvl) = 80 + (60 % 100) = 140
@@ -147,7 +147,7 @@ public class PlayersManagerXpHpTest {
         player.setLevel(1);
         player.setHp(10); // low HP
         player.setMaxHp(100);
-        when(playerCache.get("id1")).thenReturn(player);
+        when(playerRepository.get("id1")).thenReturn(player);
 
         playersManager.changeXp("id1", 20);
 
@@ -158,10 +158,10 @@ public class PlayersManagerXpHpTest {
 
     @Test
     public void changeXp_nullPlayer_doesNotThrow() {
-        when(playerCache.get("ghost")).thenReturn(null);
+        when(playerRepository.get("ghost")).thenReturn(null);
         // Must not throw NPE
         playersManager.changeXp("ghost", 100);
-        verify(playerCache, never()).put(anyString(), any());
+        verify(playerRepository, never()).put(anyString(), any());
     }
 
     // ---- changeMoney -----------------------------------------------------------
@@ -170,19 +170,19 @@ public class PlayersManagerXpHpTest {
     public void changeMoney_increase_addsMoney() {
         Player player = new Player("Rich", "id1");
         player.setMoney(100);
-        when(playerCache.get("id1")).thenReturn(player);
+        when(playerRepository.get("id1")).thenReturn(player);
 
         int result = playersManager.changeMoney("id1", 50, true);
 
         assertEquals(150, result);
-        verify(playerCache).put("id1", player);
+        verify(playerRepository).put("id1", player);
     }
 
     @Test
     public void changeMoney_decrease_subtractsMoney() {
         Player player = new Player("Poor", "id1");
         player.setMoney(100);
-        when(playerCache.get("id1")).thenReturn(player);
+        when(playerRepository.get("id1")).thenReturn(player);
 
         int result = playersManager.changeMoney("id1", 30, false);
 
@@ -191,7 +191,7 @@ public class PlayersManagerXpHpTest {
 
     @Test
     public void changeMoney_increase_nullPlayer_returnsZero() {
-        when(playerCache.get("none")).thenReturn(null);
+        when(playerRepository.get("none")).thenReturn(null);
 
         int result = playersManager.changeMoney("none", 100, true);
 
@@ -204,7 +204,7 @@ public class PlayersManagerXpHpTest {
     public void changeReputation_increase_addsReputation() {
         Player player = new Player("Hero", "id1");
         player.setReputation(5);
-        when(playerCache.get("id1")).thenReturn(player);
+        when(playerRepository.get("id1")).thenReturn(player);
 
         int result = playersManager.changeReputation("id1", 3, true);
 
@@ -215,7 +215,7 @@ public class PlayersManagerXpHpTest {
     public void changeReputation_decrease_subtractsReputation() {
         Player player = new Player("Hero", "id1");
         player.setReputation(10);
-        when(playerCache.get("id1")).thenReturn(player);
+        when(playerRepository.get("id1")).thenReturn(player);
 
         int result = playersManager.changeReputation("id1", 4, false);
 
@@ -224,7 +224,7 @@ public class PlayersManagerXpHpTest {
 
     @Test
     public void changeReputation_nullPlayer_returnsZero() {
-        when(playerCache.get("gone")).thenReturn(null);
+        when(playerRepository.get("gone")).thenReturn(null);
 
         int result = playersManager.changeReputation("gone", 5, true);
 
@@ -237,19 +237,19 @@ public class PlayersManagerXpHpTest {
     public void changeHp_voidOverload_setsHpDirectly() {
         Player player = new Player("Hero", "id1");
         player.setHp(50);
-        when(playerCache.get("id1")).thenReturn(player);
+        when(playerRepository.get("id1")).thenReturn(player);
 
         playersManager.changeHp("id1", 75);
 
         assertEquals(75, player.getHp());
-        verify(playerCache).put("id1", player);
+        verify(playerRepository).put("id1", player);
     }
 
     @Test
     public void changeHp_voidOverload_nullPlayer_doesNotThrow() {
-        when(playerCache.get("null")).thenReturn(null);
+        when(playerRepository.get("null")).thenReturn(null);
         playersManager.changeHp("null", 50);
-        verify(playerCache, never()).put(anyString(), any());
+        verify(playerRepository, never()).put(anyString(), any());
     }
 
     // ---- changeLuck / changeStrength -------------------------------------------
@@ -258,7 +258,7 @@ public class PlayersManagerXpHpTest {
     public void changeLuck_decrease_subtractsLuck() {
         Player player = new Player("Hero", "id1");
         player.setLuck(10);
-        when(playerCache.get("id1")).thenReturn(player);
+        when(playerRepository.get("id1")).thenReturn(player);
 
         int result = playersManager.changeLuck("id1", 3, false);
 
@@ -269,7 +269,7 @@ public class PlayersManagerXpHpTest {
     public void changeStrength_decrease_subtractsStrength() {
         Player player = new Player("Hero", "id1");
         player.setStrength(8);
-        when(playerCache.get("id1")).thenReturn(player);
+        when(playerRepository.get("id1")).thenReturn(player);
 
         int result = playersManager.changeStrength("id1", 2, false);
 
@@ -324,7 +324,7 @@ public class PlayersManagerXpHpTest {
         playersManager.deathOfPlayer(player);
 
         assertEquals("респаун", player.getLocation());
-        verify(playerCache).put("id1", player);
+        verify(playerRepository).put("id1", player);
     }
 
     // ---- addNewItem ------------------------------------------------------------
@@ -341,7 +341,7 @@ public class PlayersManagerXpHpTest {
         Item item = Item.builder().name("шлем").price(100).action(false)
                 .reputation(2).health(10).armor(3).luck(1).strength(0).build();
 
-        when(playerCache.get("id1")).thenReturn(player);
+        when(playerRepository.get("id1")).thenReturn(player);
         when(itemsManager.getItem("шлем")).thenReturn(item);
 
         playersManager.addNewItem("id1", "шлем");
@@ -361,7 +361,7 @@ public class PlayersManagerXpHpTest {
         Item item = Item.builder().name("зелье").price(10).action(true)
                 .health(30).reputation(0).armor(0).luck(0).strength(0).build();
 
-        when(playerCache.get("id1")).thenReturn(player);
+        when(playerRepository.get("id1")).thenReturn(player);
         when(itemsManager.getItem("зелье")).thenReturn(item);
 
         playersManager.addNewItem("id1", "зелье");
@@ -372,12 +372,12 @@ public class PlayersManagerXpHpTest {
     @Test
     public void addNewItem_unknownItem_doesNotModifyPlayer() {
         Player player = new Player("Hero", "id1");
-        when(playerCache.get("id1")).thenReturn(player);
+        when(playerRepository.get("id1")).thenReturn(player);
         when(itemsManager.getItem("nonexistent")).thenReturn(null);
 
         playersManager.addNewItem("id1", "nonexistent");
 
-        verify(playerCache, never()).put(anyString(), any());
+        verify(playerRepository, never()).put(anyString(), any());
     }
 
     // ---- deleteItem ------------------------------------------------------------
@@ -391,7 +391,7 @@ public class PlayersManagerXpHpTest {
         Item item = Item.builder().name("броня").price(500).action(false)
                 .armor(2).health(0).reputation(0).luck(0).strength(0).build();
 
-        when(playerCache.get("id1")).thenReturn(player);
+        when(playerRepository.get("id1")).thenReturn(player);
         when(itemsManager.getItem("броня")).thenReturn(item);
 
         playersManager.deleteItem("id1", "броня");
@@ -410,7 +410,7 @@ public class PlayersManagerXpHpTest {
         Item item = Item.builder().name("меч").price(300).action(false)
                 .strength(3).armor(0).health(0).reputation(0).luck(0).build();
 
-        when(playerCache.get("id1")).thenReturn(player);
+        when(playerRepository.get("id1")).thenReturn(player);
         when(itemsManager.getItem("меч")).thenReturn(item);
 
         playersManager.deleteItem("id1", "меч");
@@ -428,7 +428,7 @@ public class PlayersManagerXpHpTest {
         Item item = Item.builder().name("зелье").price(10).action(true)
                 .health(30).armor(0).reputation(0).luck(0).strength(0).build();
 
-        when(playerCache.get("id1")).thenReturn(player);
+        when(playerRepository.get("id1")).thenReturn(player);
         when(itemsManager.getItem("зелье")).thenReturn(item);
 
         playersManager.deleteItem("id1", "зелье");
