@@ -35,7 +35,7 @@ public class LocationRepository {
         Tuple key = Tuple.create().set("name", name);
         Tuple row = view.get(null, key);
         if (row == null) return null;
-        return rowToLocation(row);
+        return rowToLocation(row, name);
     }
 
     /**
@@ -63,13 +63,13 @@ public class LocationRepository {
 
     // ---- маппинг ----
 
-    private Location rowToLocation(Tuple row) {
+    private Location rowToLocation(Tuple row, String name) {
         List<String> paths = JsonUtil.fromJsonToListString(row.stringValue("paths"));
         List<String> popByName = JsonUtil.fromJsonToListString(row.stringValue("population_by_name"));
         List<String> popById = JsonUtil.fromJsonToListString(row.stringValue("population_by_id"));
 
         return Location.builder()
-                .name(row.stringValue("name"))
+                .name(name)
                 .dangerous(row.intValue("dangerous"))
                 .paths(paths)
                 .populationByName(popByName)
