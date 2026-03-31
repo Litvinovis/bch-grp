@@ -90,7 +90,7 @@ public class PlayerRepository {
         p.setStrength(row.intValue("strength"));
         p.setLocation(row.stringValue("location"));
         p.setLevel(row.intValue("level"));
-        p.setExp(row.intValue("\"exp\""));
+        p.setExp(row.intValue("exp"));
         p.setExpToNextLvl(row.intValue("exp_to_next"));
         p.setAnswer(row.stringValue("answer") != null ? row.stringValue("answer") : "");
         p.setDailyTime(row.longValue("daily_time"));
@@ -140,7 +140,7 @@ public class PlayerRepository {
                 .set("strength", p.getStrength())
                 .set("location", p.getLocation())
                 .set("level", p.getLevel())
-                .set("\"exp\"", p.getExp())
+                .set("exp", p.getExp())
                 .set("exp_to_next", p.getExpToNextLvl())
                 .set("inventory", inventoryJson)
                 .set("answer", p.getAnswer() != null ? p.getAnswer() : "")
