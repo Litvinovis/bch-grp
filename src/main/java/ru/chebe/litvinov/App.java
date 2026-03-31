@@ -44,7 +44,7 @@ public class App {
             BotConfig botConfig = BotConfig.load();
 
             logger.info("Инициализация Apache Ignite 3 thin client");
-            IgniteClient igniteClient = new Ignite3Configurator(botConfig.getIgnite3Address()).getClient();
+            IgniteClient igniteClient = new Ignite3Configurator(botConfig.ignite3Address()).getClient();
             logger.info("Apache Ignite 3 thin client успешно инициализирован");
 
             logger.info("Инициализация Discord бота");
@@ -52,7 +52,7 @@ public class App {
                     .orElseThrow(() -> new IllegalStateException("Не задан токен Discord. Установите переменную окружения BCHGRP_DISCORD_TOKEN"));
             JDA jda = JDABuilder.createDefault(token)
                     .enableIntents(GatewayIntent.MESSAGE_CONTENT)
-                    .addEventListeners(new MessageHandler(igniteClient, botConfig.getAllowedChannelIds(), botConfig.getAdminIds()))
+                    .addEventListeners(new MessageHandler(igniteClient, botConfig.allowedChannelIds(), botConfig.adminIds()))
                     .setActivity(Activity.playing("БЧ-ГРП"))
                     .setMaxReconnectDelay(60)
                     .build();
