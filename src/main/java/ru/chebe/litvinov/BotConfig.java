@@ -12,50 +12,11 @@ import java.util.Map;
  * Конфигурация бота, загружаемая из файла application.yml.
  * Содержит параметры Discord-каналов, администраторов и настройки Apache Ignite 3.
  */
-public class BotConfig {
-    private final List<String> allowedChannelIds;
-    private final List<String> adminIds;
-    private final String ignite3Address;
-
-    /**
-     * Создаёт конфигурацию бота с указанными параметрами.
-     *
-     * @param allowedChannelIds список идентификаторов Discord-каналов, в которых работает бот
-     * @param adminIds          список идентификаторов администраторов
-     * @param ignite3Address    адрес Ignite 3 thin client (host:port)
-     */
-    public BotConfig(List<String> allowedChannelIds, List<String> adminIds, String ignite3Address) {
-        this.allowedChannelIds = allowedChannelIds;
-        this.adminIds = adminIds;
-        this.ignite3Address = ignite3Address;
-    }
-
-    /**
-     * Возвращает список разрешённых Discord-каналов.
-     *
-     * @return список идентификаторов каналов
-     */
-    public List<String> getAllowedChannelIds() {
-        return allowedChannelIds;
-    }
-
-    /**
-     * Возвращает список идентификаторов администраторов.
-     *
-     * @return список идентификаторов администраторов
-     */
-    public List<String> getAdminIds() {
-        return adminIds;
-    }
-
-    /**
-     * Возвращает адрес Ignite 3 thin client.
-     *
-     * @return строка вида host:port
-     */
-    public String getIgnite3Address() {
-        return ignite3Address;
-    }
+public record BotConfig(
+        List<String> allowedChannelIds,
+        List<String> adminIds,
+        String ignite3Address
+) {
 
     /**
      * Загружает конфигурацию из файла application.yml в classpath.
@@ -114,4 +75,3 @@ public class BotConfig {
         return new BotConfig(Collections.emptyList(), Collections.emptyList(), "127.0.0.1:10300");
     }
 }
-
