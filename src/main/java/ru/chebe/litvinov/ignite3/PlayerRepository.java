@@ -38,9 +38,15 @@ public class PlayerRepository {
 
     private KeyValueView<Tuple, Tuple> view() {
         IgniteClient current = configurator.getClient();
+        if (current == null) {
+            throw new IllegalStateException("Ignite 3 недоступен — соединение ещё не установлено");
+        }
         if (view == null || current != lastClient) {
             synchronized (this) {
                 current = configurator.getClient();
+                if (current == null) {
+                    throw new IllegalStateException("Ignite 3 недоступен — соединение ещё не установлено");
+                }
                 if (view == null || current != lastClient) {
                     view = current.tables().table(TABLE).keyValueView();
                     lastClient = current;
