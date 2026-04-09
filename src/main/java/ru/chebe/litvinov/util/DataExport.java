@@ -141,16 +141,17 @@ public class DataExport {
             while (rs.hasNext()) {
                 SqlRow row = rs.next();
                 ObjectNode node = MAPPER.createObjectNode();
-                for (String col : columns) {
-                    Object val = row.value(col);
+                for (int i = 0; i < columns.length; i++) {
+                    String col = columns[i];
+                    Object val = row.value(i);
                     if (val == null) {
                         node.putNull(col);
                     } else if (val instanceof Boolean b) {
                         node.put(col, b);
                     } else if (val instanceof Long l) {
                         node.put(col, l);
-                    } else if (val instanceof Integer i) {
-                        node.put(col, i);
+                    } else if (val instanceof Integer iv) {
+                        node.put(col, iv);
                     } else {
                         node.put(col, val.toString());
                     }
