@@ -3,6 +3,7 @@ package ru.chebe.litvinov.ignite3;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
+import ru.chebe.litvinov.Ignite3Configurator;
 import ru.chebe.litvinov.data.Idea;
 
 import java.util.ArrayList;
@@ -11,20 +12,38 @@ import java.util.List;
 /**
  * Репозиторий идей для Ignite 3.
  * Для scan-запросов (поиск по статусу) использует SQL через IgniteClient.sql().
+ * Получает клиент через {@link Ignite3Configurator} — view автоматически сбрасывается
+ * при смене клиента после переподключения.
  */
 public class IdeaRepository {
 
-    private final KeyValueView<Tuple, Tuple> view;
-    private final IgniteClient client;
+    private static final String TABLE = "ideas";
+
+    private final Ignite3Configurator configurator;
+    private volatile IgniteClient lastClient;
+    private volatile KeyValueView<Tuple, Tuple> view;
 
     /**
      * Создаёт репозиторий.
      *
-     * @param client подключённый Ignite 3 thin client
+     * @param configurator менеджер подключения Ignite 3
      */
-    public IdeaRepository(IgniteClient client) {
-        this.client = client;
-        this.view = client.tables().table("ideas").keyValueView();
+    public IdeaRepository(Ignite3Configurator configurator) {
+        this.configurator = configurator;
+    }
+
+    private KeyValueView<Tuple, Tuple> view() {
+        IgniteClient current = configurator.getClient();
+        if (view == null || current != lastClient) {
+            synchronized (this) {
+                current = configurator.getClient();
+                if (view == null || current != lastClient) {
+                    view = current.tables().table(TABLE).keyValueView();
+                    lastClient = current;
+                }
+            }
+        }
+        return view;
     }
 
     /**
@@ -35,7 +54,7 @@ public class IdeaRepository {
      */
     public Idea get(int id) {
         Tuple key = Tuple.create().set("id", id);
-        Tuple row = view.get(null, key);
+        Tuple row = view().get(null, key);
         if (row == null) return null;
         return rowToIdea(row, id);
     }
@@ -49,7 +68,7 @@ public class IdeaRepository {
     public void put(int id, Idea idea) {
         Tuple key = Tuple.create().set("id", id);
         Tuple val = ideaToRow(idea);
-        view.put(null, key, val);
+        view().put(null, key, val);
     }
 
     /**
@@ -58,7 +77,7 @@ public class IdeaRepository {
      * @return количество записей
      */
     public int size() {
-        try (var cursor = client.sql().execute(null, "SELECT COUNT(*) FROM ideas")) {
+        try (var cursor = configurator.getClient().sql().execute(null, "SELECT COUNT(*) FROM ideas")) {
             if (cursor.hasNext()) {
                 var row = cursor.next();
                 return (int) row.longValue(0);
@@ -75,7 +94,7 @@ public class IdeaRepository {
      */
     public List<Idea> findByResolution(String resolution) {
         List<Idea> result = new ArrayList<>();
-        try (var cursor = client.sql().execute(null,
+        try (var cursor = configurator.getClient().sql().execute(null,
                 "SELECT id, description, author, resolution FROM ideas WHERE resolution = ?", resolution)) {
             while (cursor.hasNext()) {
                 var row = cursor.next();
@@ -97,7 +116,7 @@ public class IdeaRepository {
      */
     public List<Idea> findAll() {
         List<Idea> result = new ArrayList<>();
-        try (var cursor = client.sql().execute(null,
+        try (var cursor = configurator.getClient().sql().execute(null,
                 "SELECT id, description, author, resolution FROM ideas")) {
             while (cursor.hasNext()) {
                 var row = cursor.next();
