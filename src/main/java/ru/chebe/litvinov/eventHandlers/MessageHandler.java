@@ -64,8 +64,10 @@ public class MessageHandler extends ListenerAdapter {
 		this.allowedChannelIds = new HashSet<>(allowedChannelIds == null ? java.util.List.of() : allowedChannelIds);
 		this.adminIds = new HashSet<>(adminIds == null ? java.util.List.of() : adminIds);
 
-		// Инициализация схемы Ignite 3
-		new SchemaInitializer(configurator.getClient()).init();
+		// Инициализация схемы Ignite 3 (пропускается если Ignite недоступен при старте)
+		if (configurator.getClient() != null) {
+			new SchemaInitializer(configurator.getClient()).init();
+		}
 
 		this.playerRepository = new PlayerRepository(configurator);
 		this.locationManager = new LocationManager(new LocationRepository(configurator));

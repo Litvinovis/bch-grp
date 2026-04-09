@@ -20,13 +20,20 @@ public class Ignite3Configurator {
     private volatile IgniteClient client;
 
     /**
-     * Создаёт конфигуратор и сразу устанавливает соединение с Ignite 3.
+     * Создаёт конфигуратор и пытается установить соединение с Ignite 3.
+     * При недоступности кластера конструктор завершается без ошибки — {@code client} остаётся {@code null},
+     * переподключение выполняется через {@link ru.chebe.litvinov.service.IgniteHealthChecker}.
      *
      * @param address адрес Ignite 3 узла в формате host:port (например, "127.0.0.1:10300")
      */
     public Ignite3Configurator(String address) {
         this.address = address;
-        this.client = buildClient();
+        try {
+            this.client = buildClient();
+            log.info("Ignite3Configurator: подключение к {} установлено", address);
+        } catch (Exception e) {
+            log.warn("Ignite3Configurator: не удалось подключиться при старте ({}), переподключение будет выполнено автоматически", e.getMessage());
+        }
     }
 
     /**

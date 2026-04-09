@@ -34,9 +34,15 @@ public class IdeaRepository {
 
     private KeyValueView<Tuple, Tuple> view() {
         IgniteClient current = configurator.getClient();
+        if (current == null) {
+            throw new IllegalStateException("Ignite 3 недоступен — соединение ещё не установлено");
+        }
         if (view == null || current != lastClient) {
             synchronized (this) {
                 current = configurator.getClient();
+                if (current == null) {
+                    throw new IllegalStateException("Ignite 3 недоступен — соединение ещё не установлено");
+                }
                 if (view == null || current != lastClient) {
                     view = current.tables().table(TABLE).keyValueView();
                     lastClient = current;
@@ -77,7 +83,9 @@ public class IdeaRepository {
      * @return количество записей
      */
     public int size() {
-        try (var cursor = configurator.getClient().sql().execute(null, "SELECT COUNT(*) FROM ideas")) {
+        IgniteClient client = configurator.getClient();
+        if (client == null) return 0;
+        try (var cursor = client.sql().execute(null, "SELECT COUNT(*) FROM ideas")) {
             if (cursor.hasNext()) {
                 var row = cursor.next();
                 return (int) row.longValue(0);
@@ -94,7 +102,9 @@ public class IdeaRepository {
      */
     public List<Idea> findByResolution(String resolution) {
         List<Idea> result = new ArrayList<>();
-        try (var cursor = configurator.getClient().sql().execute(null,
+        IgniteClient client = configurator.getClient();
+        if (client == null) return result;
+        try (var cursor = client.sql().execute(null,
                 "SELECT id, description, author, resolution FROM ideas WHERE resolution = ?", resolution)) {
             while (cursor.hasNext()) {
                 var row = cursor.next();
@@ -116,7 +126,9 @@ public class IdeaRepository {
      */
     public List<Idea> findAll() {
         List<Idea> result = new ArrayList<>();
-        try (var cursor = configurator.getClient().sql().execute(null,
+        IgniteClient client = configurator.getClient();
+        if (client == null) return result;
+        try (var cursor = client.sql().execute(null,
                 "SELECT id, description, author, resolution FROM ideas")) {
             while (cursor.hasNext()) {
                 var row = cursor.next();

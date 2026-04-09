@@ -44,6 +44,7 @@ public class IgniteHealthChecker {
 
     /**
      * Запускает периодическую проверку доступности Ignite-таблиц.
+     * Если при старте Ignite недоступен, немедленно инициирует цикл переподключения.
      */
     public void start() {
         scheduler.scheduleAtFixedRate(
@@ -52,6 +53,11 @@ public class IgniteHealthChecker {
                 CHECK_INTERVAL_MINUTES,
                 TimeUnit.MINUTES);
         log.info("IgniteHealthChecker запущен: проверка каждые {} минут", CHECK_INTERVAL_MINUTES);
+        // Немедленная проверка при старте — запускает переподключение если Ignite недоступен
+        if (configurator.getClient() == null) {
+            log.warn("IgniteHealthChecker: Ignite недоступен при старте, немедленно запускаю переподключение");
+            scheduleReconnect();
+        }
     }
 
     /**
