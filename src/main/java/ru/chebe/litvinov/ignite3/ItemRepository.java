@@ -3,22 +3,43 @@ package ru.chebe.litvinov.ignite3;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
+import ru.chebe.litvinov.Ignite3Configurator;
 import ru.chebe.litvinov.data.Item;
 
 /**
  * Репозиторий предметов для Ignite 3.
+ * Получает клиент через {@link Ignite3Configurator} — view автоматически сбрасывается
+ * при смене клиента после переподключения.
  */
 public class ItemRepository {
 
-    private final KeyValueView<Tuple, Tuple> view;
+    private static final String TABLE = "items";
+
+    private final Ignite3Configurator configurator;
+    private volatile IgniteClient lastClient;
+    private volatile KeyValueView<Tuple, Tuple> view;
 
     /**
      * Создаёт репозиторий.
      *
-     * @param client подключённый Ignite 3 thin client
+     * @param configurator менеджер подключения Ignite 3
      */
-    public ItemRepository(IgniteClient client) {
-        this.view = client.tables().table("items").keyValueView();
+    public ItemRepository(Ignite3Configurator configurator) {
+        this.configurator = configurator;
+    }
+
+    private KeyValueView<Tuple, Tuple> view() {
+        IgniteClient current = configurator.getClient();
+        if (view == null || current != lastClient) {
+            synchronized (this) {
+                current = configurator.getClient();
+                if (view == null || current != lastClient) {
+                    view = current.tables().table(TABLE).keyValueView();
+                    lastClient = current;
+                }
+            }
+        }
+        return view;
     }
 
     /**
@@ -29,7 +50,7 @@ public class ItemRepository {
      */
     public Item get(String name) {
         Tuple key = Tuple.create().set("name", name);
-        Tuple row = view.get(null, key);
+        Tuple row = view().get(null, key);
         if (row == null) return null;
         return rowToItem(row, name);
     }
@@ -43,7 +64,7 @@ public class ItemRepository {
     public void put(String name, Item item) {
         Tuple key = Tuple.create().set("name", name);
         Tuple val = itemToRow(item);
-        view.put(null, key, val);
+        view().put(null, key, val);
     }
 
     /**
@@ -54,7 +75,7 @@ public class ItemRepository {
      */
     public boolean contains(String name) {
         Tuple key = Tuple.create().set("name", name);
-        return view.contains(null, key);
+        return view().contains(null, key);
     }
 
     // ---- маппинг ----

@@ -3,22 +3,43 @@ package ru.chebe.litvinov.ignite3;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
+import ru.chebe.litvinov.Ignite3Configurator;
 import ru.chebe.litvinov.data.Boss;
 
 /**
  * Репозиторий боссов для Ignite 3.
+ * Получает клиент через {@link Ignite3Configurator} — view автоматически сбрасывается
+ * при смене клиента после переподключения.
  */
 public class BossRepository {
 
-    private final KeyValueView<Tuple, Tuple> view;
+    private static final String TABLE = "bosses";
+
+    private final Ignite3Configurator configurator;
+    private volatile IgniteClient lastClient;
+    private volatile KeyValueView<Tuple, Tuple> view;
 
     /**
      * Создаёт репозиторий.
      *
-     * @param client подключённый Ignite 3 thin client
+     * @param configurator менеджер подключения Ignite 3
      */
-    public BossRepository(IgniteClient client) {
-        this.view = client.tables().table("bosses").keyValueView();
+    public BossRepository(Ignite3Configurator configurator) {
+        this.configurator = configurator;
+    }
+
+    private KeyValueView<Tuple, Tuple> view() {
+        IgniteClient current = configurator.getClient();
+        if (view == null || current != lastClient) {
+            synchronized (this) {
+                current = configurator.getClient();
+                if (view == null || current != lastClient) {
+                    view = current.tables().table(TABLE).keyValueView();
+                    lastClient = current;
+                }
+            }
+        }
+        return view;
     }
 
     /**
@@ -29,7 +50,7 @@ public class BossRepository {
      */
     public Boss get(String name) {
         Tuple key = Tuple.create().set("nick_name", name);
-        Tuple row = view.get(null, key);
+        Tuple row = view().get(null, key);
         if (row == null) return null;
         return rowToBoss(row, name);
     }
@@ -42,7 +63,7 @@ public class BossRepository {
      */
     public boolean contains(String name) {
         Tuple key = Tuple.create().set("nick_name", name);
-        return view.contains(null, key);
+        return view().contains(null, key);
     }
 
     /**
@@ -54,7 +75,7 @@ public class BossRepository {
     public void put(String name, Boss boss) {
         Tuple key = Tuple.create().set("nick_name", name);
         Tuple val = bossToRow(boss);
-        view.put(null, key, val);
+        view().put(null, key, val);
     }
 
     // ---- маппинг ----
