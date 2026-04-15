@@ -3,7 +3,9 @@ package ru.chebe.litvinov.data;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -27,6 +29,9 @@ private int exp;
 	private Event activeEvent;
 	private long dailyTime;
 	private String clanName;
+	private int dailyStreak;
+	private String playerClass;
+	private List<String> achievements;
 
 	/**
 	 * Создаёт нового игрока с начальными характеристиками и стартовым инвентарём.
@@ -53,6 +58,9 @@ private int exp;
 		this.activeEvent = null;
 		this.dailyTime = 0;
 		this.clanName = "";
+		this.dailyStreak = 0;
+		this.playerClass = "";
+		this.achievements = new ArrayList<>();
 	}
 
 	private Map<String, Integer> startInventory() {

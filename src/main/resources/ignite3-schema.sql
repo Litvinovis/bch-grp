@@ -24,7 +24,10 @@ CREATE TABLE IF NOT EXISTS players (
     answer        VARCHAR NOT NULL DEFAULT '',
     active_event  VARCHAR,
     daily_time    BIGINT NOT NULL DEFAULT 0,
-    clan_name     VARCHAR NOT NULL DEFAULT ''
+    clan_name     VARCHAR NOT NULL DEFAULT '',
+    daily_streak  INT NOT NULL DEFAULT 0,
+    player_class  VARCHAR NOT NULL DEFAULT '',
+    achievements  VARCHAR NOT NULL DEFAULT '[]'
 ) ZONE bchgrp;
 
 -- Таблица локаций
