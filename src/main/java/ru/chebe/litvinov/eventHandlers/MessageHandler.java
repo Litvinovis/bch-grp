@@ -19,9 +19,8 @@ import ru.chebe.litvinov.service.*;
 import java.util.Optional;
 import java.util.Set;
 import java.util.HashSet;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * Обработчик Discord-сообщений.
@@ -32,7 +31,6 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 public class MessageHandler extends ListenerAdapter {
 
-	private static final int NUM_THREADS = 4;
 	private static final String HELP_MESSAGE = helpMessageCreate();
 	private static final String INFO_MESSAGE = infoMessageCreate();
 	private static final String OPENCLAW_ROVER_BOT_ID = "1481319611533365483";
@@ -50,8 +48,7 @@ public class MessageHandler extends ListenerAdapter {
 	private final IgniteHealthChecker healthChecker;
 	private final CommandRegistry commandRegistry;
 
-	private final ThreadPoolExecutor executor = new ThreadPoolExecutor(
-			NUM_THREADS, NUM_THREADS, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>());
+	private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
 
 	/**
 	 * Создаёт обработчик сообщений, инициализируя все игровые сервисы через Ignite 3 репозитории.

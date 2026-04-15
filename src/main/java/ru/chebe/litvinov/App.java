@@ -73,7 +73,7 @@ public class App {
                 logger.warn("Не удалось подключиться к Discord ({}), повтор через {} сек", e.getMessage(), delaySec);
                 try {
                     Thread.sleep(delaySec * 1000L);
-                } catch (InterruptedException ie) {
+                } catch (InterruptedException _) {
                     Thread.currentThread().interrupt();
                     return;
                 }

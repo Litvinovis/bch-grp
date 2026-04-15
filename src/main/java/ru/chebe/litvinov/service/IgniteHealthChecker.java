@@ -171,7 +171,7 @@ public class IgniteHealthChecker {
                 checkTable(client, "players");
                 ok = true;
             }
-        } catch (Exception ignored) {
+        } catch (Exception _) {
         }
 
         StringBuilder sb = new StringBuilder();

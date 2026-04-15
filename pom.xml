@@ -12,8 +12,8 @@
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <maven.compiler.source>21</maven.compiler.source>
-    <maven.compiler.target>21</maven.compiler.target>
+    <maven.compiler.source>25</maven.compiler.source>
+    <maven.compiler.target>25</maven.compiler.target>
 
     <!-- Dependency versions -->
     <junit.version>4.13.2</junit.version>
@@ -120,8 +120,8 @@
         <artifactId>maven-compiler-plugin</artifactId>
         <version>${maven.compiler.plugin.version}</version>
         <configuration>
-          <source>21</source>
-          <target>21</target>
+          <source>25</source>
+          <target>25</target>
           <!-- DataMigration использует Ignite 2 embedded API (cache(), cluster())
                которое недоступно когда Ignite 3 client стоит первым в classpath.
                Запускать отдельно через скрипт миграции. -->
@@ -129,6 +129,13 @@
             <exclude>**/migration/DataMigration.java</exclude>
             <exclude>**/IgniteConfigurator.java</exclude>
           </excludes>
+          <annotationProcessorPaths>
+            <path>
+              <groupId>org.projectlombok</groupId>
+              <artifactId>lombok</artifactId>
+              <version>${lombok.version}</version>
+            </path>
+          </annotationProcessorPaths>
         </configuration>
       </plugin>
       <plugin>
