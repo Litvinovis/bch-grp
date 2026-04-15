@@ -32,6 +32,33 @@ public class SchemaInitializer {
     }
 
     /**
+     * Выполняет ALTER TABLE миграции для колонок, добавленных в новых версиях схемы.
+     * Вызывается перед init() чтобы привести существующие таблицы к актуальной схеме.
+     * Ошибки логируются, но не останавливают процесс (колонка может уже существовать).
+     */
+    public void migrate() {
+        log.info("Запуск миграций схемы Ignite 3...");
+        String[] migrations = {
+            "ALTER TABLE players ADD COLUMN IF NOT EXISTS daily_streak  INT     NOT NULL DEFAULT 0",
+            "ALTER TABLE players ADD COLUMN IF NOT EXISTS player_class  VARCHAR NOT NULL DEFAULT ''",
+            "ALTER TABLE players ADD COLUMN IF NOT EXISTS achievements  VARCHAR NOT NULL DEFAULT '[]'"
+        };
+        int ok = 0;
+        int failed = 0;
+        for (String stmt : migrations) {
+            try {
+                client.sql().execute(null, stmt);
+                log.info("Миграция выполнена: {}", stmt);
+                ok++;
+            } catch (Exception e) {
+                log.warn("Миграция пропущена ({}): {}", e.getMessage(), stmt);
+                failed++;
+            }
+        }
+        log.info("Миграции схемы завершены: {} успешно, {} пропущено/ошибок", ok, failed);
+    }
+
+    /**
      * Выполняет DDL-скрипт из classpath-ресурса ignite3-schema.sql.
      * Операторы разделяются по ';'. Каждый выполняется отдельно.
      * Ошибки логируются, но не останавливают процесс (таблица может уже существовать).

@@ -66,7 +66,9 @@ public class MessageHandler extends ListenerAdapter {
 
 		// Инициализация схемы Ignite 3 (пропускается если Ignite недоступен при старте)
 		if (configurator.getClient() != null) {
-			new SchemaInitializer(configurator.getClient()).init();
+			SchemaInitializer schemaInitializer = new SchemaInitializer(configurator.getClient());
+			schemaInitializer.migrate();
+			schemaInitializer.init();
 		}
 
 		this.playerRepository = new PlayerRepository(configurator);
