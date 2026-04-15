@@ -46,7 +46,6 @@
 | `+рулетка <ставка> <красный/черный/0-36>` | Рулетка (x2 или x35) |
 | `+кнб <ставка> <камень/ножницы/бумага>` | Камень-ножницы-бумага |
 | `+число <ставка> <1-10>` | Угадай число (x5) |
-| `+бонус` | Ежедневный бонус |
 
 ### Активности
 
@@ -57,6 +56,36 @@
 | `+поменять квест` | Сменить квест (стоит 5 монет) |
 | `+убить босса` | Атаковать босса текущей локации |
 | `+пвп` | PvP с случайным игроком локации (только PvP-зоны) |
+| `+бонус` | Ежедневный бонус (стрик 3 дня = +50 монет, 7 дней = редкий предмет) |
+
+### Рейды
+
+| Команда | Описание |
+|---|---|
+| `+рейд` | Начать рейд на общего босса |
+| `+присоединиться` | Вступить в активный рейд |
+
+### Классы и прогресс
+
+| Команда | Описание |
+|---|---|
+| `+класс <воин/разбойник/маг>` | Выбрать класс с 5 уровня (один раз) |
+| `+достижения` | Показать разблокированные достижения |
+| `+топ [уровень/деньги/репутация]` | Таблица лидеров top-10 |
+
+### Дуэли
+
+| Команда | Описание |
+|---|---|
+| `+вызов @игрок` | Вызвать игрока на дуэль |
+| `+принять` | Принять вызов на дуэль |
+| `+отказать` | Отказаться от дуэли |
+
+### Торговля
+
+| Команда | Описание |
+|---|---|
+| `+передать @игрок предмет [количество]` | Передать предмет другому игроку |
 
 ### Кланы
 
@@ -69,11 +98,12 @@
 | `+отклонить заявки` | Отклонить все заявки (для лидера) |
 | `+клан инфо <название>` | Информация о клане |
 
-### Идеи
+### Вспомогательные
 
 | Команда | Описание |
 |---|---|
 | `+идея <текст>` | Оставить идею / баг-репорт |
+| `+статус` | Состояние Ignite-кэшей (база данных) |
 
 ### Административные (только для admins)
 
@@ -88,9 +118,9 @@
 
 ## Стек технологий
 
-- **Java 17** (сборка под Java 21 для деплоя)
-- **JDA 5** — Discord API
-- **Apache Ignite 2.17** — распределённое хранилище данных (кэши: players, locations, items, ideas, clans, bosses)
+- **Java 21**
+- **JDA 5.6.1** — Discord API
+- **Apache Ignite 3.1.0** (thin client) — распределённое хранилище данных (таблицы: players, locations, items, ideas, clans, bosses)
 - **Logback** — логирование
 - **SnakeYAML** — парсинг конфигурации
 - **Maven** + **maven-assembly-plugin** — сборка fat-jar
@@ -116,11 +146,8 @@ discord:
   admin-ids:             # ID пользователей с правами администратора
     - "ADMIN_USER_ID"
 
-ignite:
-  local-address: "..."           # Локальный IP узла Ignite
-  discovery-addresses:           # Адреса кластера Ignite
-    - "IP:47650..47659"
-  work-dir: "/tmp/ignite-bch-client"
+ignite3:
+  address: "127.0.0.1:10300"   # Адрес Ignite 3 thin client
 ```
 
 **Токен Discord** передаётся через переменную окружения (не в конфиге):
@@ -135,9 +162,9 @@ export BCHGRP_DISCORD_TOKEN="ваш_токен"
 
 ### Требования
 
-- JDK 17+
+- JDK 21+
 - Maven 3.8+
-- Запущенный кластер Apache Ignite (или standalone-нода)
+- Запущенный кластер Apache Ignite 3.1.0
 
 ### Сборка
 
@@ -152,16 +179,6 @@ export BCHGRP_DISCORD_TOKEN="ваш_токен_discord"
 java -jar target/bchgrp-1.0-SNAPSHOT-jar-with-dependencies.jar
 ```
 
-Или с необходимыми JVM-флагами для Ignite:
-
-```bash
-java \
-  --add-opens java.base/java.nio=ALL-UNNAMED \
-  --add-opens java.base/sun.nio.ch=ALL-UNNAMED \
-  --add-opens java.base/java.lang=ALL-UNNAMED \
-  --add-opens java.base/jdk.internal.misc=ALL-UNNAMED \
-  -jar target/bchgrp-1.0-SNAPSHOT-jar-with-dependencies.jar
-```
 
 ---
 
@@ -205,19 +222,31 @@ java \
 ```
 bch-grp/
 ├── src/main/java/ru/chebe/litvinov/
-│   ├── App.java                   # Точка входа
-│   ├── BotConfig.java             # Загрузка конфигурации из application.yml
-│   ├── Constants.java             # Строковые константы
-│   ├── IgniteConfigurator.java    # Инициализация Apache Ignite
-│   ├── data/                      # Модели данных (Player, Boss, Clan, Item, ...)
+│   ├── App.java                        # Точка входа
+│   ├── BotConfig.java                  # Загрузка конфигурации из application.yml
+│   ├── Constants.java                  # Строковые константы
+│   ├── Ignite3Configurator.java        # Подключение к Ignite 3 thin client
+│   ├── data/                           # Модели данных (Player, Boss, Clan, Item, ...)
 │   ├── eventHandlers/
-│   │   └── MessageHandler.java    # Обработка Discord-сообщений, маршрутизация команд
-│   └── service/                   # Бизнес-логика (PlayersManager, BattleManager, ...)
+│   │   └── MessageHandler.java         # Обработка Discord-сообщений, маршрутизация команд
+│   ├── ignite3/                        # Репозитории и инициализация схемы Ignite 3
+│   │   ├── SchemaInitializer.java      # DDL + миграции (ALTER TABLE)
+│   │   ├── PlayerRepository.java
+│   │   ├── LocationRepository.java
+│   │   ├── ItemRepository.java
+│   │   ├── BossRepository.java
+│   │   ├── IdeaRepository.java
+│   │   └── ClanRepository.java
+│   ├── migration/
+│   │   └── DataMigration.java          # Утилита миграции с Ignite 2 → Ignite 3
+│   ├── raid/                           # Логика рейдов
+│   ├── command/                        # Реализации команд и CommandRegistry
+│   └── service/                        # Бизнес-логика (PlayersManager, BattleManager, ...)
 ├── src/main/resources/
-│   ├── application.yml.example    # Шаблон конфигурации
-│   ├── application.properties     # Дополнительные параметры Ignite
-│   ├── logback.xml                # Конфигурация логирования
-│   └── map.png                    # Карта мира
-├── .github/workflows/deploy.yml   # CI/CD pipeline
+│   ├── application.yml.example         # Шаблон конфигурации
+│   ├── ignite3-schema.sql              # DDL схема Ignite 3
+│   ├── logback.xml                     # Конфигурация логирования
+│   └── map.png                         # Карта мира
+├── .github/workflows/deploy.yml        # CI/CD pipeline
 └── pom.xml
 ```
