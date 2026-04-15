@@ -7,6 +7,7 @@ import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import ru.chebe.litvinov.Ignite3Configurator;
 import ru.chebe.litvinov.data.Event;
 import ru.chebe.litvinov.data.Player;
 import ru.chebe.litvinov.util.JsonUtil;
@@ -18,22 +19,45 @@ import java.util.Map;
 /**
  * Репозиторий игроков для Ignite 3.
  * Маппит Player (с Map-инвентарём и Event-объектом) в/из строковых JSON-колонок таблицы.
+ * Получает клиент через {@link Ignite3Configurator} — view автоматически сбрасывается
+ * при смене клиента после переподключения.
  */
 public class PlayerRepository {
 
     private static final Logger log = LoggerFactory.getLogger(PlayerRepository.class);
+    private static final String TABLE = "players";
 
-    private final KeyValueView<Tuple, Tuple> view;
-    private final IgniteClient client;
+    private final Ignite3Configurator configurator;
+    private volatile IgniteClient lastClient;
+    private volatile KeyValueView<Tuple, Tuple> view;
 
     /**
      * Создаёт репозиторий.
      *
-     * @param client подключённый Ignite 3 thin client
+     * @param configurator менеджер подключения Ignite 3
      */
-    public PlayerRepository(IgniteClient client) {
-        this.client = client;
-        this.view = client.tables().table("players").keyValueView();
+    public PlayerRepository(Ignite3Configurator configurator) {
+        this.configurator = configurator;
+    }
+
+    private KeyValueView<Tuple, Tuple> view() {
+        IgniteClient current = configurator.getClient();
+        if (current == null) {
+            throw new IllegalStateException("Ignite 3 недоступен — соединение ещё не установлено");
+        }
+        if (view == null || current != lastClient) {
+            synchronized (this) {
+                current = configurator.getClient();
+                if (current == null) {
+                    throw new IllegalStateException("Ignite 3 недоступен — соединение ещё не установлено");
+                }
+                if (view == null || current != lastClient) {
+                    view = current.tables().table(TABLE).keyValueView();
+                    lastClient = current;
+                }
+            }
+        }
+        return view;
     }
 
     /**
@@ -43,7 +67,9 @@ public class PlayerRepository {
      */
     public List<Player> getAll() {
         List<Player> result = new ArrayList<>();
-        try (ResultSet<SqlRow> rs = client.sql().execute(null, "SELECT id FROM players")) {
+        IgniteClient current = configurator.getClient();
+        if (current == null) return result;
+        try (ResultSet<SqlRow> rs = current.sql().execute(null, "SELECT id FROM players")) {
             while (rs.hasNext()) {
                 SqlRow row = rs.next();
                 String id = row.stringValue("id");
@@ -64,7 +90,7 @@ public class PlayerRepository {
      */
     public Player get(String id) {
         Tuple key = Tuple.create().set("id", id);
-        Tuple row = view.get(null, key);
+        Tuple row = view().get(null, key);
         if (row == null) return null;
         return rowToPlayer(row, id);
     }
@@ -77,7 +103,7 @@ public class PlayerRepository {
      */
     public boolean contains(String id) {
         Tuple key = Tuple.create().set("id", id);
-        return view.contains(null, key);
+        return view().contains(null, key);
     }
 
     /**
@@ -89,7 +115,7 @@ public class PlayerRepository {
     public void put(String id, Player player) {
         Tuple key = Tuple.create().set("id", id);
         Tuple val = playerToRow(player);
-        view.put(null, key, val);
+        view().put(null, key, val);
     }
 
     /**
@@ -99,7 +125,7 @@ public class PlayerRepository {
      */
     public void remove(String id) {
         Tuple key = Tuple.create().set("id", id);
-        view.remove(null, key);
+        view().remove(null, key);
     }
 
     // ---- маппинг ----
@@ -116,7 +142,7 @@ public class PlayerRepository {
         p.setStrength(row.intValue("strength"));
         p.setLocation(row.stringValue("location"));
         p.setLevel(row.intValue("level"));
-        p.setExp(row.intValue("exp"));
+        p.setExp(row.intValue("\"exp\""));
         p.setExpToNextLvl(row.intValue("exp_to_next"));
         p.setAnswer(row.stringValue("answer") != null ? row.stringValue("answer") : "");
         p.setDailyTime(row.longValue("daily_time"));
@@ -172,7 +198,7 @@ public class PlayerRepository {
                 .set("strength", p.getStrength())
                 .set("location", p.getLocation())
                 .set("level", p.getLevel())
-                .set("exp", p.getExp())
+                .set("\"exp\"", p.getExp())
                 .set("exp_to_next", p.getExpToNextLvl())
                 .set("inventory", inventoryJson)
                 .set("answer", p.getAnswer() != null ? p.getAnswer() : "")
@@ -181,6 +207,6 @@ public class PlayerRepository {
                 .set("clan_name", p.getClanName() != null ? p.getClanName() : "")
                 .set("daily_streak", p.getDailyStreak())
                 .set("player_class", p.getPlayerClass() != null ? p.getPlayerClass() : "")
-                .set("achievements", JsonUtil.toJson(p.getAchievements() != null ? p.getAchievements() : new java.util.ArrayList<>()));
+                .set("achievements", JsonUtil.toJson(p.getAchievements() != null ? p.getAchievements() : new ArrayList<>()));
     }
 }

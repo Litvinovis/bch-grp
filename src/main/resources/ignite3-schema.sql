@@ -1,4 +1,4 @@
--- DDL для таблиц BCH-GRP в Apache Ignite 3.x (3.0.0)
+-- DDL для таблиц BCH-GRP в Apache Ignite 3.x (3.0.0 / 3.1.0)
 
 -- Зона хранения данных BCH-GRP (STORAGE_PROFILES обязателен в 3.0.0)
 CREATE ZONE IF NOT EXISTS bchgrp WITH STORAGE_PROFILES='default', REPLICAS=1, PARTITIONS=25;

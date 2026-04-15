@@ -3,7 +3,7 @@ package ru.chebe.litvinov.eventHandlers;
 import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
-import org.apache.ignite.client.IgniteClient;
+import ru.chebe.litvinov.Ignite3Configurator;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -56,30 +56,32 @@ public class MessageHandler extends ListenerAdapter {
 	/**
 	 * Создаёт обработчик сообщений, инициализируя все игровые сервисы через Ignite 3 репозитории.
 	 *
-	 * @param igniteClient      подключённый Ignite 3 thin client
+	 * @param configurator      менеджер подключения Ignite 3
 	 * @param allowedChannelIds список идентификаторов Discord-каналов, в которых работает бот
 	 * @param adminIds          список идентификаторов Discord-пользователей с правами администратора
 	 */
-	public MessageHandler(IgniteClient igniteClient, java.util.List<String> allowedChannelIds, java.util.List<String> adminIds) {
+	public MessageHandler(Ignite3Configurator configurator, java.util.List<String> allowedChannelIds, java.util.List<String> adminIds) {
 		this.allowedChannelIds = new HashSet<>(allowedChannelIds == null ? java.util.List.of() : allowedChannelIds);
 		this.adminIds = new HashSet<>(adminIds == null ? java.util.List.of() : adminIds);
 
-		// Инициализация схемы Ignite 3
-		new SchemaInitializer(igniteClient).init();
+		// Инициализация схемы Ignite 3 (пропускается если Ignite недоступен при старте)
+		if (configurator.getClient() != null) {
+			new SchemaInitializer(configurator.getClient()).init();
+		}
 
-		this.playerRepository = new PlayerRepository(igniteClient);
-		this.locationManager = new LocationManager(new LocationRepository(igniteClient));
-		this.itemsManager = new ItemsManager(new ItemRepository(igniteClient));
-		this.ideasManager = new IdeasManager(new IdeaRepository(igniteClient));
-		ClanManager clanManager = new ClanManager(new ClanRepository(igniteClient), playerRepository);
-		BattleManager battleManager = new BattleManager(new BossRepository(igniteClient));
+		this.playerRepository = new PlayerRepository(configurator);
+		this.locationManager = new LocationManager(new LocationRepository(configurator));
+		this.itemsManager = new ItemsManager(new ItemRepository(configurator));
+		this.ideasManager = new IdeasManager(new IdeaRepository(configurator));
+		ClanManager clanManager = new ClanManager(new ClanRepository(configurator), playerRepository);
+		BattleManager battleManager = new BattleManager(new BossRepository(configurator));
 
 		this.playersManager = new PlayersManager(playerRepository, locationManager, itemsManager,
 				battleManager, new EventsManager(), clanManager, new Tavern());
 
 		this.raidManager = new RaidManager(battleManager, playersManager, this.allowedChannelIds);
 
-		this.healthChecker = new IgniteHealthChecker(igniteClient);
+		this.healthChecker = new IgniteHealthChecker(configurator);
 		this.healthChecker.start();
 
 		this.commandRegistry = CommandRegistry.build(
