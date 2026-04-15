@@ -118,7 +118,7 @@
 
 ## Стек технологий
 
-- **Java 21**
+- **Java 25**
 - **JDA 5.6.1** — Discord API
 - **Apache Ignite 3.1.0** (thin client) — распределённое хранилище данных (таблицы: players, locations, items, ideas, clans, bosses)
 - **Logback** — логирование
@@ -162,7 +162,7 @@ export BCHGRP_DISCORD_TOKEN="ваш_токен"
 
 ### Требования
 
-- JDK 21+
+- JDK 25+
 - Maven 3.8+
 - Запущенный кластер Apache Ignite 3.1.0
 
