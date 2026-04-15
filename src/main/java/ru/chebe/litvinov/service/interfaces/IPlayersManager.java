@@ -203,4 +203,25 @@ public interface IPlayersManager {
      * @return актуальное значение HP после изменения
      */
     int changeHp(String id, int hp, boolean increase);
+
+    /** Таблица лидеров top-10. Синтаксис: +топ [уровень|деньги|репутация] */
+    void topLeaderboard(MessageReceivedEvent event);
+
+    /** Выбор класса персонажа (с 5 уровня, один раз). Синтаксис: +класс [воин|разбойник|маг] */
+    void chooseClass(MessageReceivedEvent event);
+
+    /** Показывает достижения игрока. */
+    void getAchievements(MessageReceivedEvent event);
+
+    /** Передаёт предмет другому игроку. Синтаксис: +передать @игрок предмет [количество] */
+    void tradeItem(MessageReceivedEvent event);
+
+    /** Вызов игрока на дуэль. Синтаксис: +вызов @игрок */
+    void challengeDuel(MessageReceivedEvent event);
+
+    /** Принять вызов на дуэль. */
+    void acceptDuel(MessageReceivedEvent event);
+
+    /** Отказаться от дуэли. */
+    void declineDuel(MessageReceivedEvent event);
 }

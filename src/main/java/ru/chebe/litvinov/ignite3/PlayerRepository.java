@@ -1,6 +1,8 @@
 package ru.chebe.litvinov.ignite3;
 
 import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.sql.ResultSet;
+import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
 import org.slf4j.Logger;
@@ -9,6 +11,8 @@ import ru.chebe.litvinov.data.Event;
 import ru.chebe.litvinov.data.Player;
 import ru.chebe.litvinov.util.JsonUtil;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -20,6 +24,7 @@ public class PlayerRepository {
     private static final Logger log = LoggerFactory.getLogger(PlayerRepository.class);
 
     private final KeyValueView<Tuple, Tuple> view;
+    private final IgniteClient client;
 
     /**
      * Создаёт репозиторий.
@@ -27,7 +32,28 @@ public class PlayerRepository {
      * @param client подключённый Ignite 3 thin client
      */
     public PlayerRepository(IgniteClient client) {
+        this.client = client;
         this.view = client.tables().table("players").keyValueView();
+    }
+
+    /**
+     * Возвращает всех игроков из таблицы (для лидерборда).
+     *
+     * @return список всех игроков
+     */
+    public List<Player> getAll() {
+        List<Player> result = new ArrayList<>();
+        try (ResultSet<SqlRow> rs = client.sql().execute(null, "SELECT id FROM players")) {
+            while (rs.hasNext()) {
+                SqlRow row = rs.next();
+                String id = row.stringValue("id");
+                Player p = get(id);
+                if (p != null) result.add(p);
+            }
+        } catch (Exception e) {
+            log.warn("Ошибка getAll(): {}", e.getMessage());
+        }
+        return result;
     }
 
     /**
@@ -95,6 +121,12 @@ public class PlayerRepository {
         p.setAnswer(row.stringValue("answer") != null ? row.stringValue("answer") : "");
         p.setDailyTime(row.longValue("daily_time"));
         p.setClanName(row.stringValue("clan_name") != null ? row.stringValue("clan_name") : "");
+        p.setDailyStreak(row.intValue("daily_streak"));
+        p.setPlayerClass(row.stringValue("player_class") != null ? row.stringValue("player_class") : "");
+
+        String achievementsJson = row.stringValue("achievements");
+        List<String> achievements = JsonUtil.fromJsonToListString(achievementsJson);
+        p.setAchievements(achievements);
 
         String inventoryJson = row.stringValue("inventory");
         Map<String, Integer> inventory = JsonUtil.fromJsonToMapStringInt(inventoryJson);
@@ -146,6 +178,9 @@ public class PlayerRepository {
                 .set("answer", p.getAnswer() != null ? p.getAnswer() : "")
                 .set("active_event", eventJson)
                 .set("daily_time", p.getDailyTime())
-                .set("clan_name", p.getClanName() != null ? p.getClanName() : "");
+                .set("clan_name", p.getClanName() != null ? p.getClanName() : "")
+                .set("daily_streak", p.getDailyStreak())
+                .set("player_class", p.getPlayerClass() != null ? p.getPlayerClass() : "")
+                .set("achievements", JsonUtil.toJson(p.getAchievements() != null ? p.getAchievements() : new java.util.ArrayList<>()));
     }
 }

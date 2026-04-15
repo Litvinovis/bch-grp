@@ -139,6 +139,23 @@ public class CommandRegistry {
         // --- Бонус ---
         registry.register("+бонус", new DailyBonusCommand(playersManager));
 
+        // --- Таблица лидеров ---
+        registry.register("+топ", new TopCommand(playersManager));
+
+        // --- Классы персонажей ---
+        registry.register("+класс", new ChooseClassCommand(playersManager));
+
+        // --- Достижения ---
+        registry.register("+достижения", new AchievementsCommand(playersManager));
+
+        // --- Торговля (длинный префикс перед +принять) ---
+        registry.register("+передать", new TradeItemCommand(playersManager));
+
+        // --- Дуэли (+принять и +отказать до более коротких совпадений) ---
+        registry.register("+вызов", new DuelChallengeCommand(playersManager));
+        registry.register("+принять", new DuelAcceptCommand(playersManager));
+        registry.register("+отказать", new DuelDeclineCommand(playersManager));
+
         // --- Клановые (длинные префиксы раньше коротких) ---
         registry.register("+новый клан", new ClanRegisterCommand(playersManager));
         registry.register("+покинуть клан", new ClanLeaveCommand(playersManager));

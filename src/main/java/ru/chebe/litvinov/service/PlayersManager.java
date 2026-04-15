@@ -36,6 +36,8 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 	 * Использование единой стратегии ReentrantLock (без смешения с synchronized).
 	 */
 	private final ConcurrentHashMap<String, ReentrantLock> playerLocks = new ConcurrentHashMap<>();
+	/** Ожидающие дуэли: challengedId → challengerId */
+	private final ConcurrentHashMap<String, String> pendingDuels = new ConcurrentHashMap<>();
 
 	private ReentrantLock getPlayerLock(String id) {
 		return playerLocks.computeIfAbsent(id, k -> new ReentrantLock());
@@ -278,7 +280,9 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		String id = event.getMessage().getAuthor().getId();
 		if (!playerCache.contains(id)) {
 			String nickName = event.getMessage().getAuthor().getName();
-			playerCache.put(id, new Player(nickName, id));
+			Player newPlayer = new Player(nickName, id);
+			unlockAchievement(newPlayer, "первые_шаги");
+			playerCache.put(id, newPlayer);
 			event.getChannel().sendMessage("""
 					Добро пожаловать в игру, мы внимательно проанализировали твой профиль и решили, что ник %s отлично тебе подходит
 
@@ -793,21 +797,51 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 	}
 
 	/**
-	 * Начисляет игроку ежедневный бонус (100 монет).
-	 * Бонус доступен раз в 24 часа.
+	 * Начисляет игроку ежедневный бонус (100 монет) с учётом стрика.
+	 * 3 дня подряд — +50 бонус; 7 дней — редкий предмет.
 	 *
 	 * @param event событие Discord-сообщения
 	 */
 	public void dailyBonus(MessageReceivedEvent event) {
-		var player = playerCache.get(event.getAuthor().getId());
-		if (player.getDailyTime() < System.currentTimeMillis() - (24 * 60 * 60 * 1000)) {
-			event.getChannel().sendMessage("Вы получили ежедневный бонус").submit();
-			player.setDailyTime(System.currentTimeMillis());
-			playerCache.put(player.getId(), player);
-			changeMoney(player.getId(), DAILY_BONUS, true);
-		} else {
-			int hours = (int) (24 - (((System.currentTimeMillis() - player.getDailyTime()) / (60 * 60 * 1000))));
-			event.getChannel().sendMessage("Вы уже получили ежедневный бонус приходите через " + hours + " часов").submit();
+		String id = event.getAuthor().getId();
+		ReentrantLock lock = getPlayerLock(id);
+		lock.lock();
+		try {
+			Player player = playerCache.get(id);
+			long now = System.currentTimeMillis();
+			long oneDayMs = 24 * 60 * 60 * 1000L;
+			long twoDaysMs = 48 * 60 * 60 * 1000L;
+			if (player.getDailyTime() < now - oneDayMs) {
+				if (player.getDailyTime() == 0 || player.getDailyTime() < now - twoDaysMs) {
+					player.setDailyStreak(1);
+				} else {
+					player.setDailyStreak(player.getDailyStreak() + 1);
+				}
+				int streak = player.getDailyStreak();
+				player.setDailyTime(now);
+				player.setMoney(player.getMoney() + DAILY_BONUS);
+
+				StringBuilder msg = new StringBuilder("Вы получили ежедневный бонус " + DAILY_BONUS + " монет! (Стрик: " + streak + " дн.)");
+				if (streak == 3) {
+					player.setMoney(player.getMoney() + 50);
+					msg.append("\n Стрик 3 дня! Бонус +50 монет!");
+					unlockAchievement(player, "стрик_3");
+				}
+				if (streak % 7 == 0 && streak > 0) {
+					String rareItem = "вино лаба";
+					Map<String, Integer> inv = player.getInventory();
+					inv.put(rareItem, inv.getOrDefault(rareItem, 0) + 1);
+					msg.append("\n Стрик ").append(streak).append(" дней! Получен редкий предмет: ").append(rareItem).append("!");
+					unlockAchievement(player, "стрик_7");
+				}
+				playerCache.put(id, player);
+				event.getChannel().sendMessage(msg.toString()).submit();
+			} else {
+				int hours = (int) (24 - ((now - player.getDailyTime()) / (60 * 60 * 1000)));
+				event.getChannel().sendMessage("Вы уже получили ежедневный бонус, приходите через " + hours + " часов. Текущий стрик: " + player.getDailyStreak() + " дн.").submit();
+			}
+		} finally {
+			lock.unlock();
 		}
 	}
 
@@ -924,6 +958,330 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 	public void clanInfo(MessageReceivedEvent event) {
 		String clanName = event.getMessage().getContentDisplay().substring(10).trim().toLowerCase();
 		event.getChannel().sendMessage(clanManager.getClanInfo(clanName)).submit();
+	}
+
+	/**
+	 * Выводит таблицу лидеров top-10.
+	 * Синтаксис: +топ [уровень|деньги|репутация] (по умолчанию — уровень)
+	 */
+	public void topLeaderboard(MessageReceivedEvent event) {
+		String msg = event.getMessage().getContentDisplay();
+		String arg = msg.length() > 4 ? msg.substring(4).trim().toLowerCase() : "";
+
+		List<Player> all = playerCache.getAll();
+		if (all.isEmpty()) {
+			event.getChannel().sendMessage("Нет зарегистрированных игроков.").submit();
+			return;
+		}
+
+		java.util.Comparator<Player> comparator;
+		String title;
+		if ("деньги".equals(arg)) {
+			comparator = java.util.Comparator.comparingInt(Player::getMoney).reversed();
+			title = "Топ по деньгам";
+		} else if ("репутация".equals(arg)) {
+			comparator = java.util.Comparator.comparingInt(Player::getReputation).reversed();
+			title = "Топ по репутации";
+		} else {
+			comparator = java.util.Comparator.comparingInt(Player::getLevel).reversed();
+			title = "Топ по уровню";
+		}
+
+		List<Player> sorted = all.stream().sorted(comparator).limit(10).collect(Collectors.toList());
+		StringBuilder sb = new StringBuilder(title + "\n");
+		for (int i = 0; i < sorted.size(); i++) {
+			Player p = sorted.get(i);
+			String classLabel = (p.getPlayerClass() != null && !p.getPlayerClass().isEmpty()) ? " [" + p.getPlayerClass() + "]" : "";
+			if ("деньги".equals(arg)) {
+				sb.append(String.format("%d. %s%s — %d монет\n", i + 1, p.getNickName(), classLabel, p.getMoney()));
+			} else if ("репутация".equals(arg)) {
+				sb.append(String.format("%d. %s%s — %d репутации\n", i + 1, p.getNickName(), classLabel, p.getReputation()));
+			} else {
+				sb.append(String.format("%d. %s%s — %d ур.\n", i + 1, p.getNickName(), classLabel, p.getLevel()));
+			}
+		}
+		event.getChannel().sendMessage(sb.toString()).submit();
+	}
+
+	/**
+	 * Выбор класса персонажа (с 5 уровня, один раз).
+	 * Синтаксис: +класс [воин|разбойник|маг]
+	 */
+	public void chooseClass(MessageReceivedEvent event) {
+		String id = event.getAuthor().getId();
+		ReentrantLock lock = getPlayerLock(id);
+		lock.lock();
+		try {
+			Player player = playerCache.get(id);
+			if (player.getLevel() < 5) {
+				event.getChannel().sendMessage("Класс доступен с 5 уровня. У вас сейчас " + player.getLevel() + " уровень.").submit();
+				return;
+			}
+			if (player.getPlayerClass() != null && !player.getPlayerClass().isEmpty()) {
+				event.getChannel().sendMessage("Вы уже выбрали класс: " + player.getPlayerClass()).submit();
+				return;
+			}
+			String arg = event.getMessage().getContentDisplay().length() > 6
+					? event.getMessage().getContentDisplay().substring(6).trim().toLowerCase()
+					: "";
+			switch (arg) {
+				case "воин":
+					player.setStrength(player.getStrength() + 5);
+					player.setArmor(player.getArmor() + 2);
+					player.setPlayerClass("ВОИН");
+					event.getChannel().sendMessage("Вы выбрали класс ВОИН! +5 к силе, +2 к броне.").submit();
+					break;
+				case "разбойник":
+					player.setLuck(player.getLuck() + 5);
+					player.setPlayerClass("РАЗБОЙНИК");
+					event.getChannel().sendMessage("Вы выбрали класс РАЗБОЙНИК! +5 к удаче.").submit();
+					break;
+				case "маг":
+					player.setMaxHp(player.getMaxHp() + 30);
+					player.setLuck(player.getLuck() + 1);
+					player.setPlayerClass("МАГ");
+					event.getChannel().sendMessage("Вы выбрали класс МАГ! +30 к макс. HP, +1 к удаче.").submit();
+					break;
+				default:
+					event.getChannel().sendMessage("Доступные классы: воин, разбойник, маг\nПример: +класс воин").submit();
+					return;
+			}
+			unlockAchievement(player, "классовый");
+			playerCache.put(id, player);
+		} finally {
+			lock.unlock();
+		}
+	}
+
+	/**
+	 * Показывает достижения игрока.
+	 */
+	public void getAchievements(MessageReceivedEvent event) {
+		Player player = playerCache.get(event.getAuthor().getId());
+		List<String> achievements = player.getAchievements();
+		if (achievements == null || achievements.isEmpty()) {
+			event.getChannel().sendMessage("У вас пока нет достижений. Играйте, чтобы их получить!").submit();
+			return;
+		}
+		StringBuilder sb = new StringBuilder("Ваши достижения:\n");
+		for (String achId : achievements) {
+			sb.append("- ").append(achievementName(achId)).append("\n");
+		}
+		event.getChannel().sendMessage(sb.toString()).submit();
+	}
+
+	/**
+	 * Передаёт предмет другому зарегистрированному игроку.
+	 * Синтаксис: +передать @игрок предмет [количество]
+	 */
+	public void tradeItem(MessageReceivedEvent event) {
+		var mentions = event.getMessage().getMentions().getUsers();
+		if (mentions.isEmpty()) {
+			event.getChannel().sendMessage("Укажите игрока: +передать @игрок предмет [количество]").submit();
+			return;
+		}
+		net.dv8tion.jda.api.entities.User targetUser = mentions.get(0);
+		String senderId = event.getAuthor().getId();
+		String receiverId = targetUser.getId();
+
+		if (senderId.equals(receiverId)) {
+			event.getChannel().sendMessage("Нельзя передать предмет самому себе.").submit();
+			return;
+		}
+		if (!playerCache.contains(receiverId)) {
+			event.getChannel().sendMessage("Игрок " + targetUser.getName() + " не зарегистрирован в игре.").submit();
+			return;
+		}
+
+		// Извлекаем имя предмета и количество из raw-контента
+		String raw = event.getMessage().getContentRaw();
+		int mentionEnd = raw.indexOf('>') + 1;
+		if (mentionEnd <= 0) {
+			event.getChannel().sendMessage("Укажите предмет: +передать @игрок предмет [количество]").submit();
+			return;
+		}
+		String rest = raw.substring(mentionEnd).trim();
+		if (rest.isEmpty()) {
+			event.getChannel().sendMessage("Укажите предмет: +передать @игрок предмет [количество]").submit();
+			return;
+		}
+
+		String[] parts = rest.split("\\s+");
+		int quantity = 1;
+		String itemName;
+		if (parts.length > 1) {
+			try {
+				quantity = Integer.parseInt(parts[parts.length - 1]);
+				itemName = rest.substring(0, rest.lastIndexOf(parts[parts.length - 1])).trim().toLowerCase();
+			} catch (NumberFormatException e) {
+				itemName = rest.toLowerCase();
+			}
+		} else {
+			itemName = rest.toLowerCase();
+		}
+		if (quantity <= 0) {
+			event.getChannel().sendMessage("Количество должно быть больше нуля.").submit();
+			return;
+		}
+
+		// Блокировки в фиксированном порядке во избежание дедлока
+		boolean senderFirst = senderId.compareTo(receiverId) < 0;
+		ReentrantLock first = senderFirst ? getPlayerLock(senderId) : getPlayerLock(receiverId);
+		ReentrantLock second = senderFirst ? getPlayerLock(receiverId) : getPlayerLock(senderId);
+		first.lock();
+		try {
+			second.lock();
+			try {
+				Player sender = playerCache.get(senderId);
+				Player receiver = playerCache.get(receiverId);
+				Map<String, Integer> senderInv = sender.getInventory();
+				int have = senderInv.getOrDefault(itemName, 0);
+				if (have < quantity) {
+					event.getChannel().sendMessage("У вас недостаточно предмета \"" + itemName + "\" (есть: " + have + ").").submit();
+					return;
+				}
+				if (have == quantity) {
+					senderInv.remove(itemName);
+				} else {
+					senderInv.put(itemName, have - quantity);
+				}
+				Map<String, Integer> receiverInv = receiver.getInventory();
+				receiverInv.put(itemName, receiverInv.getOrDefault(itemName, 0) + quantity);
+				unlockAchievement(sender, "торговец");
+				playerCache.put(senderId, sender);
+				playerCache.put(receiverId, receiver);
+				event.getChannel().sendMessage("Вы передали " + quantity + "x " + itemName + " игроку " + targetUser.getName() + ".").submit();
+			} finally {
+				second.unlock();
+			}
+		} finally {
+			first.unlock();
+		}
+	}
+
+	/**
+	 * Вызов игрока на дуэль.
+	 * Синтаксис: +вызов @игрок
+	 */
+	public void challengeDuel(MessageReceivedEvent event) {
+		var mentions = event.getMessage().getMentions().getUsers();
+		if (mentions.isEmpty()) {
+			event.getChannel().sendMessage("Укажите соперника: +вызов @игрок").submit();
+			return;
+		}
+		String challengerId = event.getAuthor().getId();
+		String challengedId = mentions.get(0).getId();
+
+		if (challengerId.equals(challengedId)) {
+			event.getChannel().sendMessage("Нельзя вызвать самого себя на дуэль.").submit();
+			return;
+		}
+		if (!playerCache.contains(challengedId)) {
+			event.getChannel().sendMessage("Игрок не зарегистрирован в игре.").submit();
+			return;
+		}
+		if (pendingDuels.containsKey(challengedId)) {
+			event.getChannel().sendMessage("У этого игрока уже есть активный вызов на дуэль.").submit();
+			return;
+		}
+		pendingDuels.put(challengedId, challengerId);
+		Player challenger = playerCache.get(challengerId);
+		event.getChannel().sendMessage(mentions.get(0).getAsMention() + ", **" + challenger.getNickName()
+				+ "** вызывает вас на дуэль! Напишите `+принять` или `+отказать`.").submit();
+	}
+
+	/**
+	 * Принять вызов на дуэль.
+	 */
+	public void acceptDuel(MessageReceivedEvent event) {
+		String challengedId = event.getAuthor().getId();
+		String challengerId = pendingDuels.remove(challengedId);
+		if (challengerId == null) {
+			event.getChannel().sendMessage("У вас нет активных вызовов на дуэль.").submit();
+			return;
+		}
+		if (!playerCache.contains(challengerId)) {
+			event.getChannel().sendMessage("Противник больше не в игре.").submit();
+			return;
+		}
+
+		boolean challengerFirst = challengerId.compareTo(challengedId) < 0;
+		ReentrantLock first = challengerFirst ? getPlayerLock(challengerId) : getPlayerLock(challengedId);
+		ReentrantLock second = challengerFirst ? getPlayerLock(challengedId) : getPlayerLock(challengerId);
+		first.lock();
+		try {
+			second.lock();
+			try {
+				Player challenger = playerCache.get(challengerId);
+				Player challenged = playerCache.get(challengedId);
+
+				int challengerRoll = challenger.getStrength() + random.nextInt(Math.max(challenger.getLuck(), 1)) + random.nextInt(20) + 1;
+				int challengedRoll = challenged.getStrength() + random.nextInt(Math.max(challenged.getLuck(), 1)) + random.nextInt(20) + 1;
+
+				Player winner = challengerRoll >= challengedRoll ? challenger : challenged;
+				Player loser = challengerRoll >= challengedRoll ? challenged : challenger;
+
+				int prize = 100;
+				winner.setMoney(winner.getMoney() + prize);
+				loser.setMoney(Math.max(0, loser.getMoney() - prize / 2));
+				winner.setReputation(winner.getReputation() + 5);
+				unlockAchievement(winner, "дуэлянт");
+
+				playerCache.put(challenger.getId(), challenger);
+				playerCache.put(challenged.getId(), challenged);
+
+				event.getChannel().sendMessage(String.format(
+						"Дуэль: **%s** (бросок %d) vs **%s** (бросок %d)\nПобедитель: **%s** (+%d монет, +5 репутации)\nПроигравший: **%s** (-%d монет)",
+						challenger.getNickName(), challengerRoll,
+						challenged.getNickName(), challengedRoll,
+						winner.getNickName(), prize,
+						loser.getNickName(), prize / 2
+				)).submit();
+			} finally {
+				second.unlock();
+			}
+		} finally {
+			first.unlock();
+		}
+	}
+
+	/**
+	 * Отказаться от дуэли.
+	 */
+	public void declineDuel(MessageReceivedEvent event) {
+		String challengedId = event.getAuthor().getId();
+		String challengerId = pendingDuels.remove(challengedId);
+		if (challengerId == null) {
+			event.getChannel().sendMessage("У вас нет активных вызовов на дуэль.").submit();
+			return;
+		}
+		Player challenged = playerCache.get(challengedId);
+		event.getChannel().sendMessage("**" + challenged.getNickName() + "** отказался от дуэли. Трус!").submit();
+	}
+
+	// ---- achievements helpers ----
+
+	private void unlockAchievement(Player player, String achievementId) {
+		List<String> achievements = player.getAchievements();
+		if (achievements == null) {
+			achievements = new ArrayList<>();
+			player.setAchievements(achievements);
+		}
+		if (!achievements.contains(achievementId)) {
+			achievements.add(achievementId);
+		}
+	}
+
+	private String achievementName(String id) {
+		return switch (id) {
+			case "первые_шаги" -> "Первые шаги — зарегистрироваться в игре";
+			case "стрик_3"     -> "Постоянство — получить бонус 3 дня подряд";
+			case "стрик_7"     -> "Недельный игрок — получить бонус 7 дней подряд";
+			case "классовый"   -> "Классовый игрок — выбрать класс персонажа";
+			case "торговец"    -> "Торговец — передать предмет другому игроку";
+			case "дуэлянт"    -> "Дуэлянт — победить в дуэли";
+			default -> id;
+		};
 	}
 
 	// Возвращает список игроков клана в текущей локации
