@@ -1,6 +1,9 @@
 package ru.chebe.litvinov.service;
 
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import ru.chebe.litvinov.data.Event;
 import ru.chebe.litvinov.data.Item;
 import ru.chebe.litvinov.data.Location;
 import ru.chebe.litvinov.data.Person;
@@ -22,6 +25,7 @@ import static ru.chebe.litvinov.Constants.MIN_LVL_TO_CLAN_JOIN;
  * Использует per-player блокировки для потокобезопасного изменения характеристик.
  */
 public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPlayersManager {
+	private static final Logger log = LoggerFactory.getLogger(PlayersManager.class);
 	private final PlayerRepository playerCache;
 	private final LocationManager locationManager;
 	private final ItemsManager itemsManager;
@@ -606,13 +610,21 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 	 * @param event событие Discord-сообщения
 	 */
 	public void assignEvent(MessageReceivedEvent event) {
-		var player = playerCache.get(event.getAuthor().getId());
+		String playerId = event.getAuthor().getId();
+		var player = playerCache.get(playerId);
+		if (player == null) {
+			event.getChannel().sendMessage("Сначала зарегистрируйся командой +начать").submit();
+			return;
+		}
 		if (player.getActiveEvent() != null) {
 			event.getChannel().sendMessage("У тебя уже есть активный квест, сначала заверши его").submit();
 		} else {
-			player.setActiveEvent(eventsManager.assignEvent(locationManager.getLocationList()));
+			Event newEvent = eventsManager.assignEvent(locationManager.getLocationList());
+			log.debug("Выдан новый квест игроку {}: {}", playerId, newEvent);
+			player.setActiveEvent(newEvent);
 			event.getChannel().sendMessage("Ты получил новое задание :\n" + player.getActiveEvent().toString()).submit();
-			playerCache.put(event.getAuthor().getId(), player);
+			playerCache.put(playerId, player);
+			log.debug("Игрок {} сохранён с активным квестом", playerId);
 		}
 	}
 
@@ -622,14 +634,19 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 	 * @param event событие Discord-сообщения
 	 */
 	public void changeEvent(MessageReceivedEvent event) {
-		var player = playerCache.get(event.getAuthor().getId());
+		String playerId = event.getAuthor().getId();
+		var player = playerCache.get(playerId);
+		if (player == null) {
+			event.getChannel().sendMessage("Сначала зарегистрируйся командой +начать").submit();
+			return;
+		}
 		if (player.getActiveEvent() == null) {
 			event.getChannel().sendMessage("У тебя нет активного квеста, сначала возьми его").submit();
 		} else if (player.getMoney() >= 5) {
 			player.setActiveEvent(eventsManager.assignEvent(locationManager.getLocationList()));
-			changeMoney(event.getAuthor().getId(), 5, false);
+			changeMoney(playerId, 5, false);
 			event.getChannel().sendMessage("Ты потартил 5 денег и получил новое задание :\n" + player.getActiveEvent().toString()).submit();
-			playerCache.put(event.getAuthor().getId(), player);
+			playerCache.put(playerId, player);
 		} else {
 			event.getChannel().sendMessage("У тебя недостаточно денег, сначала зарабаотай их").submit();
 		}
@@ -642,17 +659,27 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 	 * @param event событие Discord-сообщения с ответом игрока (для квестов-загадок)
 	 */
 	public void checkEvent(MessageReceivedEvent event) {
-		var player = playerCache.get(event.getAuthor().getId());
-		String message = event.getMessage().getContentDisplay().substring(16).trim().toLowerCase();
+		String playerId = event.getAuthor().getId();
+		var player = playerCache.get(playerId);
+		if (player == null) {
+			event.getChannel().sendMessage("Сначала зарегистрируйся командой +начать").submit();
+			return;
+		}
+		String content = event.getMessage().getContentDisplay();
+		String message = content.length() > 16 ? content.substring(16).trim().toLowerCase() : "";
 		player.setAnswer(message);
 		var activeEvent = player.getActiveEvent();
 		if (activeEvent == null) {
 			event.getChannel().sendMessage("У тебя нет активного квеста, сначала возьми его").submit();
-		} else if (eventsManager.checkEvent(activeEvent, player)) {
+			return;
+		}
+		
+		boolean isCompleted = eventsManager.checkEvent(activeEvent, player);
+		if (isCompleted) {
 			player.setActiveEvent(null);
-			playerCache.put(event.getAuthor().getId(), player);
-			changeMoney(player.getId(), activeEvent.getMoneyReward(), true);
-			changeXp(player.getId(), activeEvent.getXpReward());
+			playerCache.put(playerId, player);
+			changeMoney(playerId, activeEvent.getMoneyReward(), true);
+			changeXp(playerId, activeEvent.getXpReward());
 			event.getChannel().sendMessage("Ты успешно завершил свой квест, опыт " + activeEvent.getXpReward() + " и деньги " + activeEvent.getMoneyReward() + " зачислены на твой счёт").submit();
 		} else {
 			event.getChannel().sendMessage("Ты не выполнил условия квеста или ответил неправильно!").submit();

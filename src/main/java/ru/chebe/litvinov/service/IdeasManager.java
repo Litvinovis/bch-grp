@@ -37,12 +37,18 @@ public class IdeasManager implements ru.chebe.litvinov.service.interfaces.IIdeas
 	 * @param event событие Discord-сообщения с текстом идеи
 	 */
 	public void putIdea(MessageReceivedEvent event) {
+		String content = event.getMessage().getContentDisplay();
+		if (content.length() <= 5) {
+			event.getChannel().sendMessage("Пожалуйста, укажите текст идеи после команды +идея").submit();
+			return;
+		}
+		
 		int id = ideaCache.size();
 		ideaCache.put(id, Idea.builder()
 						.id(id)
 						.author(event.getAuthor().getName())
-						.description(event.getMessage().getContentDisplay().substring(5))
-						.resolution("Новая")
+						.description(content.substring(5).trim())
+						.resolution("New")
 						.build());
 		event.getChannel().sendMessage("Ваша идея успешно зарегистрирована под номером " + id + " срок рассмотрения составляет 38 рабочих дней, за исключением сред").submit();
 	}
@@ -53,7 +59,7 @@ public class IdeasManager implements ru.chebe.litvinov.service.interfaces.IIdeas
 	 * @param event событие Discord-сообщения
 	 */
 	public void getNewIdeas(MessageReceivedEvent event) {
-		ideaCache.findByResolution("Новая")
+		ideaCache.findByResolution("New")
 				.forEach(idea -> event.getChannel().sendMessage(idea.toString()).submit());
 	}
 

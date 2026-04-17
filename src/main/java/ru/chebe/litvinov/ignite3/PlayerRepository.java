@@ -113,9 +113,11 @@ public class PlayerRepository {
      * @param player объект Player
      */
     public void put(String id, Player player) {
+        log.debug("Сохранение игрока {} с activeEvent: {}", id, player.getActiveEvent());
         Tuple key = Tuple.create().set("id", id);
         Tuple val = playerToRow(player);
         view().put(null, key, val);
+        log.debug("Игрок {} сохранён", id);
     }
 
     /**
@@ -159,16 +161,21 @@ public class PlayerRepository {
         p.setInventory(inventory);
 
         String eventJson = row.stringValue("active_event");
+        log.debug("Десериализация active_event для игрока {}: {}", id, eventJson);
         if (eventJson != null && !eventJson.isBlank() && !eventJson.equals("null")) {
             try {
+                // Унэскейпим кавычки
+                eventJson = eventJson.replace("''", "'").replace("\\\"", "\"");
                 com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
                 Event event = mapper.readValue(eventJson, Event.class);
+                log.debug("Успешно десериализовано: {}", event);
                 p.setActiveEvent(event);
             } catch (Exception e) {
                 log.warn("Не удалось десериализовать activeEvent для игрока {}: {}", id, e.getMessage());
                 p.setActiveEvent(null);
             }
         } else {
+            log.debug("active_event пустое или null");
             p.setActiveEvent(null);
         }
 
@@ -182,9 +189,16 @@ public class PlayerRepository {
             try {
                 com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
                 eventJson = mapper.writeValueAsString(p.getActiveEvent());
+                // Эскейпим кавычки для безопасного хранения в VARCHAR
+                if (eventJson != null) {
+                    eventJson = eventJson.replace("'", "''").replace("\"", "\\\"");
+                }
+                log.debug("Сериализация activeEvent для игрока {}: {}", p.getId(), eventJson);
             } catch (Exception e) {
                 log.warn("Не удалось сериализовать activeEvent для игрока {}: {}", p.getId(), e.getMessage());
             }
+        } else {
+            log.debug("activeEvent null для игрока {}", p.getId());
         }
 
         return Tuple.create()
