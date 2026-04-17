@@ -241,14 +241,21 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		try {
 			var player = playerCache.get(id);
 			if (player == null) return;
-			if (player.getExp() + xp >= player.getExpToNextLvl()) {
-				player.setExp(player.getExp() + xp % player.getExpToNextLvl());
+			
+			int totalXp = player.getExp() + xp;
+			int expToNext = player.getExpToNextLvl();
+			
+			// Повышаем уровень, пока опыт превышает требуемый
+			while (totalXp >= expToNext && player.getLevel() < 100) {
+				totalXp -= expToNext;
 				player.setLevel(player.getLevel() + 1);
 				player.setExpToNextLvl(xpMap.get(player.getLevel()));
-				player.setHp(getMaxHp(player));
-			} else {
-				player.setExp(player.getExp() + xp);
+				player.setMaxHp(getMaxHp(player));  // Обновляем максимальное HP
+				player.setHp(player.getMaxHp());     // Восстанавливаем HP при повышении уровня
+				expToNext = player.getExpToNextLvl();
 			}
+			
+			player.setExp(totalXp);
 			playerCache.put(id, player);
 		} finally {
 			lock.unlock();
