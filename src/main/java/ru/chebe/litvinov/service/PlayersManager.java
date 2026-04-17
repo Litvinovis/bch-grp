@@ -603,11 +603,15 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 			int battleResult = battleManager.mobBattle(player, event.getChannel());
 			if (battleResult > 0) {
 				// battleResult теперь содержит текущее HP игрока после боя
-				// Восстанавливаем 50% потерянного HP (минимум 10 HP)
+				// Восстанавливаем HP: 75% для уровней 1-2, 50% для остальных
 				int currentHp = battleResult;
 				int maxHp = player.getMaxHp();
-				int hpToRestore = Math.max(10, (maxHp - currentHp) / 2);
-				changeHp(player.getId(), currentHp + hpToRestore);
+				if (currentHp < maxHp) {
+					int recoveryPercent = player.getLevel() < 3 ? 75 : 50;
+					int hpLost = maxHp - currentHp;
+					int hpToRestore = Math.max(10, (hpLost * recoveryPercent) / 100);
+					changeHp(player.getId(), currentHp + hpToRestore);
+				}
 				changeXp(player.getId(), 10);
 				changeMoney(player.getId(), 10, true);
 			} else {
