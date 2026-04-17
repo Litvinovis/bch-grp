@@ -92,6 +92,7 @@ public class BattleManager {
 	 */
 	public int mobBattle(Player player, MessageChannelUnion channel) {
 		Person boss = Boss.builder().nickName("Бандит").hp(rand.nextInt(15, 35)).strength(3).defeat(0).win(0).bossItem(null).build();
+		int initialPlayerHp = player.getHp();
 		battleMechanic(List.of(player), List.of(boss), channel);
 		if (boss.getHp() > 0) {
 			channel.sendMessage("""
@@ -100,7 +101,8 @@ public class BattleManager {
 			return -1;
 		} else {
 			channel.sendMessage("Поздравляю ты победил тупого засланца при переходе локации").submit();
-			return 1;
+			// Возвращаем текущее HP игрока после боя
+			return player.getHp();
 		}
 	}
 

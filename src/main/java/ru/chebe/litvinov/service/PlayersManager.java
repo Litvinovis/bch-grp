@@ -593,9 +593,14 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		event.getChannel().sendMessage("Ты успешно переместился в локацию - " + nextLocation.getName() + teleport
 						+ "\nВ этой локации находятся следующие игроки: " + nextLocation.getPopulationByName().toString()).submit();
 		if (eventsManager.transferEvent(event, nextLocation)) {
-			int playerHp = battleManager.mobBattle(player, event.getChannel());
-			if (playerHp > 0) {
-				changeHp(player.getId(), playerHp);
+			int battleResult = battleManager.mobBattle(player, event.getChannel());
+			if (battleResult > 0) {
+				// battleResult теперь содержит текущее HP игрока после боя
+				// Восстанавливаем 50% потерянного HP (минимум 10 HP)
+				int currentHp = battleResult;
+				int maxHp = player.getMaxHp();
+				int hpToRestore = Math.max(10, (maxHp - currentHp) / 2);
+				changeHp(player.getId(), currentHp + hpToRestore);
 				changeXp(player.getId(), 10);
 				changeMoney(player.getId(), 10, true);
 			} else {
