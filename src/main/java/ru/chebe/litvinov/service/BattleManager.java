@@ -91,7 +91,12 @@ public class BattleManager {
 	 * @return 1 если игрок победил, -1 если проиграл
 	 */
 	public int mobBattle(Player player, MessageChannelUnion channel) {
-		Person boss = Boss.builder().nickName("Бандит").hp(rand.nextInt(15, 35)).strength(3).defeat(0).win(0).bossItem(null).build();
+		// Баланс: бандит слабее для низкоуровневых игроков
+		int bossStrength = player.getLevel() < 3 ? 2 : 3;  // Сила 2 для уровней 1-2, 3 для остальных
+		int bossHpMin = player.getLevel() < 3 ? 10 : 15;   // Меньше HP для низких уровней
+		int bossHpMax = player.getLevel() < 3 ? 25 : 35;
+		
+		Person boss = Boss.builder().nickName("Бандит").hp(rand.nextInt(bossHpMin, bossHpMax)).strength(bossStrength).defeat(0).win(0).bossItem(null).build();
 		int initialPlayerHp = player.getHp();
 		battleMechanic(List.of(player), List.of(boss), channel);
 		if (boss.getHp() > 0) {
