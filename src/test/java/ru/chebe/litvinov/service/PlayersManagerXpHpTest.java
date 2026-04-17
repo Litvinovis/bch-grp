@@ -132,11 +132,11 @@ public class PlayersManagerXpHpTest {
         when(playerRepository.get("id1")).thenReturn(player);
 
         // Level-up is triggered since 80+60=140 >= 100
-        // Implementation: setExp(exp + xp % expToNextLvl) = 80 + (60 % 100) = 140
+        // After level up: totalXp = 140 - 100 = 40, level = 2
         playersManager.changeXp("id1", 60);
 
         assertEquals(2, player.getLevel());
-        assertEquals(140, player.getExp());
+        assertEquals(40, player.getExp());  // Остаток после повышения уровня
     }
 
     @Test
