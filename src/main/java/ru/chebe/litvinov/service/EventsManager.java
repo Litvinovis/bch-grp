@@ -66,7 +66,11 @@ public class EventsManager {
 	 * @return true если условие квеста выполнено
 	 */
 	public boolean checkEvent(Event activeEvent, Player player) {
-		return predicateMap.get(activeEvent.getType()).test(player);
+		if (activeEvent == null || activeEvent.getType() == null) {
+			return false;
+		}
+		Predicate<Player> predicate = predicateMap.get(activeEvent.getType());
+		return predicate != null && predicate.test(player);
 	}
 
 	/**

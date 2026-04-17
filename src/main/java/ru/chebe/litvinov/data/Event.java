@@ -1,7 +1,9 @@
 package ru.chebe.litvinov.data;
 
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.Instant;
@@ -14,6 +16,8 @@ import java.util.concurrent.TimeUnit;
 @Getter
 @Setter
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class Event {
 	String description;
 	String locationEnd;
