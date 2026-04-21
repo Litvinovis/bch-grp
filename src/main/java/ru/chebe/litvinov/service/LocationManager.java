@@ -148,4 +148,13 @@ public class LocationManager implements ru.chebe.litvinov.service.interfaces.ILo
 	public Location getLocation(String location) {
 		return locationCache.get(location);
 	}
+
+	/**
+	 * Сохраняет обновлённую локацию в репозиторий.
+	 *
+	 * @param location объект локации с изменёнными данными
+	 */
+	public void saveLocation(Location location) {
+		locationCache.put(location.getName(), location);
+	}
 }

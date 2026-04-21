@@ -80,6 +80,8 @@ public class MessageHandler extends ListenerAdapter {
 
 		this.raidManager = new RaidManager(battleManager, playersManager, this.allowedChannelIds);
 
+		new DataIntegrityService(playerRepository, locationManager).checkAndFix();
+
 		this.healthChecker = new IgniteHealthChecker(configurator);
 		this.healthChecker.start();
 
