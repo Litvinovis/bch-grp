@@ -135,9 +135,9 @@ public class PlayersManagerBossFightTest {
     }
 
     @Test
-    public void bossFight_playerWins_hpIsSaved() {
+    public void bossFight_playerWins_hpPreservedWithoutLevelUp() {
+        // No level-up: XP reward (1000) < expToNextLvl (10000)
         Player player = playerWith("Hero", "id1", "лес", 100, 100, 5, 50);
-        // Set exp so no level-up occurs: exp = 0, expToNextLvl = 10000
         player.setExp(0);
         player.setExpToNextLvl(10000);
         when(user.getId()).thenReturn("id1");
@@ -159,10 +159,39 @@ public class PlayersManagerBossFightTest {
 
         playersManager.bossFight(event);
 
-        // HP was set post-battle; XP reward (1000 < expToNextLvl 10000) causes no level-up,
-        // so the HP from changeHp(id, hpAfterBattle) should be preserved.
+        // Without level-up, HP is not restored → post-battle HP is persisted
         assertEquals(hpAfterBattle, player.getHp());
         verify(playerRepository, atLeastOnce()).put(eq("id1"), any());
+    }
+
+    @Test
+    public void bossFight_playerWins_hpRestoredOnLevelUp() {
+        // Level-up triggered: exp=90, expToNextLvl=100, XP reward=1000
+        Player player = playerWith("Hero", "id1", "лес", 100, 100, 5, 50);
+        player.setExp(90);
+        player.setExpToNextLvl(100);
+        player.setLevel(1);
+        when(user.getId()).thenReturn("id1");
+        when(playerRepository.get("id1")).thenReturn(player);
+        when(locationManager.getLocation("лес")).thenReturn(
+                locationBuilder("лес", "Morgott").build());
+        when(clanManager.getClanMembers(anyString())).thenReturn(Collections.emptyList());
+        when(battleManager.getBossItemName("Morgott")).thenReturn("oko morra");
+        when(itemsManager.getItem("oko morra")).thenReturn(null);
+
+        doAnswer(inv -> {
+            List<Person> players = inv.getArgument(0);
+            players.forEach(p -> p.setHp(35)); // damaged after battle
+            return null;
+        }).when(battleManager).bossBattle(anyList(), eq("Morgott"), any());
+
+        when(playerRepository.get("id1")).thenReturn(player);
+
+        playersManager.bossFight(event);
+
+        // Level-up restores HP to new maxHp — must be greater than post-battle HP (35)
+        assertTrue("HP must be restored to maxHp on level-up", player.getHp() > 35);
+        assertEquals(player.getMaxHp(), player.getHp());
     }
 
     // ---- player loses ----------------------------------------------------------
