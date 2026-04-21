@@ -385,9 +385,11 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 	public void deathOfPlayer(Player dead) {
 		dead.setMoney((int) (dead.getMoney() * 0.9));
 		dead.setHp(dead.getMaxHp());
+		// movePlayerInPopulation reads dead.getLocation() to find the current location —
+		// must be called before changing it, otherwise the player is never removed from the old location
+		locationManager.movePlayerInPopulation(dead, "респаун");
 		dead.setLocation("респаун");
 		playerCache.put(dead.getId(), dead);
-		locationManager.movePlayerInPopulation(dead, "респаун");
 	}
 
 	/**
@@ -742,8 +744,12 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 			event.getChannel().sendMessage("В этой локации нет босса, перейди в другую если хочешь присесть на бутылку").submit();
 		} else {
 			event.getChannel().sendMessage("Ты отважился бросить вызов боссу по имени " + loc.getBoss() + " земля тебе пухом братишка").submit();
-			var players = getPlayersByClan(player);
-			// Convert List<Player> to List<Person>
+			// Always include the player themselves; getPlayersByClan returns only clan members and may exclude the solo player
+			List<Player> players = new ArrayList<>();
+			players.add(player);
+			getPlayersByClan(player).stream()
+					.filter(p -> !p.getId().equals(player.getId()))
+					.forEach(players::add);
 			List<Person> playersAsPerson = players.stream()
 							.map(p -> (Person) p)
 							.collect(Collectors.toList());
