@@ -117,7 +117,7 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		try {
 			var player = playerCache.get(id);
 			if (player == null) return;
-			player.setHp(hp);
+			player.setHp(Math.min(hp, player.getMaxHp()));
 			playerCache.put(id, player);
 		} finally {
 			lock.unlock();
