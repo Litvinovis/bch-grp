@@ -109,12 +109,44 @@ public class PlayersManagerPvpDuelTest {
         verify(battleManager, never()).playerBattle(any(), any(), any());
     }
 
+    // ---- playersFight: solo player (no clan) can fight -------------------------
+
+    @Test
+    public void playersFight_soloPlayerNoClan_battleStarts() {
+        Player player = playerAt("uid1", "арена"); // clanName="" by default
+        Player enemy  = playerAt("uid2", "арена");
+
+        when(playerRepository.get("uid1")).thenReturn(player);
+        when(playerRepository.get("uid2")).thenReturn(enemy);
+        when(locationManager.getLocation("арена"))
+                .thenReturn(locationWith("арена", true, List.of("uid1", "uid2")))
+                .thenReturn(locationWith("арена", true, List.of("uid1")));
+        when(clanManager.getClanMembers("")).thenReturn(Collections.emptyList());
+
+        doAnswer(inv -> {
+            List<Person> team1 = inv.getArgument(0);
+            List<Person> team2 = inv.getArgument(1);
+            team1.forEach(p -> p.setHp(50));
+            team2.forEach(p -> p.setHp(0));
+            team1.addAll(team2);
+            return team1;
+        }).when(battleManager).playerBattle(anyList(), anyList(), any());
+
+        Location respawn = locationWith("респаун", false, new ArrayList<>());
+        when(locationManager.movePlayerInPopulation(any(), eq("респаун"))).thenReturn(respawn);
+
+        playersManager.playersFight(event);
+
+        // Solo player must be able to start a battle even without a clan
+        verify(battleManager).playerBattle(anyList(), anyList(), any());
+    }
+
     // ---- playersFight: attacker wins ------------------------------------------
 
     @Test
     public void playersFight_attackerWins_moneyAndXpAdded() {
         Player attacker = playerAt("uid1", "арена");
-        attacker.setClanName("team1"); // must have a clan to be included in attackers list
+        attacker.setClanName("team1");
         Player enemy    = playerAt("uid2", "арена");
         attacker.setMoney(0);
 

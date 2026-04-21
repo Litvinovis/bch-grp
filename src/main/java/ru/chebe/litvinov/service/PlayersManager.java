@@ -756,7 +756,6 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 			battleManager.bossBattle(playersAsPerson, loc.getBoss(), event.getChannel());
 			for (Person play : players) {
 				if (play.getHp() > 0) {
-					changeHp(((Player) play).getId(), play.getHp());
 					changeXp(((Player) play).getId(), 1000);
 					changeMoney(((Player) play).getId(), 1000, true);
 					String bossItem = battleManager.getBossItemName(loc.getBoss());
@@ -816,6 +815,7 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 
 		// Формирование команд
 		List<Person> attackers = new ArrayList<>(getPlayersByClan(player));
+		if (attackers.isEmpty()) attackers.add(player); // одиночный игрок без клана
 		List<Person> defenders = new ArrayList<>(getPlayersByClan(enemy).stream()
 						.map(p -> (Person) p)
 						.collect(Collectors.toList()));
