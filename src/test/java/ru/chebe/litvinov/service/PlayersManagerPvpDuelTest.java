@@ -145,8 +145,7 @@ public class PlayersManagerPvpDuelTest {
 
     @Test
     public void playersFight_attackerWins_moneyAndXpAdded() {
-        Player attacker = playerAt("uid1", "арена");
-        attacker.setClanName("team1");
+        Player attacker = playerAt("uid1", "арена"); // clanName="" — solo player uses fix
         Player enemy    = playerAt("uid2", "арена");
         attacker.setMoney(0);
 
@@ -156,7 +155,6 @@ public class PlayersManagerPvpDuelTest {
         when(locationManager.getLocation("арена"))
                 .thenReturn(locationWith("арена", true, List.of("uid1", "uid2")))
                 .thenReturn(locationWith("арена", true, List.of("uid1")));
-        when(clanManager.getClanMembers("team1")).thenReturn(List.of("uid1"));
         when(clanManager.getClanMembers("")).thenReturn(Collections.emptyList());
 
         // Battle result: attacker has HP > 0, enemy HP = 0
@@ -182,8 +180,7 @@ public class PlayersManagerPvpDuelTest {
 
     @Test
     public void playersFight_loserDies_locationSetToRespawn() {
-        Player attacker = playerAt("uid1", "арена");
-        attacker.setClanName("team1");
+        Player attacker = playerAt("uid1", "арена"); // clanName="" — solo player uses fix
         Player enemy    = playerAt("uid2", "арена");
 
         when(playerRepository.get("uid1")).thenReturn(attacker);
@@ -191,7 +188,6 @@ public class PlayersManagerPvpDuelTest {
         when(locationManager.getLocation("арена"))
                 .thenReturn(locationWith("арена", true, List.of("uid1", "uid2")))
                 .thenReturn(locationWith("арена", true, List.of()));
-        when(clanManager.getClanMembers("team1")).thenReturn(List.of("uid1"));
         when(clanManager.getClanMembers("")).thenReturn(Collections.emptyList());
 
         doAnswer(inv -> {
