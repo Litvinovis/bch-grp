@@ -800,6 +800,7 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 			changeXp(playerId, bot.getXpReward());
 			npcManager.respawnBot(bot);
 		} else {
+			npcManager.respawnBot(bot);
 			deathOfPlayer(player);
 		}
 	}
