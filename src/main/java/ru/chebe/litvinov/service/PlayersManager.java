@@ -594,7 +594,8 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 			event.getChannel().sendMessage("Как ты собрался бросить кости если ты не в таверне? Метнись кабанчиком сначала туда").submit();
 			return;
 		}
-		String bidText = event.getMessage().getContentDisplay().substring(7);
+		String raw = event.getMessage().getContentDisplay();
+		String bidText = raw.length() > 7 ? raw.substring(7).trim() : "";
 		if (bidText.isEmpty()) {
 			event.getChannel().sendMessage("Мы на деньги играем, ты забыл ставку указать, от 1 до 100").submit();
 			return;
