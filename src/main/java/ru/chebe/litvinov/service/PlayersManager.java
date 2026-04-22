@@ -33,6 +33,7 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 	private final EventsManager eventsManager;
 	private final ClanManager clanManager;
 	private final Tavern tavern;
+	private final NpcManager npcManager;
 	private final Random random = new Random();
 
 	/**
@@ -63,9 +64,11 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 	 * @param eventsManager   менеджер квестов и событий
 	 * @param clanManager     менеджер кланов
 	 * @param tavern          сервис таверны (азартные игры)
+	 * @param npcManager      менеджер NPC-ботов
 	 */
 	public PlayersManager(PlayerRepository playerCache, LocationManager locationManager, ItemsManager itemsManager,
-	                      BattleManager battleManager, EventsManager eventsManager, ClanManager clanManager, Tavern tavern) {
+	                      BattleManager battleManager, EventsManager eventsManager, ClanManager clanManager,
+	                      Tavern tavern, NpcManager npcManager) {
 		this.playerCache = playerCache;
 		this.locationManager = locationManager;
 		this.itemsManager = itemsManager;
@@ -73,6 +76,7 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		this.eventsManager = eventsManager;
 		this.clanManager = clanManager;
 		this.tavern = tavern;
+		this.npcManager = npcManager;
 	}
 
 	/**
@@ -82,6 +86,7 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 	 */
 	public void getPlayerInfo(MessageReceivedEvent event) {
 		String id = event.getMessage().getAuthor().getId();
+		removeExpiredBuffs(id);
 		event.getChannel().sendMessage(playerCache.get(id).toString()).submit();
 	}
 
@@ -397,38 +402,93 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 	 *
 	 * @param event событие Discord-сообщения с названием предмета
 	 */
+	private static final long BUFF_DURATION_MS = 30 * 60 * 1000L; // 30 минут
+
 	public void useItem(MessageReceivedEvent event) {
-		var player = playerCache.get(event.getAuthor().getId());
+		String playerId = event.getAuthor().getId();
+		removeExpiredBuffs(playerId);
+		var player = playerCache.get(playerId);
 		String message = event.getMessage().getContentDisplay().substring(13).trim().toLowerCase();
 		if (player.getInventory().containsKey(message.toLowerCase())) {
 			Item item = itemsManager.getItem(message);
 			if (item.isAction()) {
+				boolean hasBuff = item.getArmor() > 0 || item.getLuck() > 0
+						|| item.getStrength() > 0 || item.getReputation() > 0;
+
 				if (item.getHealth() > 0) {
-					int hp = changeHp(player.getId(), item.getHealth(), true);
+					int hp = changeHp(playerId, item.getHealth(), true);
 					event.getChannel().sendMessage("Теперь у тебя " + hp + " здоровья").submit();
 				}
 				if (item.getArmor() > 0) {
-					int armor = changeArmor(player.getId(), item.getArmor(), true);
+					int armor = changeArmor(playerId, item.getArmor(), true);
 					event.getChannel().sendMessage("Теперь у тебя " + armor + " брони").submit();
 				}
 				if (item.getLuck() > 0) {
-					int luck = changeLuck(player.getId(), item.getLuck(), true);
+					int luck = changeLuck(playerId, item.getLuck(), true);
 					event.getChannel().sendMessage("Теперь у тебя " + luck + " удачи").submit();
 				}
 				if (item.getStrength() > 0) {
-					int str = changeStrength(player.getId(), item.getStrength(), true);
+					int str = changeStrength(playerId, item.getStrength(), true);
 					event.getChannel().sendMessage("Теперь у тебя " + str + " силы").submit();
 				}
 				if (item.getReputation() > 0) {
-					int rep = changeReputation(player.getId(), item.getReputation(), true);
+					int rep = changeReputation(playerId, item.getReputation(), true);
 					event.getChannel().sendMessage("Теперь у тебя " + rep + " репутации").submit();
 				}
-				deleteItem(player.getId(), item.getName());
+
+				if (hasBuff) {
+					// Сохраняем бафф с временем истечения
+					ReentrantLock lock = getPlayerLock(playerId);
+					lock.lock();
+					try {
+						Player p = playerCache.get(playerId);
+						if (p != null) {
+							if (p.getActiveBuffs() == null) p.setActiveBuffs(new java.util.HashMap<>());
+							p.getActiveBuffs().put(item.getName(), System.currentTimeMillis() + BUFF_DURATION_MS);
+							playerCache.put(playerId, p);
+						}
+					} finally {
+						lock.unlock();
+					}
+					event.getChannel().sendMessage("Бафф **" + item.getName() + "** активен 30 минут").submit();
+				}
+
+				deleteItem(playerId, item.getName());
 			} else {
 				event.getChannel().sendMessage("Этот предмет нельзя использовать").submit();
 			}
 		} else {
 			event.getChannel().sendMessage("Такого предмета нет в твоём инвентаре").submit();
+		}
+	}
+
+	/** Снимает истёкшие баффы и откатывает статы игрока. */
+	public void removeExpiredBuffs(String playerId) {
+		ReentrantLock lock = getPlayerLock(playerId);
+		lock.lock();
+		try {
+			Player player = playerCache.get(playerId);
+			if (player == null || player.getActiveBuffs() == null || player.getActiveBuffs().isEmpty()) return;
+			long now = System.currentTimeMillis();
+			List<String> expired = new ArrayList<>();
+			for (Map.Entry<String, Long> entry : player.getActiveBuffs().entrySet()) {
+				if (now >= entry.getValue()) expired.add(entry.getKey());
+			}
+			if (expired.isEmpty()) return;
+			for (String buffName : expired) {
+				Item item = itemsManager.getItem(buffName);
+				if (item != null) {
+					if (item.getArmor() > 0)      player.setArmor(player.getArmor() - item.getArmor());
+					if (item.getLuck() > 0)        player.setLuck(player.getLuck() - item.getLuck());
+					if (item.getStrength() > 0)    player.setStrength(player.getStrength() - item.getStrength());
+					if (item.getReputation() > 0)  player.setReputation(player.getReputation() - item.getReputation());
+				}
+				player.getActiveBuffs().remove(buffName);
+			}
+			playerCache.put(playerId, player);
+			log.debug("Сняты баффы у {}: {}", playerId, expired);
+		} finally {
+			lock.unlock();
 		}
 	}
 
@@ -564,6 +624,7 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 	 */
 	public void move(MessageReceivedEvent event) {
 		String message = event.getMessage().getContentDisplay().substring(5).trim().toLowerCase();
+		removeExpiredBuffs(event.getAuthor().getId());
 		var player = playerCache.get(event.getAuthor().getId());
 		var currentLocation = locationManager.getLocation(player.getLocation());
 		Location nextLocation = locationManager.getLocation(message.toLowerCase());
@@ -596,16 +657,35 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		}
 		nextLocation = locationManager.movePlayerInPopulation(player, nextLocation.getName());
 		player.setLocation(nextLocation.getName());
+
+		// Квест «Путешественник»: считаем посещённые локации
+		Event activeEvent = player.getActiveEvent();
+		if (activeEvent != null && "Путешественник".equals(activeEvent.getType())) {
+			activeEvent.setAttempt(activeEvent.getAttempt() + 1);
+		}
 		playerCache.put(player.getId(), player);
+
 		var token = player.getInventory().get("токен телепорта") == null ? 0 : player.getInventory().get("токен телепорта");
 		String teleport = isTeleport ? " с помощью токена телепорта, осталось " + token : "";
-		event.getChannel().sendMessage("Ты успешно переместился в локацию - " + nextLocation.getName() + teleport
-						+ "\nВ этой локации находятся следующие игроки: " + nextLocation.getPopulationByName().toString()).submit();
+		StringBuilder msg = new StringBuilder("Ты успешно переместился в локацию - ").append(nextLocation.getName()).append(teleport)
+				.append("\nВ этой локации находятся следующие игроки: ").append(nextLocation.getPopulationByName().toString());
+
+		// Подсказка пути для квестов «Ходилка» и «Таймер»
+		if (activeEvent != null && ("Ходилка".equals(activeEvent.getType()) || "Таймер".equals(activeEvent.getType()))) {
+			String dest = activeEvent.getLocationEnd();
+			if (dest != null && !dest.equals(nextLocation.getName())) {
+				String hint = locationManager.findNextStep(nextLocation.getName(), dest);
+				if (hint != null) {
+					msg.append("\n🗺 Для выполнения квеста следующая локация: **").append(hint).append("**");
+				}
+			}
+		}
+
+		event.getChannel().sendMessage(msg.toString()).submit();
+
 		if (eventsManager.transferEvent(event, nextLocation)) {
 			int battleResult = battleManager.mobBattle(player, event.getChannel());
 			if (battleResult > 0) {
-				// battleResult теперь содержит текущее HP игрока после боя
-				// Восстанавливаем HP: 75% для уровней 1-2, 50% для остальных
 				int currentHp = battleResult;
 				int maxHp = player.getMaxHp();
 				if (currentHp < maxHp) {
@@ -616,6 +696,27 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 				}
 				changeXp(player.getId(), 10);
 				changeMoney(player.getId(), 10, true);
+
+				// Квест «Охота»: считаем убитых мобов
+				player = playerCache.get(player.getId());
+				if (player != null && player.getActiveEvent() != null
+						&& "Охота".equals(player.getActiveEvent().getType())) {
+					player.getActiveEvent().setAttempt(player.getActiveEvent().getAttempt() + 1);
+					playerCache.put(player.getId(), player);
+				}
+
+				// 25% шанс дропа предмета с моба
+				if (random.nextInt(4) == 0) {
+					String drop = itemsManager.getRandomItemName();
+					if (drop != null) {
+						player = playerCache.get(player.getId());
+						if (player != null) {
+							player.getInventory().merge(drop, 1, Integer::sum);
+							playerCache.put(player.getId(), player);
+							event.getChannel().sendMessage("Моб выронил предмет: **" + drop + "**").submit();
+						}
+					}
+				}
 			} else {
 				deathOfPlayer(player);
 			}
@@ -667,6 +768,34 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 			playerCache.put(playerId, player);
 		} else {
 			event.getChannel().sendMessage("У тебя недостаточно денег, сначала зарабаотай их").submit();
+		}
+	}
+
+	/**
+	 * Атакует случайного NPC в текущей локации игрока.
+	 */
+	public void fightNpc(MessageReceivedEvent event) {
+		String playerId = event.getAuthor().getId();
+		var player = playerCache.get(playerId);
+		if (player == null) {
+			event.getChannel().sendMessage("Сначала зарегистрируйся командой +начать").submit();
+			return;
+		}
+		var bot = npcManager.getRandomBot(player.getLocation());
+		if (bot == null) {
+			event.getChannel().sendMessage("В локации **" + player.getLocation() + "** нет NPC для битвы.").submit();
+			return;
+		}
+		event.getChannel().sendMessage("Ты нападаешь на NPC **" + bot.getNickName() + "** [HP:" + bot.getHp() + "]...").submit();
+		battleManager.playerBattle(List.of(player), List.of((ru.chebe.litvinov.data.Person) bot), event.getChannel());
+		if (bot.getHp() <= 0) {
+			event.getChannel().sendMessage("Ты победил **" + bot.getNickName() + "**! Получаешь "
+					+ bot.getMoneyReward() + " монет и " + bot.getXpReward() + " опыта.").submit();
+			changeMoney(playerId, bot.getMoneyReward(), true);
+			changeXp(playerId, bot.getXpReward());
+			npcManager.respawnBot(bot);
+		} else {
+			deathOfPlayer(player);
 		}
 	}
 
@@ -1424,7 +1553,13 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 				return;
 			}
 			
+			int moneyBefore = player.getMoney();
 			player = tavern.guessTheNumber(event, player, bid, guess);
+			// Квест «Везунчик»: победа зафиксирована по увеличению денег сверх ставки
+			if (player.getMoney() > moneyBefore && player.getActiveEvent() != null
+					&& "Везунчик".equals(player.getActiveEvent().getType())) {
+				player.getActiveEvent().setAttempt(1);
+			}
 			playerCache.put(player.getId(), player);
 		} catch (NumberFormatException e) {
 			event.getChannel().sendMessage("Неверный формат ставки или числа!").queue();

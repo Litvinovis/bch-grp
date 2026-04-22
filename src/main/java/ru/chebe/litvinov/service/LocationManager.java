@@ -10,6 +10,8 @@ import ru.chebe.litvinov.ignite3.LocationRepository;
 
 import java.io.File;
 import java.util.*;
+import java.util.LinkedList;
+import java.util.Queue;
 
 /**
  * Менеджер игровых локаций.
@@ -128,6 +130,37 @@ public class LocationManager implements ru.chebe.litvinov.service.interfaces.ILo
 		event.getChannel().sendMessageEmbeds(embed) // send the embed
 						.addFiles(file)
 						.queue();
+	}
+
+	/**
+	 * BFS: находит следующую локацию на пути из from в to.
+	 * Возвращает null если путь не найден.
+	 */
+	public String findNextStep(String from, String to) {
+		if (from.equals(to)) return to;
+		Map<String, String> parent = new HashMap<>();
+		Queue<String> queue = new LinkedList<>();
+		queue.add(from);
+		parent.put(from, null);
+		while (!queue.isEmpty()) {
+			String current = queue.poll();
+			Location loc = locationCache.get(current);
+			if (loc == null) continue;
+			for (String neighbor : loc.getPaths()) {
+				if (!parent.containsKey(neighbor)) {
+					parent.put(neighbor, current);
+					if (neighbor.equals(to)) {
+						String step = to;
+						while (!from.equals(parent.get(step))) {
+							step = parent.get(step);
+						}
+						return step;
+					}
+					queue.add(neighbor);
+				}
+			}
+		}
+		return null;
 	}
 
 	/**

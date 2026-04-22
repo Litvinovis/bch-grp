@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 
 /**
  * Менеджер игровых предметов.
@@ -86,6 +87,16 @@ public class ItemsManager {
 						.description("Восстанавливает 100 HP").build());
 		map.put("токен телепорта", Item.builder().name("токен телепорта").armor(0).price(2).luck(0).health(0).reputation(0).strength(0).xpGeneration(0).action(true)
 						.description("Позволяет использовать телепорты").build());
+		map.put("протеин ябыса", Item.builder().name("протеин ябыса").armor(0).price(25).luck(0).health(0).reputation(0).strength(2).xpGeneration(0).action(true)
+						.description("+2 к силе на 30 минут. Ябыс одобряет").build());
+		map.put("амулет рианель", Item.builder().name("амулет рианель").armor(0).price(20).luck(2).health(0).reputation(0).strength(0).xpGeneration(0).action(true)
+						.description("+2 к удаче на 30 минут. Пахнет магией и дешёвыми духами").build());
+		map.put("щит чегоба", Item.builder().name("щит чегоба").armor(3).price(35).luck(0).health(0).reputation(0).strength(0).xpGeneration(0).action(true)
+						.description("+3 к броне на 30 минут. Сделан из правил пасфайндера в 5 слоёв").build());
+		map.put("речь ильи", Item.builder().name("речь ильи").armor(0).price(18).luck(0).health(0).reputation(3).strength(0).xpGeneration(0).action(true)
+						.description("+3 к репутации на 30 минут. Никто не понял, но все впечатлились").build());
+		map.put("зелье лаба", Item.builder().name("зелье лаба").armor(0).price(50).luck(1).health(80).reputation(0).strength(1).xpGeneration(0).action(true)
+						.description("Восстанавливает 80 HP, +1 к силе и +1 к удаче на 30 минут. Состав засекречен, но явно не вода").build());
 
 
 		if (itemsCache != null) {
@@ -131,5 +142,11 @@ public class ItemsManager {
 	 */
 	public String getItemsForSale() {
 		return itemsForSale.toString();
+	}
+
+	/** Возвращает случайное название предмета из списка продаваемых (для дропа с мобов). */
+	public String getRandomItemName() {
+		if (itemsForSale.isEmpty()) return null;
+		return itemsForSale.get(new Random().nextInt(itemsForSale.size()));
 	}
 }

@@ -32,6 +32,7 @@ private int exp;
 	private int dailyStreak;
 	private String playerClass;
 	private List<String> achievements;
+	private Map<String, Long> activeBuffs;
 
 	/**
 	 * Создаёт нового игрока с начальными характеристиками и стартовым инвентарём.
@@ -61,6 +62,7 @@ private int exp;
 		this.dailyStreak = 0;
 		this.playerClass = "";
 		this.achievements = new ArrayList<>();
+		this.activeBuffs = new HashMap<>();
 	}
 
 	private Map<String, Integer> startInventory() {

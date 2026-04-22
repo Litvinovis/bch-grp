@@ -128,6 +128,11 @@ public interface IPlayersManager {
     void guessTheNumber(MessageReceivedEvent event);
 
     /**
+     * Атакует случайного NPC в текущей локации игрока.
+     */
+    void fightNpc(MessageReceivedEvent event);
+
+    /**
      * Обрабатывает создание нового клана.
      *
      * @param event событие Discord-сообщения с названием клана

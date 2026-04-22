@@ -53,7 +53,7 @@ public class PlayersManagerDailyBonusTest {
         MockitoAnnotations.initMocks(this);
         playersManager = new PlayersManager(
                 playerRepository, locationManager, itemsManager,
-                battleManager, eventsManager, clanManager, tavern);
+                battleManager, eventsManager, clanManager, tavern, new NpcManager());
 
         when(event.getChannel()).thenReturn(channel);
         when(event.getMessage()).thenReturn(message);
