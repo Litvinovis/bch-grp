@@ -594,7 +594,8 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 			event.getChannel().sendMessage("Как ты собрался бросить кости если ты не в таверне? Метнись кабанчиком сначала туда").submit();
 			return;
 		}
-		String bidText = event.getMessage().getContentDisplay().substring(7);
+		String raw = event.getMessage().getContentDisplay();
+		String bidText = raw.length() > 7 ? raw.substring(7).trim() : "";
 		if (bidText.isEmpty()) {
 			event.getChannel().sendMessage("Мы на деньги играем, ты забыл ставку указать, от 1 до 100").submit();
 			return;
@@ -793,6 +794,9 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		}
 		event.getChannel().sendMessage("⚔️ Ты атакуешь **" + bot.getNickName() + "** [❤️ HP: **" + bot.getHp() + "**]! Бой начинается...").submit();
 		battleManager.playerBattle(List.of(player), List.of((ru.chebe.litvinov.data.Person) bot), event.getChannel());
+		// battleMechanic modifies the local player object but doesn't write it back to cache.
+		// changeMoney/changeXp re-fetch from cache and would overwrite with pre-battle HP.
+		changeHp(playerId, Math.max(0, player.getHp()));
 		if (bot.getHp() <= 0) {
 			event.getChannel().sendMessage("🏆 **Победа над " + bot.getNickName() + "!**\n💰 +" + bot.getMoneyReward() + " монет  ✨ +" + bot.getXpReward() + " опыта").submit();
 			changeMoney(playerId, bot.getMoneyReward(), true);
