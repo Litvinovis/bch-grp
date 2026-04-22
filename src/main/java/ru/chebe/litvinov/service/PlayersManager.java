@@ -86,6 +86,7 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 	 */
 	public void getPlayerInfo(MessageReceivedEvent event) {
 		String id = event.getMessage().getAuthor().getId();
+		removeExpiredBuffs(id);
 		event.getChannel().sendMessage(playerCache.get(id).toString()).submit();
 	}
 
@@ -401,38 +402,93 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 	 *
 	 * @param event событие Discord-сообщения с названием предмета
 	 */
+	private static final long BUFF_DURATION_MS = 30 * 60 * 1000L; // 30 минут
+
 	public void useItem(MessageReceivedEvent event) {
-		var player = playerCache.get(event.getAuthor().getId());
+		String playerId = event.getAuthor().getId();
+		removeExpiredBuffs(playerId);
+		var player = playerCache.get(playerId);
 		String message = event.getMessage().getContentDisplay().substring(13).trim().toLowerCase();
 		if (player.getInventory().containsKey(message.toLowerCase())) {
 			Item item = itemsManager.getItem(message);
 			if (item.isAction()) {
+				boolean hasBuff = item.getArmor() > 0 || item.getLuck() > 0
+						|| item.getStrength() > 0 || item.getReputation() > 0;
+
 				if (item.getHealth() > 0) {
-					int hp = changeHp(player.getId(), item.getHealth(), true);
+					int hp = changeHp(playerId, item.getHealth(), true);
 					event.getChannel().sendMessage("Теперь у тебя " + hp + " здоровья").submit();
 				}
 				if (item.getArmor() > 0) {
-					int armor = changeArmor(player.getId(), item.getArmor(), true);
+					int armor = changeArmor(playerId, item.getArmor(), true);
 					event.getChannel().sendMessage("Теперь у тебя " + armor + " брони").submit();
 				}
 				if (item.getLuck() > 0) {
-					int luck = changeLuck(player.getId(), item.getLuck(), true);
+					int luck = changeLuck(playerId, item.getLuck(), true);
 					event.getChannel().sendMessage("Теперь у тебя " + luck + " удачи").submit();
 				}
 				if (item.getStrength() > 0) {
-					int str = changeStrength(player.getId(), item.getStrength(), true);
+					int str = changeStrength(playerId, item.getStrength(), true);
 					event.getChannel().sendMessage("Теперь у тебя " + str + " силы").submit();
 				}
 				if (item.getReputation() > 0) {
-					int rep = changeReputation(player.getId(), item.getReputation(), true);
+					int rep = changeReputation(playerId, item.getReputation(), true);
 					event.getChannel().sendMessage("Теперь у тебя " + rep + " репутации").submit();
 				}
-				deleteItem(player.getId(), item.getName());
+
+				if (hasBuff) {
+					// Сохраняем бафф с временем истечения
+					ReentrantLock lock = getPlayerLock(playerId);
+					lock.lock();
+					try {
+						Player p = playerCache.get(playerId);
+						if (p != null) {
+							if (p.getActiveBuffs() == null) p.setActiveBuffs(new java.util.HashMap<>());
+							p.getActiveBuffs().put(item.getName(), System.currentTimeMillis() + BUFF_DURATION_MS);
+							playerCache.put(playerId, p);
+						}
+					} finally {
+						lock.unlock();
+					}
+					event.getChannel().sendMessage("Бафф **" + item.getName() + "** активен 30 минут").submit();
+				}
+
+				deleteItem(playerId, item.getName());
 			} else {
 				event.getChannel().sendMessage("Этот предмет нельзя использовать").submit();
 			}
 		} else {
 			event.getChannel().sendMessage("Такого предмета нет в твоём инвентаре").submit();
+		}
+	}
+
+	/** Снимает истёкшие баффы и откатывает статы игрока. */
+	public void removeExpiredBuffs(String playerId) {
+		ReentrantLock lock = getPlayerLock(playerId);
+		lock.lock();
+		try {
+			Player player = playerCache.get(playerId);
+			if (player == null || player.getActiveBuffs() == null || player.getActiveBuffs().isEmpty()) return;
+			long now = System.currentTimeMillis();
+			List<String> expired = new ArrayList<>();
+			for (Map.Entry<String, Long> entry : player.getActiveBuffs().entrySet()) {
+				if (now >= entry.getValue()) expired.add(entry.getKey());
+			}
+			if (expired.isEmpty()) return;
+			for (String buffName : expired) {
+				Item item = itemsManager.getItem(buffName);
+				if (item != null) {
+					if (item.getArmor() > 0)      player.setArmor(player.getArmor() - item.getArmor());
+					if (item.getLuck() > 0)        player.setLuck(player.getLuck() - item.getLuck());
+					if (item.getStrength() > 0)    player.setStrength(player.getStrength() - item.getStrength());
+					if (item.getReputation() > 0)  player.setReputation(player.getReputation() - item.getReputation());
+				}
+				player.getActiveBuffs().remove(buffName);
+			}
+			playerCache.put(playerId, player);
+			log.debug("Сняты баффы у {}: {}", playerId, expired);
+		} finally {
+			lock.unlock();
 		}
 	}
 
@@ -568,6 +624,7 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 	 */
 	public void move(MessageReceivedEvent event) {
 		String message = event.getMessage().getContentDisplay().substring(5).trim().toLowerCase();
+		removeExpiredBuffs(event.getAuthor().getId());
 		var player = playerCache.get(event.getAuthor().getId());
 		var currentLocation = locationManager.getLocation(player.getLocation());
 		Location nextLocation = locationManager.getLocation(message.toLowerCase());
