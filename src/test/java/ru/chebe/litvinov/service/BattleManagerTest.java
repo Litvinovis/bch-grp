@@ -85,7 +85,7 @@ public class BattleManagerTest {
     public void mobBattle_playerLoses_sendsDeathMessage() {
         Player player = playerWithHp(1, 1, 1);
         battleManager.mobBattle(player, channel);
-        verify(channel, atLeastOnce()).sendMessage(contains("кринж"));
+        verify(channel, atLeastOnce()).sendMessage(contains("Позор"));
     }
 
     // ---- mobBattle: level scaling ----------------------------------------------

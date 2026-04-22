@@ -791,15 +791,15 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 			event.getChannel().sendMessage("В локации **" + player.getLocation() + "** нет NPC для битвы.").submit();
 			return;
 		}
-		event.getChannel().sendMessage("Ты нападаешь на NPC **" + bot.getNickName() + "** [HP:" + bot.getHp() + "]...").submit();
+		event.getChannel().sendMessage("⚔️ Ты атакуешь **" + bot.getNickName() + "** [❤️ HP: **" + bot.getHp() + "**]! Бой начинается...").submit();
 		battleManager.playerBattle(List.of(player), List.of((ru.chebe.litvinov.data.Person) bot), event.getChannel());
 		if (bot.getHp() <= 0) {
-			event.getChannel().sendMessage("Ты победил **" + bot.getNickName() + "**! Получаешь "
-					+ bot.getMoneyReward() + " монет и " + bot.getXpReward() + " опыта.").submit();
+			event.getChannel().sendMessage("🏆 **Победа над " + bot.getNickName() + "!**\n💰 +" + bot.getMoneyReward() + " монет  ✨ +" + bot.getXpReward() + " опыта").submit();
 			changeMoney(playerId, bot.getMoneyReward(), true);
 			changeXp(playerId, bot.getXpReward());
 			npcManager.respawnBot(bot);
 		} else {
+			event.getChannel().sendMessage("💀 **" + bot.getNickName() + "** победил тебя! 😵 Ты воскрешён на Респауне и потерял **10%** монет.").submit();
 			npcManager.respawnBot(bot);
 			deathOfPlayer(player);
 		}
