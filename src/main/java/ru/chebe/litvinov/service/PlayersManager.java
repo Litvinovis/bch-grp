@@ -382,6 +382,11 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		}
 	}
 
+	@Override
+	public Player getPlayer(String id) {
+		return playerCache.get(id);
+	}
+
 	/**
 	 * Обрабатывает смерть игрока: списывает 10% денег, восстанавливает HP и перемещает на Респаун.
 	 *

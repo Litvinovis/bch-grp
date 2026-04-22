@@ -175,6 +175,14 @@ public interface IPlayersManager {
     void clanInfo(MessageReceivedEvent event);
 
     /**
+     * Возвращает актуального игрока из кэша по его ID.
+     *
+     * @param id идентификатор игрока
+     * @return игрок или null если не найден
+     */
+    Player getPlayer(String id);
+
+    /**
      * Обрабатывает смерть игрока: списывает 10% монет, восстанавливает HP и перемещает на Респаун.
      *
      * @param player игрок, который погиб
