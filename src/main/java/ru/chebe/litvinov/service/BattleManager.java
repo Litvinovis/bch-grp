@@ -91,8 +91,9 @@ public class BattleManager {
 			return Collections.emptyList();
 		}
 		battleMechanic(players1, players2, channel);
-		players1.addAll(players2);
-		return players1;
+		List<Person> result = new ArrayList<>(players1);
+		result.addAll(players2);
+		return result;
 	}
 
 	/**
