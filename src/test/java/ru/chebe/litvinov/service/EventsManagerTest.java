@@ -7,6 +7,7 @@ import ru.chebe.litvinov.data.Player;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 import static org.junit.Assert.*;
 
@@ -38,11 +39,11 @@ public class EventsManagerTest {
     @Test
     public void assignEvent_eventHasKnownType() {
         // Run many times — over the random distribution both types will appear
+        Set<String> known = Set.of("Ходилка", "Загадка", "Таймер", "Путешественник", "Охота", "Везунчик");
         for (int i = 0; i < 100; i++) {
             Event event = eventsManager.assignEvent(LOCATION_LIST);
             String type = event.getType();
-            assertTrue("Unknown event type: " + type,
-                    type.equals("Ходилка") || type.equals("Загадка"));
+            assertTrue("Unknown event type: " + type, known.contains(type));
         }
     }
 
@@ -85,8 +86,8 @@ public class EventsManagerTest {
     public void assignEvent_rewardsAreWithinExpectedRange() {
         for (int i = 0; i < 50; i++) {
             Event e = eventsManager.assignEvent(LOCATION_LIST);
-            assertTrue("moneyReward out of range", e.getMoneyReward() >= 50 && e.getMoneyReward() < 100);
-            assertTrue("xpReward out of range", e.getXpReward() >= 50 && e.getXpReward() < 100);
+            assertTrue("moneyReward out of range", e.getMoneyReward() >= 50 && e.getMoneyReward() <= 200);
+            assertTrue("xpReward out of range", e.getXpReward() >= 50 && e.getXpReward() <= 200);
         }
     }
 

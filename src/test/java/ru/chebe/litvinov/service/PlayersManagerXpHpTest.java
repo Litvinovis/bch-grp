@@ -44,7 +44,7 @@ public class PlayersManagerXpHpTest {
         MockitoAnnotations.initMocks(this);
         playersManager = new PlayersManager(
                 playerRepository, locationManager, itemsManager,
-                battleManager, eventsManager, clanManager, tavern);
+                battleManager, eventsManager, clanManager, tavern, new NpcManager());
     }
 
     // ---- getXp (xpMap) ---------------------------------------------------------

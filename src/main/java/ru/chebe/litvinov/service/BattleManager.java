@@ -16,6 +16,7 @@ public class BattleManager {
 
 	private final BossRepository bossCache;
 	private final Random rand = new Random();
+	private final Map<String, Boss> localBossMap = new HashMap<>();
 
 	/**
 	 * Создаёт менеджер боёв и инициализирует репозиторий боссов начальными данными.
@@ -33,29 +34,34 @@ public class BattleManager {
 	 */
 	public void init() {
 		Map<String, Boss> map = new HashMap<>();
-		map.put("cynic mansion", Boss.builder().nickName("cynic mansion").hp(1000).strength(10).defeat(0).win(0).bossItem("кисточка циника").build());
-		map.put("Darhalas", Boss.builder().nickName("Darhalas").hp(1000).strength(10).defeat(0).win(0).bossItem("корона дарха").build());
-		map.put("Ctin", Boss.builder().nickName("Ctin").hp(1000).strength(10).defeat(0).win(0).bossItem("кринж стина").build());
-		map.put("Ushas", Boss.builder().nickName("Ushas").hp(1000).strength(10).defeat(0).win(0).bossItem("попка ушаса").build());
-		map.put("Morgott", Boss.builder().nickName("Morgott").hp(1000).strength(10).defeat(0).win(0).bossItem("око мора").build());
-		map.put("Usual_god", Boss.builder().nickName("Usual_god").hp(1000).strength(10).defeat(0).win(0).bossItem("очко бога").build());
-		map.put("Red", Boss.builder().nickName("Red").hp(1000).strength(10).defeat(0).win(0).bossItem("сиськи ред").build());
-		map.put("Рианель", Boss.builder().nickName("Рианель").hp(1000).strength(10).defeat(0).win(0).bossItem("удача рианель").build());
-		map.put("Labynkyr", Boss.builder().nickName("Labynkyr").hp(1000).strength(10).defeat(0).win(0).bossItem("шарики лаба").build());
-		map.put("Arktulz", Boss.builder().nickName("Arktulz").hp(1000).strength(10).defeat(0).win(0).bossItem("вонь арктулза").build());
-		map.put("Ябыс", Boss.builder().nickName("Ябыс").hp(1000).strength(10).defeat(0).win(0).bossItem("скейт ябыса").build());
-		map.put("Orson", Boss.builder().nickName("Orson").hp(1000).strength(10).defeat(0).win(0).bossItem("форточка орсона").build());
-		map.put("Gordon", Boss.builder().nickName("Gordon").hp(1000).strength(10).defeat(0).win(0).bossItem("месть гордона").build());
-		map.put("Buzzz", Boss.builder().nickName("Buzzz").hp(1000).strength(10).defeat(0).win(0).bossItem("хатка база").build());
-		map.put("la_brioche", Boss.builder().nickName("la_brioche").hp(1000).strength(10).defeat(0).win(0).bossItem("игла бувки").build());
-		map.put("Stalker", Boss.builder().nickName("Stalker").hp(1000).strength(10).defeat(0).win(0).bossItem("калькулятор сталкера").build());
-		map.put("Crown", Boss.builder().nickName("Crown").hp(1000).strength(10).defeat(0).win(0).bossItem("язык вороны").build());
-		map.put("Илья", Boss.builder().nickName("Илья").hp(1000).strength(10).defeat(0).win(0).bossItem("диплом ильи").build());
-		map.put("Chegobnk", Boss.builder().nickName("Chegobnk").hp(1000).strength(10).defeat(0).win(0).bossItem("кресло чегоба").build());
-		map.put("Вуъщт", Boss.builder().nickName("Вуъщт").hp(1000).strength(10).defeat(0).win(0).bossItem("хуй вущъта").build());
-		map.put("Eduard", Boss.builder().nickName("Eduard").hp(1000).strength(10).defeat(0).win(0).bossItem("банка эдика").build());
-		map.put("Rover", Boss.builder().nickName("Rover").hp(1000).strength(10).defeat(0).win(0).bossItem("бицушка ровера").build());
+		// Тир 1 — danger 10–25
+		map.put("Labynkyr",  Boss.builder().nickName("Labynkyr").hp(300).strength(6).defeat(0).win(0).bossItem("шарики лаба").build());
+		map.put("Arktulz",   Boss.builder().nickName("Arktulz").hp(280).strength(5).defeat(0).win(0).bossItem("вонь арктулза").build());
+		map.put("Red",       Boss.builder().nickName("Red").hp(320).strength(7).defeat(0).win(0).bossItem("сиськи ред").build());
+		map.put("Gordon",    Boss.builder().nickName("Gordon").hp(290).strength(6).defeat(0).win(0).bossItem("месть гордона").build());
+		map.put("Buzzz",     Boss.builder().nickName("Buzzz").hp(280).strength(5).defeat(0).win(0).bossItem("хатка база").build());
+		map.put("Ябыс",      Boss.builder().nickName("Ябыс").hp(340).strength(7).defeat(0).win(0).bossItem("скейт ябыса").build());
+		map.put("Orson",     Boss.builder().nickName("Orson").hp(285).strength(5).defeat(0).win(0).bossItem("форточка орсона").build());
+		map.put("la_brioche",Boss.builder().nickName("la_brioche").hp(290).strength(6).defeat(0).win(0).bossItem("игла бувки").build());
+		// Тир 2 — danger 35
+		map.put("Morgott",   Boss.builder().nickName("Morgott").hp(600).strength(10).defeat(0).win(0).bossItem("око мора").build());
+		map.put("Usual_god", Boss.builder().nickName("Usual_god").hp(580).strength(9).defeat(0).win(0).bossItem("очко бога").build());
+		map.put("Рианель",   Boss.builder().nickName("Рианель").hp(620).strength(11).defeat(0).win(0).bossItem("удача рианель").build());
+		map.put("Stalker",   Boss.builder().nickName("Stalker").hp(640).strength(11).defeat(0).win(0).bossItem("калькулятор сталкера").build());
+		map.put("Crown",     Boss.builder().nickName("Crown").hp(590).strength(9).defeat(0).win(0).bossItem("язык вороны").build());
+		// Тир 3 — danger 50
+		map.put("Ctin",      Boss.builder().nickName("Ctin").hp(880).strength(13).defeat(0).win(0).bossItem("кринж стина").build());
+		map.put("Ushas",     Boss.builder().nickName("Ushas").hp(900).strength(14).defeat(0).win(0).bossItem("попка ушаса").build());
+		map.put("Илья",      Boss.builder().nickName("Илья").hp(920).strength(14).defeat(0).win(0).bossItem("диплом ильи").build());
+		map.put("Вуъщт",     Boss.builder().nickName("Вуъщт").hp(940).strength(15).defeat(0).win(0).bossItem("хуй вущъта").build());
+		map.put("Eduard",    Boss.builder().nickName("Eduard").hp(890).strength(13).defeat(0).win(0).bossItem("банка эдика").build());
+		// Тир 4 — danger 70–80
+		map.put("cynic mansion", Boss.builder().nickName("cynic mansion").hp(1400).strength(20).defeat(0).win(0).bossItem("кисточка циника").build());
+		map.put("Rover",     Boss.builder().nickName("Rover").hp(1300).strength(18).defeat(0).win(0).bossItem("бицушка ровера").build());
+		map.put("Chegobnk",  Boss.builder().nickName("Chegobnk").hp(1350).strength(19).defeat(0).win(0).bossItem("кресло чегоба").build());
+		map.put("Darhalas",  Boss.builder().nickName("Darhalas").hp(1600).strength(22).defeat(0).win(0).bossItem("корона дарха").build());
 
+		localBossMap.putAll(map);
 		if (bossCache != null) {
 			map.forEach((name, boss) -> {
 				if (!bossCache.contains(name)) {
@@ -63,6 +69,12 @@ public class BattleManager {
 				}
 			});
 		}
+	}
+
+	/** Возвращает босса по имени (для тестов и инспекции). */
+	public Boss getBoss(String name) {
+		if (bossCache != null) return bossCache.get(name);
+		return localBossMap.get(name);
 	}
 
 	/**

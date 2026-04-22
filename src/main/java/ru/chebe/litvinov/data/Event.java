@@ -32,14 +32,17 @@ public class Event {
 
 	@Override
 	public String toString() {
-		String time = timeEnd == null ? "" : "Время выполенния - " + timeLost() + "\n";
+		String time = timeEnd == null ? "" : "Время выполнения - " + timeLost() + "\n";
 		String item = itemReward == null ? "" : "Награждаемый предмет - " + itemReward + "\n";
 		String location = locationEnd == null ? "" : "Локация выполнения - " + locationEnd + "\n";
 		String start = type.equalsIgnoreCase("загадка") ? "Вопрос - " : "Описание - ";
+		String progress = (type.equalsIgnoreCase("Путешественник") || type.equalsIgnoreCase("Охота"))
+				? "Прогресс - " + attempt + "/" + correctAnswer + "\n" : "";
 		return start + description + "\n" +
 						location +
 						"Тип - " + type + "\n" +
 						time +
+						progress +
 						"Награда в монетах - " + moneyReward + "\n" +
 						"Очков опыта - " + xpReward + "\n" +
 						item;

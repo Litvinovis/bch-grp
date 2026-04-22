@@ -38,7 +38,7 @@ public class PlayersManagerTest extends TestCase {
     @Before
     public void setUp() {
         MockitoAnnotations.initMocks(this);
-        playersManager = new PlayersManager(playerRepository, locationManager, itemsManager, battleManager, eventsManager, clanManager, tavern);
+        playersManager = new PlayersManager(playerRepository, locationManager, itemsManager, battleManager, eventsManager, clanManager, tavern, new NpcManager());
     }
 
     @Test

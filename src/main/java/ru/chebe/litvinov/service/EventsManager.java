@@ -5,6 +5,7 @@ import ru.chebe.litvinov.data.Event;
 import ru.chebe.litvinov.data.Location;
 import ru.chebe.litvinov.data.Player;
 
+import java.time.Instant;
 import java.util.*;
 import java.util.function.Predicate;
 
@@ -32,6 +33,13 @@ public class EventsManager {
 		predicateMap = new HashMap<>();
 		predicateMap.put("Ходилка", player -> player.getActiveEvent().getLocationEnd().equals(player.getLocation()));
 		predicateMap.put("Загадка", player -> player.getActiveEvent().getCorrectAnswer().equalsIgnoreCase(player.getAnswer()));
+		predicateMap.put("Таймер", player -> player.getActiveEvent().getLocationEnd().equals(player.getLocation())
+				&& Instant.now().toEpochMilli() < Instant.parse(player.getActiveEvent().getTimeEnd()).toEpochMilli());
+		predicateMap.put("Путешественник", player -> player.getActiveEvent().getAttempt()
+				>= Integer.parseInt(player.getActiveEvent().getCorrectAnswer()));
+		predicateMap.put("Охота", player -> player.getActiveEvent().getAttempt()
+				>= Integer.parseInt(player.getActiveEvent().getCorrectAnswer()));
+		predicateMap.put("Везунчик", player -> player.getActiveEvent().getAttempt() >= 1);
 		startQuest = List.of("Доставьте потерянную книгу знаний ", "Принесите редкий минерал ", "Отнесите закрепленное в NSFW фото ", "Передайте от Гордона письмо ", "Отнесите ключ к секретному подземелью ", "Найдите забытый тотем племени ",
 						"Помогите собрать ингредиенты для зелья ", "Спасите потерявшегося ребенка из лап ", "Поймайте рыбу и отдайте ее местному повару ", "Помогите найти semen бобов ", "Предложите сыграть в пасфайндер ", "Придите на помощь ",
 						"Доставьте старинную рукопись ", "Приведите бродячего торговца к ", "Передайте секретные права модератора ", "Отнесите секретное поручение Лаба к ", "Передайте этот виброклинок ", "");
@@ -55,7 +63,14 @@ public class EventsManager {
 	 * @return сгенерированное игровое событие
 	 */
 	public Event assignEvent(List<String> locationList) {
-		return rand.nextInt(4) == 1 ? createAnswerEvent() : createPathFinderEvent(locationList);
+		return switch (rand.nextInt(6)) {
+			case 0 -> createAnswerEvent();
+			case 1 -> createTimerEvent(locationList);
+			case 2 -> createTravelerEvent();
+			case 3 -> createHuntEvent();
+			case 4 -> createLuckyEvent();
+			default -> createPathFinderEvent(locationList);
+		};
 	}
 
 	/**
@@ -131,6 +146,67 @@ public class EventsManager {
 						.build();
 	}
 	
+	private Event createTimerEvent(List<String> locationList) {
+		ArrayList<String> locs = new ArrayList<>(locationList);
+		locs.remove("респаун");
+		String endLocation = locs.get(rand.nextInt(locs.size()));
+		String deadline = Instant.now().plusSeconds(600).toString(); // 10 минут
+		return Event.builder()
+				.locationEnd(endLocation)
+				.type("Таймер")
+				.correctAnswer(null)
+				.description("Доберись до локации " + endLocation + " за 10 минут!")
+				.itemReward(null)
+				.moneyReward(rand.nextInt(80, 150))
+				.timeEnd(deadline)
+				.xpReward(rand.nextInt(80, 150))
+				.build();
+	}
+
+	private Event createTravelerEvent() {
+		int required = rand.nextInt(3, 8);
+		return Event.builder()
+				.locationEnd(null)
+				.type("Путешественник")
+				.correctAnswer(String.valueOf(required))
+				.description("Посети " + required + " различных локаций.")
+				.itemReward(null)
+				.moneyReward(rand.nextInt(60, 120))
+				.timeEnd(null)
+				.xpReward(rand.nextInt(60, 120))
+				.attempt(0)
+				.build();
+	}
+
+	private Event createHuntEvent() {
+		int required = rand.nextInt(2, 6);
+		return Event.builder()
+				.locationEnd(null)
+				.type("Охота")
+				.correctAnswer(String.valueOf(required))
+				.description("Победи " + required + " мобов.")
+				.itemReward(null)
+				.moneyReward(rand.nextInt(70, 130))
+				.timeEnd(null)
+				.xpReward(rand.nextInt(70, 130))
+				.attempt(0)
+				.build();
+	}
+
+	private Event createLuckyEvent() {
+		return Event.builder()
+				.locationEnd(null)
+				.type("Везунчик")
+				.correctAnswer(null)
+				.description("Выиграй одну игру в таверне (угадай число).")
+				.itemReward(null)
+				.moneyReward(rand.nextInt(50, 100))
+				.timeEnd(null)
+				.xpReward(rand.nextInt(50, 100))
+				.attempt(0)
+				.build();
+	}
+
 	private String createDescription(String location) {
 		return startQuest.get(rand.nextInt(startQuest.size()))
 						+ middleQuest.get(rand.nextInt(middleQuest.size()))

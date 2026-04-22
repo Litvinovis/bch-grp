@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 
 /**
  * Менеджер игровых предметов.
@@ -131,5 +132,11 @@ public class ItemsManager {
 	 */
 	public String getItemsForSale() {
 		return itemsForSale.toString();
+	}
+
+	/** Возвращает случайное название предмета из списка продаваемых (для дропа с мобов). */
+	public String getRandomItemName() {
+		if (itemsForSale.isEmpty()) return null;
+		return itemsForSale.get(new Random().nextInt(itemsForSale.size()));
 	}
 }

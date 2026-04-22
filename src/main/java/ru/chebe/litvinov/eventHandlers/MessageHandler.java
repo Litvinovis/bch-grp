@@ -75,8 +75,9 @@ public class MessageHandler extends ListenerAdapter {
 		ClanManager clanManager = new ClanManager(new ClanRepository(configurator), playerRepository);
 		BattleManager battleManager = new BattleManager(new BossRepository(configurator));
 
+		NpcManager npcManager = new NpcManager();
 		this.playersManager = new PlayersManager(playerRepository, locationManager, itemsManager,
-				battleManager, new EventsManager(), clanManager, new Tavern());
+				battleManager, new EventsManager(), clanManager, new Tavern(), npcManager);
 
 		this.raidManager = new RaidManager(battleManager, playersManager, this.allowedChannelIds);
 

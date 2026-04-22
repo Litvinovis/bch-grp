@@ -131,6 +131,7 @@ public class CommandRegistry {
         // --- Бой ---
         registry.register("+убить босса", new AttackCommand(playersManager));
         registry.register("+пвп", new PvpCommand(playersManager));
+        registry.register("+нпс", event -> playersManager.fightNpc(event));
 
         // --- Рейды ---
         registry.register("+рейд", new RaidCommand(raidManager));

@@ -33,6 +33,7 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 	private final EventsManager eventsManager;
 	private final ClanManager clanManager;
 	private final Tavern tavern;
+	private final NpcManager npcManager;
 	private final Random random = new Random();
 
 	/**
@@ -63,9 +64,11 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 	 * @param eventsManager   менеджер квестов и событий
 	 * @param clanManager     менеджер кланов
 	 * @param tavern          сервис таверны (азартные игры)
+	 * @param npcManager      менеджер NPC-ботов
 	 */
 	public PlayersManager(PlayerRepository playerCache, LocationManager locationManager, ItemsManager itemsManager,
-	                      BattleManager battleManager, EventsManager eventsManager, ClanManager clanManager, Tavern tavern) {
+	                      BattleManager battleManager, EventsManager eventsManager, ClanManager clanManager,
+	                      Tavern tavern, NpcManager npcManager) {
 		this.playerCache = playerCache;
 		this.locationManager = locationManager;
 		this.itemsManager = itemsManager;
@@ -73,6 +76,7 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		this.eventsManager = eventsManager;
 		this.clanManager = clanManager;
 		this.tavern = tavern;
+		this.npcManager = npcManager;
 	}
 
 	/**
@@ -596,16 +600,35 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		}
 		nextLocation = locationManager.movePlayerInPopulation(player, nextLocation.getName());
 		player.setLocation(nextLocation.getName());
+
+		// Квест «Путешественник»: считаем посещённые локации
+		Event activeEvent = player.getActiveEvent();
+		if (activeEvent != null && "Путешественник".equals(activeEvent.getType())) {
+			activeEvent.setAttempt(activeEvent.getAttempt() + 1);
+		}
 		playerCache.put(player.getId(), player);
+
 		var token = player.getInventory().get("токен телепорта") == null ? 0 : player.getInventory().get("токен телепорта");
 		String teleport = isTeleport ? " с помощью токена телепорта, осталось " + token : "";
-		event.getChannel().sendMessage("Ты успешно переместился в локацию - " + nextLocation.getName() + teleport
-						+ "\nВ этой локации находятся следующие игроки: " + nextLocation.getPopulationByName().toString()).submit();
+		StringBuilder msg = new StringBuilder("Ты успешно переместился в локацию - ").append(nextLocation.getName()).append(teleport)
+				.append("\nВ этой локации находятся следующие игроки: ").append(nextLocation.getPopulationByName().toString());
+
+		// Подсказка пути для квестов «Ходилка» и «Таймер»
+		if (activeEvent != null && ("Ходилка".equals(activeEvent.getType()) || "Таймер".equals(activeEvent.getType()))) {
+			String dest = activeEvent.getLocationEnd();
+			if (dest != null && !dest.equals(nextLocation.getName())) {
+				String hint = locationManager.findNextStep(nextLocation.getName(), dest);
+				if (hint != null) {
+					msg.append("\n🗺 Для выполнения квеста следующая локация: **").append(hint).append("**");
+				}
+			}
+		}
+
+		event.getChannel().sendMessage(msg.toString()).submit();
+
 		if (eventsManager.transferEvent(event, nextLocation)) {
 			int battleResult = battleManager.mobBattle(player, event.getChannel());
 			if (battleResult > 0) {
-				// battleResult теперь содержит текущее HP игрока после боя
-				// Восстанавливаем HP: 75% для уровней 1-2, 50% для остальных
 				int currentHp = battleResult;
 				int maxHp = player.getMaxHp();
 				if (currentHp < maxHp) {
@@ -616,6 +639,27 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 				}
 				changeXp(player.getId(), 10);
 				changeMoney(player.getId(), 10, true);
+
+				// Квест «Охота»: считаем убитых мобов
+				player = playerCache.get(player.getId());
+				if (player != null && player.getActiveEvent() != null
+						&& "Охота".equals(player.getActiveEvent().getType())) {
+					player.getActiveEvent().setAttempt(player.getActiveEvent().getAttempt() + 1);
+					playerCache.put(player.getId(), player);
+				}
+
+				// 25% шанс дропа предмета с моба
+				if (random.nextInt(4) == 0) {
+					String drop = itemsManager.getRandomItemName();
+					if (drop != null) {
+						player = playerCache.get(player.getId());
+						if (player != null) {
+							player.getInventory().merge(drop, 1, Integer::sum);
+							playerCache.put(player.getId(), player);
+							event.getChannel().sendMessage("Моб выронил предмет: **" + drop + "**").submit();
+						}
+					}
+				}
 			} else {
 				deathOfPlayer(player);
 			}
@@ -667,6 +711,34 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 			playerCache.put(playerId, player);
 		} else {
 			event.getChannel().sendMessage("У тебя недостаточно денег, сначала зарабаотай их").submit();
+		}
+	}
+
+	/**
+	 * Атакует случайного NPC в текущей локации игрока.
+	 */
+	public void fightNpc(MessageReceivedEvent event) {
+		String playerId = event.getAuthor().getId();
+		var player = playerCache.get(playerId);
+		if (player == null) {
+			event.getChannel().sendMessage("Сначала зарегистрируйся командой +начать").submit();
+			return;
+		}
+		var bot = npcManager.getRandomBot(player.getLocation());
+		if (bot == null) {
+			event.getChannel().sendMessage("В локации **" + player.getLocation() + "** нет NPC для битвы.").submit();
+			return;
+		}
+		event.getChannel().sendMessage("Ты нападаешь на NPC **" + bot.getNickName() + "** [HP:" + bot.getHp() + "]...").submit();
+		battleManager.playerBattle(List.of(player), List.of((ru.chebe.litvinov.data.Person) bot), event.getChannel());
+		if (bot.getHp() <= 0) {
+			event.getChannel().sendMessage("Ты победил **" + bot.getNickName() + "**! Получаешь "
+					+ bot.getMoneyReward() + " монет и " + bot.getXpReward() + " опыта.").submit();
+			changeMoney(playerId, bot.getMoneyReward(), true);
+			changeXp(playerId, bot.getXpReward());
+			npcManager.respawnBot(bot);
+		} else {
+			deathOfPlayer(player);
 		}
 	}
 
@@ -1424,7 +1496,13 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 				return;
 			}
 			
+			int moneyBefore = player.getMoney();
 			player = tavern.guessTheNumber(event, player, bid, guess);
+			// Квест «Везунчик»: победа зафиксирована по увеличению денег сверх ставки
+			if (player.getMoney() > moneyBefore && player.getActiveEvent() != null
+					&& "Везунчик".equals(player.getActiveEvent().getType())) {
+				player.getActiveEvent().setAttempt(1);
+			}
 			playerCache.put(player.getId(), player);
 		} catch (NumberFormatException e) {
 			event.getChannel().sendMessage("Неверный формат ставки или числа!").queue();
