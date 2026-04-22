@@ -104,22 +104,20 @@ public class BattleManager {
 	 * @return 1 если игрок победил, -1 если проиграл
 	 */
 	public int mobBattle(Player player, MessageChannelUnion channel) {
-		// Баланс: бандит слабее для низкоуровневых игроков
-		int bossStrength = player.getLevel() < 3 ? 2 : 3;  // Сила 2 для уровней 1-2, 3 для остальных
-		int bossHpMin = player.getLevel() < 3 ? 10 : 15;   // Меньше HP для низких уровней
+		int bossStrength = player.getLevel() < 3 ? 2 : 3;
+		int bossHpMin = player.getLevel() < 3 ? 10 : 15;
 		int bossHpMax = player.getLevel() < 3 ? 25 : 35;
-		
+
 		Person boss = Boss.builder().nickName("Бандит").hp(rand.nextInt(bossHpMin, bossHpMax)).strength(bossStrength).defeat(0).win(0).bossItem(null).build();
-		int initialPlayerHp = player.getHp();
+		channel.sendMessage("⚠️ На тебя напал **Бандит**! ⚔️ Бой начинается...").submit();
 		battleMechanic(List.of(player), List.of(boss), channel);
 		if (boss.getHp() > 0) {
 			channel.sendMessage("""
-					Тебя убил мелкий бандит, это кринж, чувак! Ты был воскрешен на Респауне, \
-					потерял 10% монет и возможно кое-что из инвентаря""").queue();
+					💀 Тебя убил мелкий бандит... Позор! 😤
+					Ты воскрешён на Респауне, потерял **10%** монет и возможно кое-что из инвентаря.""").queue();
 			return -1;
 		} else {
-			channel.sendMessage("Поздравляю ты победил тупого засланца при переходе локации").submit();
-			// Возвращаем текущее HP игрока после боя
+			channel.sendMessage("✅ Ты разобрался с бандитом при переходе! Путь свободен 💪").submit();
 			return player.getHp();
 		}
 	}
@@ -146,14 +144,13 @@ public class BattleManager {
 		boolean bossDefeated = boss.getHp() <= 0;
 
 		if (!bossDefeated) {
-			// Босс победил
 			channel.sendMessage("""
-					Штош нужно быть очень глупым чтобы залупаться на %s с твоими характеристиками\
-					Ты умер и был воскрешен на Респауне, ты потерял 10%% монет и возможно кое-что из предметов""".formatted(boss.getNickName())).queue();
+					💀 **%s** смотрит на тебя с презрением... 😵
+					Штош, нужно было получше прокачаться перед таким боем!
+					Ты воскрешён на Респауне, потерял **10%%** монет и возможно кое-что из предметов.""".formatted(boss.getNickName())).queue();
 			boss.setWin(initialBossWin + 1);
 		} else {
-			// Игрок(и) победили
-			channel.sendMessage("Поздравляю ты победил босса этой локации " + boss.getNickName()).submit();
+			channel.sendMessage("🏆 **Победа!** Ты одолел **" + boss.getNickName() + "**! Слава герою! 🎉").submit();
 			boss.setDefeat(boss.getDefeat() + 1);
 		}
 
@@ -179,17 +176,21 @@ public class BattleManager {
 			Person attacker = getRandomPlayer(team1);
 			Person defender = getRandomPlayer(team2);
 
-			// Атака первого на второго
 			if (attacker != null && defender != null) {
 				int damage = randomizeDamage(attacker.getStrength());
 				defender.setHp(defender.getHp() - damage);
-				sb.append(attacker.getNickName()).append(" наносит ").append(damage).append(" урона противнику, у него остаётся ").append(defender.getHp()).append(" HP ");
+				sb.append("⚔️ **").append(attacker.getNickName()).append("** наносит **").append(damage)
+						.append("** 🩸 → **").append(defender.getNickName())
+						.append("** (❤️ **").append(Math.max(0, defender.getHp())).append("** HP)\n");
 
-				// Контратака второго на первого (если второй еще жив)
 				if (defender.getHp() > 0) {
 					damage = randomizeDamage(defender.getStrength() - attacker.getArmor());
 					attacker.setHp(attacker.getHp() - damage);
-					sb.append(defender.getNickName()).append(" наносит ").append(damage).append(" урона противнику, у него остаётся ").append(attacker.getHp()).append(" HP ");
+					sb.append("↩️ **").append(defender.getNickName()).append("** отвечает **").append(damage)
+							.append("** 🩸 → **").append(attacker.getNickName())
+							.append("** (❤️ **").append(Math.max(0, attacker.getHp())).append("** HP)\n");
+				} else {
+					sb.append("💀 **").append(defender.getNickName()).append("** повержен!\n");
 				}
 			} else {
 				break;

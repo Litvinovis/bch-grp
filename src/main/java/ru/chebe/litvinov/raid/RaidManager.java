@@ -200,8 +200,9 @@ public class RaidManager {
             return;
         }
 
-        channel.sendMessage("**РЕЙД НАЧАЛСЯ!** Участников: " + participants.size() +
-                "\nПротивник: **Рейд-Чебеш** (HP: 5000, Сила: 25)").queue();
+        channel.sendMessage("🔥 **РЕЙД НАЧАЛСЯ!** 🔥\n" +
+                "👥 Участников: **" + participants.size() + "**\n" +
+                "👹 Противник: **Рейд-Чебеш** (❤️ HP: **5000** | ⚔️ Сила: **25**)").queue();
 
         RaidBoss boss = RaidBoss.createDefault();
 
@@ -216,28 +217,28 @@ public class RaidManager {
         StringBuilder roundLog = new StringBuilder();
         while (boss.getHp() > 0 && playerList.stream().anyMatch(p -> p.getHp() > 0)) {
             roundLog.setLength(0);
-            roundLog.append("**Раунд ").append(round++).append("**\n");
+            roundLog.append("─────────────────────\n");
+            roundLog.append("⚔️ **Раунд ").append(round++).append("** | 👹 Босс: ❤️ **").append(Math.max(0, boss.getHp())).append("** HP\n");
 
             for (Player player : playerList) {
                 if (player.getHp() <= 0) continue;
                 if (boss.getHp() <= 0) break;
 
-                // Атака игрока по боссу
                 int dmg = randomizeDamage(player.getStrength(), rand);
                 boss.setHp(boss.getHp() - dmg);
                 damageDealt.merge(player.getId(), dmg, Integer::sum);
-                roundLog.append(player.getNickName()).append(" наносит ").append(dmg)
-                        .append(" урона боссу, HP босса: ").append(Math.max(0, boss.getHp())).append("\n");
+                roundLog.append("⚔️ **").append(player.getNickName()).append("** → 💥 **").append(dmg)
+                        .append("** 🩸 | 👹 ❤️ **").append(Math.max(0, boss.getHp())).append("** HP\n");
 
                 if (boss.getHp() <= 0) break;
 
-                // Контратака босса по случайному живому игроку
                 List<Player> alivePlayers = playerList.stream().filter(p -> p.getHp() > 0).toList();
                 Player target = alivePlayers.get(rand.nextInt(alivePlayers.size()));
                 int bossDmg = randomizeDamage(boss.getStrength() - target.getArmor(), rand);
                 target.setHp(target.getHp() - bossDmg);
-                roundLog.append("Босс бьёт ").append(target.getNickName()).append(" на ").append(bossDmg)
-                        .append(", HP: ").append(target.getHp()).append("\n");
+                roundLog.append("👹 **Рейд-Чебеш** → 💀 **").append(bossDmg)
+                        .append("** по **").append(target.getNickName())
+                        .append("** | ❤️ **").append(Math.max(0, target.getHp())).append("** HP\n");
             }
 
             if (roundLog.length() > 1800) {
@@ -255,7 +256,7 @@ public class RaidManager {
         if (bossDefeated) {
             distributeRaidLoot(session, damageDealt, participants);
         } else {
-            channel.sendMessage("**Рейд провален!** Все игроки погибли. Босс устоял!").queue();
+            channel.sendMessage("💀 **РЕЙД ПРОВАЛЕН!** 💀\n👹 **Рейд-Чебеш** устоял... Все герои пали в бою. 😤").queue();
             for (Map.Entry<String, Player> entry : participants.entrySet()) {
                 if (entry.getValue().getHp() <= 0) {
                     Player actual = playersManager.getPlayer(entry.getKey());
@@ -275,15 +276,15 @@ public class RaidManager {
         int totalDamage = damageDealt.values().stream().mapToInt(Integer::intValue).sum();
         if (totalDamage == 0) totalDamage = 1;
 
-        StringBuilder result = new StringBuilder("**РЕЙД ПОБЕДА! Рейд-Чебеш повержен!**\n\n");
-        result.append("Распределение лута:\n");
+        StringBuilder result = new StringBuilder("🏆 **РЕЙД ПОБЕДА!** 🏆\n");
+        result.append("👹 **Рейд-Чебеш** повержен! Слава рейдерам! 🎉\n");
+        result.append("─────────────────────\n");
+        result.append("📊 **Распределение лута:**\n");
 
         for (Map.Entry<String, Player> entry : participants.entrySet()) {
             String playerId = entry.getKey();
-            // Берём актуального игрока из кэша, а не снимок на момент входа в рейд
             Player player = playersManager.getPlayer(playerId);
             if (player == null) continue;
-            // HP из снимка отражает исход боя (менялся в процессе), берём его
             int battleHp = entry.getValue().getHp();
             int dmg = damageDealt.getOrDefault(playerId, 0);
             double share = (double) dmg / totalDamage;
@@ -293,14 +294,14 @@ public class RaidManager {
             if (battleHp > 0) {
                 playersManager.changeMoney(playerId, moneyReward, true);
                 playersManager.changeXp(playerId, xpReward);
-                result.append(player.getNickName())
-                        .append(": урон=").append(dmg)
-                        .append(" (").append(String.format("%.0f", share * 100)).append("%) -> ")
-                        .append("+").append(moneyReward).append(" монет, ")
-                        .append("+").append(xpReward).append(" XP\n");
+                result.append("✅ **").append(player.getNickName())
+                        .append("**: ⚔️ урон **").append(dmg)
+                        .append("** (").append(String.format("%.0f", share * 100)).append("%) → ")
+                        .append("💰 **+").append(moneyReward).append("** монет | ")
+                        .append("✨ **+").append(xpReward).append("** XP\n");
             } else {
                 playersManager.deathOfPlayer(player);
-                result.append(player.getNickName()).append(": погиб в бою (воскрешён на Респауне)\n");
+                result.append("💀 **").append(player.getNickName()).append("**: погиб в бою (воскрешён на Респауне)\n");
             }
         }
 
