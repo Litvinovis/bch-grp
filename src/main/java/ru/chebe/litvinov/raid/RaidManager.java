@@ -164,7 +164,7 @@ public class RaidManager {
                         if (count == 0) {
                             session.markFinished();
                             activeSessions.remove(entry.getKey());
-                            return;
+                            continue;
                         }
                         log.info("Таймаут рейда в канале {}. Стартуем с {} игроками", entry.getKey(), count);
                         new Thread(() -> executeRaid(session)).start();
@@ -231,8 +231,9 @@ public class RaidManager {
 
                 if (boss.getHp() <= 0) break;
 
-                // Контратака босса по случайному игроку
-                Player target = playerList.get(rand.nextInt(playerList.size()));
+                // Контратака босса по случайному живому игроку
+                List<Player> alivePlayers = playerList.stream().filter(p -> p.getHp() > 0).toList();
+                Player target = alivePlayers.get(rand.nextInt(alivePlayers.size()));
                 int bossDmg = randomizeDamage(boss.getStrength() - target.getArmor(), rand);
                 target.setHp(target.getHp() - bossDmg);
                 roundLog.append("Босс бьёт ").append(target.getNickName()).append(" на ").append(bossDmg)
@@ -255,9 +256,10 @@ public class RaidManager {
             distributeRaidLoot(session, damageDealt, participants);
         } else {
             channel.sendMessage("**Рейд провален!** Все игроки погибли. Босс устоял!").queue();
-            for (Player p : participants.values()) {
-                if (p.getHp() <= 0) {
-                    playersManager.deathOfPlayer(p);
+            for (Map.Entry<String, Player> entry : participants.entrySet()) {
+                if (entry.getValue().getHp() <= 0) {
+                    Player actual = playersManager.getPlayer(entry.getKey());
+                    if (actual != null) playersManager.deathOfPlayer(actual);
                 }
             }
         }
@@ -278,13 +280,17 @@ public class RaidManager {
 
         for (Map.Entry<String, Player> entry : participants.entrySet()) {
             String playerId = entry.getKey();
-            Player player = entry.getValue();
+            // Берём актуального игрока из кэша, а не снимок на момент входа в рейд
+            Player player = playersManager.getPlayer(playerId);
+            if (player == null) continue;
+            // HP из снимка отражает исход боя (менялся в процессе), берём его
+            int battleHp = entry.getValue().getHp();
             int dmg = damageDealt.getOrDefault(playerId, 0);
             double share = (double) dmg / totalDamage;
             int moneyReward = (int) (LOOT_MONEY_BASE * share * participants.size());
             int xpReward = (int) (LOOT_XP_BASE * share * participants.size());
 
-            if (player.getHp() > 0) {
+            if (battleHp > 0) {
                 playersManager.changeMoney(playerId, moneyReward, true);
                 playersManager.changeXp(playerId, xpReward);
                 result.append(player.getNickName())
@@ -304,7 +310,7 @@ public class RaidManager {
     private int randomizeDamage(int base, Random rand) {
         if (base <= 0) return 0;
         double pct = (rand.nextInt(51) - 25) / 100.0;
-        return Math.max(1, (int) (base * (1 + pct)));
+        return Math.max(0, (int) (base * (1 + pct)));
     }
 
     /**
