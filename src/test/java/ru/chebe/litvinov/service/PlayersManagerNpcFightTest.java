@@ -92,6 +92,30 @@ public class PlayersManagerNpcFightTest {
     // ---- win path -----------------------------------------------------------
 
     @Test
+    public void fightNpc_playerWins_battleDamagePersistedToCache() {
+        // Regression: battleMechanic modifies local player object but doesn't save it.
+        // changeMoney/changeXp re-fetch from cache → pre-battle HP overwrites damage.
+        // After fix: changeHp is called after battle to persist the correct HP.
+        Player player = player("Hero", "p1", "мейн", 100, 100, 10, 50);
+        NpcBot bot = bot("Арк-клон", 100, 5, 30, 30);
+        when(playerRepository.get("p1")).thenReturn(player);
+        when(npcManager.getRandomBot("мейн")).thenReturn(bot);
+        // Battle damages player: HP 100 → 4
+        doAnswer(inv -> {
+            List<Person> team1 = inv.getArgument(0);
+            team1.get(0).setHp(4);
+            List<Person> team2 = inv.getArgument(1);
+            team2.get(0).setHp(0);
+            return java.util.Collections.emptyList();
+        }).when(battleManager).playerBattle(anyList(), anyList(), any());
+
+        playersManager.fightNpc(event);
+
+        // HP must reflect battle damage, not pre-battle value (100)
+        assertEquals("Post-battle HP must be saved to cache", 4, player.getHp());
+    }
+
+    @Test
     public void fightNpc_playerWins_moneyAwarded() {
         Player player = player("Hero", "p1", "мейн", 100, 100, 10, 50);
         NpcBot bot = bot("Арк-клон", 100, 5, 30, 30);
