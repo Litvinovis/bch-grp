@@ -116,9 +116,12 @@ public class MessageHandler extends ListenerAdapter {
 				playersManager.createPlayer(event);
 				return;
 			}
-			if (content.startsWith("+помощь") || content.startsWith("+инфо")) {
-				Optional<Command> cmd = commandRegistry.resolve(content);
-				cmd.ifPresent(c -> c.execute(event));
+			if (content.startsWith("+помощь")) {
+				sendLongMessage(event, HELP_MESSAGE);
+				return;
+			}
+			if (content.startsWith("+инфо")) {
+				sendLongMessage(event, INFO_MESSAGE);
 				return;
 			}
 
@@ -166,6 +169,25 @@ public class MessageHandler extends ListenerAdapter {
 
 		} catch (Exception e) {
 			logger.error(Constants.MESSAGE_PROCESS_FAILED, e.getMessage());
+		}
+	}
+
+	private static void sendLongMessage(MessageReceivedEvent event, String text) {
+		int limit = 1900;
+		if (text.length() <= limit) {
+			event.getChannel().sendMessage(text).submit();
+			return;
+		}
+		int start = 0;
+		while (start < text.length()) {
+			int end = Math.min(start + limit, text.length());
+			// откатываемся к ближайшему переносу строки, чтобы не рвать слова
+			if (end < text.length()) {
+				int nl = text.lastIndexOf('\n', end);
+				if (nl > start) end = nl + 1;
+			}
+			event.getChannel().sendMessage(text.substring(start, end)).submit();
+			start = end;
 		}
 	}
 
