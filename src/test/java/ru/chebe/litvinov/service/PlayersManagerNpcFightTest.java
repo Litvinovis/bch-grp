@@ -172,7 +172,8 @@ public class PlayersManagerNpcFightTest {
     // ---- loss path ----------------------------------------------------------
 
     @Test
-    public void fightNpc_playerLoses_moneyReducedBy10Percent() {
+    public void fightNpc_playerLoses_moneyReducedByLevelScaledPenalty() {
+        // Level 1 player gets 5% death penalty
         Player player = player("Hero", "p1", "мейн", 100, 100, 10, 100);
         NpcBot bot = bot("Арк-клон", 100, 5, 30, 30);
         when(playerRepository.get("p1")).thenReturn(player);
@@ -181,7 +182,7 @@ public class PlayersManagerNpcFightTest {
 
         playersManager.fightNpc(event);
 
-        assertEquals("10% money penalty on death", 90, player.getMoney());
+        assertEquals("5% money penalty for level-1 player on death", 95, player.getMoney());
     }
 
     @Test

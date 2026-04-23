@@ -114,9 +114,9 @@ public class EventsManager {
 						.correctAnswer(null)
 						.description(createDescription(endLocation))
 						.itemReward(null)
-						.moneyReward(rand.nextInt(50, 100))
+						.moneyReward(rand.nextInt(150, 250))
 						.timeEnd(null)
-						.xpReward(rand.nextInt(50, 100))
+						.xpReward(rand.nextInt(150, 250))
 						.build();
 	}
 
@@ -127,9 +127,9 @@ public class EventsManager {
 						.correctAnswer("лаб")
 						.description("Самый неудачный игродел в истории")
 						.itemReward(null)
-						.moneyReward(rand.nextInt(50, 100))
+						.moneyReward(rand.nextInt(150, 250))
 						.timeEnd(null)
-						.xpReward(rand.nextInt(50, 100))
+						.xpReward(rand.nextInt(150, 250))
 						.build();
 	}
 
@@ -157,9 +157,9 @@ public class EventsManager {
 				.correctAnswer(null)
 				.description("Доберись до локации " + endLocation + " за 10 минут!")
 				.itemReward(null)
-				.moneyReward(rand.nextInt(80, 150))
+				.moneyReward(rand.nextInt(200, 350))
 				.timeEnd(deadline)
-				.xpReward(rand.nextInt(80, 150))
+				.xpReward(rand.nextInt(200, 350))
 				.build();
 	}
 
@@ -171,9 +171,9 @@ public class EventsManager {
 				.correctAnswer(String.valueOf(required))
 				.description("Посети " + required + " различных локаций.")
 				.itemReward(null)
-				.moneyReward(rand.nextInt(60, 120))
+				.moneyReward(rand.nextInt(180, 300))
 				.timeEnd(null)
-				.xpReward(rand.nextInt(60, 120))
+				.xpReward(rand.nextInt(180, 300))
 				.attempt(0)
 				.build();
 	}
@@ -186,9 +186,9 @@ public class EventsManager {
 				.correctAnswer(String.valueOf(required))
 				.description("Победи " + required + " мобов.")
 				.itemReward(null)
-				.moneyReward(rand.nextInt(70, 130))
+				.moneyReward(rand.nextInt(200, 320))
 				.timeEnd(null)
-				.xpReward(rand.nextInt(70, 130))
+				.xpReward(rand.nextInt(200, 320))
 				.attempt(0)
 				.build();
 	}
@@ -200,9 +200,9 @@ public class EventsManager {
 				.correctAnswer(null)
 				.description("Выиграй одну игру в таверне (угадай число).")
 				.itemReward(null)
-				.moneyReward(rand.nextInt(50, 100))
+				.moneyReward(rand.nextInt(150, 250))
 				.timeEnd(null)
-				.xpReward(rand.nextInt(50, 100))
+				.xpReward(rand.nextInt(150, 250))
 				.attempt(0)
 				.build();
 	}

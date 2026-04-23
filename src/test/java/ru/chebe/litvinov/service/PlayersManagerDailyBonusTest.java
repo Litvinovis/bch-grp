@@ -66,7 +66,8 @@ public class PlayersManagerDailyBonusTest {
     // ---- first-time claim ------------------------------------------------------
 
     @Test
-    public void dailyBonus_firstClaim_moneyIncreasedBy100() {
+    public void dailyBonus_firstClaim_moneyIncreasedByLevelScaledBonus() {
+        // level=1: DAILY_BONUS_BASE(50) + 1*5 = 55
         Player player = freshPlayer(0);
         player.setDailyTime(0); // never claimed
         player.setMoney(50);
@@ -74,7 +75,7 @@ public class PlayersManagerDailyBonusTest {
 
         playersManager.dailyBonus(event);
 
-        assertEquals(150, player.getMoney());
+        assertEquals(105, player.getMoney()); // 50 + 55
     }
 
     @Test
@@ -132,8 +133,8 @@ public class PlayersManagerDailyBonusTest {
     // ---- 3-day streak ----------------------------------------------------------
 
     @Test
-    public void dailyBonus_thirdDay_bonusMoney150() {
-        // streak = 2, now claiming day 3
+    public void dailyBonus_thirdDay_bonusMoney() {
+        // streak = 2, now claiming day 3: base(55) + streak-3 bonus(50) = 105
         Player player = freshPlayer(2);
         player.setDailyTime(System.currentTimeMillis() - ONE_DAY_MS - 1000); // >24h ago
         player.setMoney(0);
@@ -141,8 +142,8 @@ public class PlayersManagerDailyBonusTest {
 
         playersManager.dailyBonus(event);
 
-        // base 100 + streak-3 bonus 50
-        assertEquals(150, player.getMoney());
+        // level=1: 55 base + 50 streak bonus = 105
+        assertEquals(105, player.getMoney());
     }
 
     @Test
@@ -209,6 +210,7 @@ public class PlayersManagerDailyBonusTest {
 
     @Test
     public void dailyBonus_gapMoreThan48Hours_noStreakBonusApplied() {
+        // level=1: DAILY_BONUS_BASE(50) + 1*5 = 55, no streak bonus
         Player player = freshPlayer(5);
         player.setDailyTime(System.currentTimeMillis() - TWO_DAYS_MS - 1000);
         player.setMoney(0);
@@ -216,7 +218,7 @@ public class PlayersManagerDailyBonusTest {
 
         playersManager.dailyBonus(event);
 
-        assertEquals(100, player.getMoney()); // only base bonus, no streak bonus
+        assertEquals(55, player.getMoney()); // only base bonus, no streak bonus
     }
 
     // ---- helpers ---------------------------------------------------------------

@@ -221,16 +221,16 @@ public class RaidManagerTest {
     // ---- executeRaid: single player gets full loot pool -----------------------
 
     @Test
-    public void executeRaid_singleSurvivor_gets500MoneyAnd800Xp() {
-        // 1 player, share = 1.0 → money = 500*1.0*1 = 500, xp = 800*1.0*1 = 800
+    public void executeRaid_singleSurvivor_gets1500MoneyAnd2000Xp() {
+        // 1 player, share = 1.0 → money = 1500*1.0*1 = 1500, xp = 2000*1.0*1 = 2000
         Player p1 = player("p1", 10000, 5000, 100);
         when(playersManager.getPlayer("p1")).thenReturn(p1);
 
         RaidSession session = sessionWith(channel, p1);
         raidManager.executeRaid(session);
 
-        verify(playersManager).changeMoney("p1", 500, true);
-        verify(playersManager).changeXp("p1", 800);
+        verify(playersManager).changeMoney("p1", 1500, true);
+        verify(playersManager).changeXp("p1", 2000);
     }
 
     // ---- executeRaid: dead player gets deathOfPlayer --------------------------

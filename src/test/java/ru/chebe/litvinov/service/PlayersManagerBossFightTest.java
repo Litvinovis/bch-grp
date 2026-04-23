@@ -197,7 +197,8 @@ public class PlayersManagerBossFightTest {
     // ---- player loses ----------------------------------------------------------
 
     @Test
-    public void bossFight_playerLoses_moneyReducedBy10Percent() {
+    public void bossFight_playerLoses_moneyReducedByLevelScaledPenalty() {
+        // Level 1 player: 5% death penalty → 200 * 0.95 = 190
         Player player = playerWith("Dead", "id1", "лес", 100, 100, 100, 200);
         when(user.getId()).thenReturn("id1");
         when(playerRepository.get("id1")).thenReturn(player);
@@ -217,7 +218,7 @@ public class PlayersManagerBossFightTest {
 
         playersManager.bossFight(event);
 
-        assertEquals(180, player.getMoney()); // 200 * 0.9
+        assertEquals(190, player.getMoney()); // 200 * 0.95 (5% penalty for level 1)
     }
 
     @Test

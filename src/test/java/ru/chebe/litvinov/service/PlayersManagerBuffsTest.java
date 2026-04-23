@@ -162,6 +162,80 @@ public class PlayersManagerBuffsTest {
                 expiry >= before + 29 * 60 * 1000L && expiry <= after + 31 * 60 * 1000L);
     }
 
+    // ---- useItem: one-active-buff-per-stat-type guard -----------------------
+
+    @Test
+    public void useItem_armorBuff_whenArmorBuffAlreadyActive_rejectsAndKeepsStats() {
+        Player player = player("Hero", "p1", 100, 5, 0, 0);
+        player.getInventory().put("щит чегоба", 1);
+        player.setActiveBuffs(new HashMap<>());
+        // Existing armor buff still active (expires in 20 min)
+        player.getActiveBuffs().put("щит", System.currentTimeMillis() + 20 * 60 * 1000L);
+        when(playerRepository.get("p1")).thenReturn(player);
+        when(message.getContentDisplay()).thenReturn("+использовать щит чегоба");
+        Item shield2 = itemWithArmor("щит чегоба", true, 5);
+        when(itemsManager.getItem("щит чегоба")).thenReturn(shield2);
+        // existing buff item must also be resolvable for the type check
+        Item shield1 = itemWithArmor("щит", true, 3);
+        when(itemsManager.getItem("щит")).thenReturn(shield1);
+
+        playersManager.useItem(event);
+
+        // Armor must NOT increase — buff was blocked
+        assertEquals("Armor must not change when same-type buff is active", 5, player.getArmor());
+        // Item must NOT be consumed
+        assertTrue("Item must remain in inventory when buff is blocked",
+                player.getInventory().containsKey("щит чегоба"));
+        // Must send rejection message
+        verify(channel).sendMessage(contains("уже активен бафф"));
+    }
+
+    @Test
+    public void useItem_luckBuff_whenArmorBuffAlreadyActive_appliesSuccessfully() {
+        Player player = player("Hero", "p1", 100, 5, 3, 0);
+        player.getInventory().put("монета удачи", 1);
+        player.setActiveBuffs(new HashMap<>());
+        // Active buff is for armor — luck buff should be allowed
+        player.getActiveBuffs().put("щит", System.currentTimeMillis() + 20 * 60 * 1000L);
+        when(playerRepository.get("p1")).thenReturn(player);
+        when(message.getContentDisplay()).thenReturn("+использовать монета удачи");
+        Item luckyItem = Item.builder()
+                .name("монета удачи").price(10).action(true)
+                .health(0).armor(0).luck(2).strength(0).reputation(0).xpGeneration(0)
+                .build();
+        when(itemsManager.getItem("монета удачи")).thenReturn(luckyItem);
+        Item shield1 = itemWithArmor("щит", true, 3);
+        when(itemsManager.getItem("щит")).thenReturn(shield1);
+
+        playersManager.useItem(event);
+
+        // Luck must increase — different stat type, no conflict
+        assertEquals("Luck must increase when no conflicting buff type is active", 5, player.getLuck());
+    }
+
+    @Test
+    public void useItem_armorBuff_whenExpiredArmorBuffExists_appliesSuccessfully() {
+        // An expired buff of the same type must NOT block the new one.
+        // Player has armor=8 (5 base + 3 from now-expired "щит" buff).
+        // removeExpiredBuffs rolls back the 3 → armor becomes 5.
+        // New "щит чегоба" (+5) is then allowed → final armor = 10.
+        Player player = player("Hero", "p1", 100, 8, 0, 0);
+        player.getInventory().put("щит чегоба", 1);
+        player.setActiveBuffs(new HashMap<>());
+        // Expired buff (1 second in the past)
+        player.getActiveBuffs().put("щит", System.currentTimeMillis() - 1000);
+        when(playerRepository.get("p1")).thenReturn(player);
+        when(message.getContentDisplay()).thenReturn("+использовать щит чегоба");
+        Item shield2 = itemWithArmor("щит чегоба", true, 5);
+        when(itemsManager.getItem("щит чегоба")).thenReturn(shield2);
+        Item shield1 = itemWithArmor("щит", true, 3);
+        when(itemsManager.getItem("щит")).thenReturn(shield1);
+
+        playersManager.useItem(event);
+
+        assertEquals("Armor must increase when existing buff is expired", 10, player.getArmor());
+    }
+
     // ---- removeExpiredBuffs -------------------------------------------------
 
     @Test
