@@ -47,7 +47,7 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 	private ReentrantLock getPlayerLock(String id) {
 		return playerLocks.computeIfAbsent(id, k -> new ReentrantLock());
 	}
-	private static final int DAILY_BONUS = 100;
+	private static final int DAILY_BONUS_BASE = 50;
 
 	private static final Map<Integer, Integer> xpMap = generateXpMap();
 	private static final Map<Integer, Integer> hpMap = generateHpMap();
@@ -269,10 +269,8 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 
 	private static Map<Integer, Integer> generateXpMap() {
 		Map<Integer, Integer> xpMap = new HashMap<>();
-		int xp = 100;
 		for (int i = 2; i <= 100; i++) {
-			xpMap.put(i, xp);
-			xp += 100;
+			xpMap.put(i, i * i * 80);
 		}
 		return xpMap;
 	}
@@ -393,7 +391,14 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 	 * @param dead игрок, который погиб
 	 */
 	public void deathOfPlayer(Player dead) {
-		dead.setMoney((int) (dead.getMoney() * 0.9));
+		int level = dead.getLevel();
+		double moneyPenaltyPct = level <= 5 ? 0.05 : level <= 15 ? 0.10 : level <= 30 ? 0.15 : 0.20;
+		dead.setMoney((int) (dead.getMoney() * (1 - moneyPenaltyPct)));
+
+		// Lose 5% of XP earned within current level (never goes below 0 in the level)
+		int xpLoss = (int) (dead.getExp() * 0.05);
+		dead.setExp(Math.max(0, dead.getExp() - xpLoss));
+
 		dead.setHp(dead.getMaxHp());
 		// movePlayerInPopulation reads dead.getLocation() to find the current location —
 		// must be called before changing it, otherwise the player is never removed from the old location
@@ -419,6 +424,14 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 			if (item.isAction()) {
 				boolean hasBuff = item.getArmor() > 0 || item.getLuck() > 0
 						|| item.getStrength() > 0 || item.getReputation() > 0;
+
+				if (hasBuff) {
+					String conflicting = findActiveBuffOfSameType(player, item);
+					if (conflicting != null) {
+						event.getChannel().sendMessage("❌ У тебя уже активен бафф **" + conflicting + "** того же типа. Дождись его окончания.").submit();
+						return;
+					}
+				}
 
 				if (item.getHealth() > 0) {
 					int hp = changeHp(playerId, item.getHealth(), true);
@@ -465,6 +478,27 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		} else {
 			event.getChannel().sendMessage("Такого предмета нет в твоём инвентаре").submit();
 		}
+	}
+
+	/**
+	 * Возвращает имя активного баффа, который буcтит ту же стату, что и newItem.
+	 * Один тип стата (броня, удача, сила, репутация) — один активный бафф одновременно.
+	 */
+	private String findActiveBuffOfSameType(Player player, Item newItem) {
+		if (player.getActiveBuffs() == null || player.getActiveBuffs().isEmpty()) return null;
+		long now = System.currentTimeMillis();
+		for (Map.Entry<String, Long> entry : player.getActiveBuffs().entrySet()) {
+			if (now >= entry.getValue()) continue;
+			Item existing = itemsManager.getItem(entry.getKey());
+			if (existing == null) continue;
+			if ((newItem.getArmor() > 0 && existing.getArmor() > 0)
+					|| (newItem.getLuck() > 0 && existing.getLuck() > 0)
+					|| (newItem.getStrength() > 0 && existing.getStrength() > 0)
+					|| (newItem.getReputation() > 0 && existing.getReputation() > 0)) {
+				return entry.getKey();
+			}
+		}
+		return null;
 	}
 
 	/** Снимает истёкшие баффы и откатывает статы игрока. */
@@ -711,8 +745,9 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 					playerCache.put(player.getId(), player);
 				}
 
-				// 25% шанс дропа предмета с моба
-				if (random.nextInt(4) == 0) {
+				// Drop chance: base 20% + 1% per luck point, capped at 60%
+				int dropChancePct = Math.min(60, 20 + player.getLuck());
+				if (random.nextInt(100) < dropChancePct) {
 					String drop = itemsManager.getRandomItemName();
 					if (drop != null) {
 						player = playerCache.get(player.getId());
@@ -767,10 +802,10 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		}
 		if (player.getActiveEvent() == null) {
 			event.getChannel().sendMessage("У тебя нет активного квеста, сначала возьми его").submit();
-		} else if (player.getMoney() >= 5) {
+		} else if (player.getMoney() >= 20) {
 			player.setActiveEvent(eventsManager.assignEvent(locationManager.getLocationList()));
-			changeMoney(playerId, 5, false);
-			event.getChannel().sendMessage("Ты потартил 5 денег и получил новое задание :\n" + player.getActiveEvent().toString()).submit();
+			changeMoney(playerId, 20, false);
+			event.getChannel().sendMessage("Ты потратил 20 монет и получил новое задание :\n" + player.getActiveEvent().toString()).submit();
 			playerCache.put(playerId, player);
 		} else {
 			event.getChannel().sendMessage("У тебя недостаточно денег, сначала зарабаотай их").submit();
@@ -803,7 +838,9 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 			changeXp(playerId, bot.getXpReward());
 			npcManager.respawnBot(bot);
 		} else {
-			event.getChannel().sendMessage("💀 **" + bot.getNickName() + "** победил тебя! 😵 Ты воскрешён на Респауне и потерял **10%** монет.").submit();
+			int level = player.getLevel();
+			int penaltyPct = level <= 5 ? 5 : level <= 15 ? 10 : level <= 30 ? 15 : 20;
+			event.getChannel().sendMessage("💀 **" + bot.getNickName() + "** победил тебя! 😵 Ты воскрешён на Респауне и потерял **" + penaltyPct + "%** монет.").submit();
 			npcManager.respawnBot(bot);
 			deathOfPlayer(player);
 		}
@@ -1007,9 +1044,10 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 				}
 				int streak = player.getDailyStreak();
 				player.setDailyTime(now);
-				player.setMoney(player.getMoney() + DAILY_BONUS);
+				int dailyBonus = DAILY_BONUS_BASE + player.getLevel() * 5;
+				player.setMoney(player.getMoney() + dailyBonus);
 
-				StringBuilder msg = new StringBuilder("Вы получили ежедневный бонус " + DAILY_BONUS + " монет! (Стрик: " + streak + " дн.)");
+				StringBuilder msg = new StringBuilder("Вы получили ежедневный бонус " + dailyBonus + " монет! (Стрик: " + streak + " дн.)");
 				if (streak == 3) {
 					player.setMoney(player.getMoney() + 50);
 					msg.append("\n Стрик 3 дня! Бонус +50 монет!");

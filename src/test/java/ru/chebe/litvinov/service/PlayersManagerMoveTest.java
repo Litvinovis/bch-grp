@@ -187,7 +187,8 @@ public class PlayersManagerMoveTest {
     // ---- move + mob battle loss ---------------------------------------------
 
     @Test
-    public void move_mobBattleLoss_moneyReducedBy10Percent() {
+    public void move_mobBattleLoss_moneyReducedByLevelScaledPenalty() {
+        // Level 1 player: 5% death penalty → 100 * 0.95 = 95
         Player player = player("Hero", "p1", "мейн", 100, 100, 10, 100);
         when(playerRepository.get("p1")).thenReturn(player);
         when(locationManager.getLocation("мейн")).thenReturn(locationWithPaths("мейн", List.of("лес")));
@@ -197,7 +198,7 @@ public class PlayersManagerMoveTest {
 
         playersManager.move(event);
 
-        assertEquals("10% money penalty on mob death", 90, player.getMoney());
+        assertEquals("5% money penalty for level-1 player on mob death", 95, player.getMoney());
     }
 
     @Test

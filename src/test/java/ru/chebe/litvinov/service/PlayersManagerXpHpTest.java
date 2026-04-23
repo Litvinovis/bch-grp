@@ -52,18 +52,18 @@ public class PlayersManagerXpHpTest {
     @Test
     public void getXp_level1Player_requiresXpForLevel2() {
         Player player = new Player("Lvl1", "id1");
-        // level=1 → xpMap.get(2) = 100
+        // level=1 → xpMap.get(2) = 2*2*80 = 320
         int xpRequired = playersManager.getXp(player);
-        assertEquals(100, xpRequired);
+        assertEquals(320, xpRequired);
     }
 
     @Test
     public void getXp_level50Player_requiresXpForLevel51() {
         Player player = new Player("Lvl50", "id50");
         player.setLevel(50);
-        // xpMap.get(51) = 50*100 = 5000
+        // xpMap.get(51) = 51*51*80 = 208080
         int xpRequired = playersManager.getXp(player);
-        assertEquals(5000, xpRequired);
+        assertEquals(208080, xpRequired);
     }
 
     // ---- getMaxHp (hpMap) ------------------------------------------------------
@@ -279,8 +279,10 @@ public class PlayersManagerXpHpTest {
     // ---- deathOfPlayer ---------------------------------------------------------
 
     @Test
-    public void deathOfPlayer_reduces10PercentMoney() {
+    public void deathOfPlayer_level1_reduces5PercentMoney() {
+        // Level 1 player (default) gets 5% death penalty
         Player player = new Player("Dead", "id1");
+        player.setLevel(1);
         player.setMoney(100);
         player.setHp(0);
         player.setMaxHp(100);
@@ -291,7 +293,7 @@ public class PlayersManagerXpHpTest {
 
         playersManager.deathOfPlayer(player);
 
-        assertEquals(90, player.getMoney());
+        assertEquals(95, player.getMoney());
     }
 
     @Test

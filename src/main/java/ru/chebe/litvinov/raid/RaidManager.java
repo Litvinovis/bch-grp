@@ -25,8 +25,8 @@ import java.util.concurrent.locks.ReentrantLock;
 @Slf4j
 public class RaidManager {
 
-    private static final int LOOT_MONEY_BASE = 500;
-    private static final int LOOT_XP_BASE = 800;
+    private static final int LOOT_MONEY_BASE = 1500;
+    private static final int LOOT_XP_BASE = 2000;
 
     /** Список каналов, в которых разрешены рейды (пустой = разрешено везде) */
     private final Set<String> allowedChannelIds;

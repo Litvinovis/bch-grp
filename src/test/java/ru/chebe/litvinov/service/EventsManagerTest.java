@@ -86,8 +86,8 @@ public class EventsManagerTest {
     public void assignEvent_rewardsAreWithinExpectedRange() {
         for (int i = 0; i < 50; i++) {
             Event e = eventsManager.assignEvent(LOCATION_LIST);
-            assertTrue("moneyReward out of range", e.getMoneyReward() >= 50 && e.getMoneyReward() <= 200);
-            assertTrue("xpReward out of range", e.getXpReward() >= 50 && e.getXpReward() <= 200);
+            assertTrue("moneyReward out of range", e.getMoneyReward() >= 150 && e.getMoneyReward() <= 350);
+            assertTrue("xpReward out of range", e.getXpReward() >= 150 && e.getXpReward() <= 350);
         }
     }
 
