@@ -7,7 +7,7 @@ import java.util.List;
 
 import static org.junit.Assert.*;
 
-public class IgniteConfiguratorTest {
+public class Ignite3ConfiguratorTest {
 
     @Test
     public void class_hasGetClientMethod() throws Exception {
