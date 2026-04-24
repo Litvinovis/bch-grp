@@ -122,13 +122,6 @@
         <configuration>
           <source>25</source>
           <target>25</target>
-          <!-- DataMigration использует Ignite 2 embedded API (cache(), cluster())
-               которое недоступно когда Ignite 3 client стоит первым в classpath.
-               Запускать отдельно через скрипт миграции. -->
-          <excludes>
-            <exclude>**/migration/DataMigration.java</exclude>
-            <exclude>**/IgniteConfigurator.java</exclude>
-          </excludes>
           <annotationProcessorPaths>
             <path>
               <groupId>org.projectlombok</groupId>
@@ -217,61 +210,4 @@
     </plugins>
   </build>
 
-  <profiles>
-    <profile>
-      <id>migration</id>
-      <dependencies>
-        <!-- Ignite 2 embedded API — только для DataMigration, не включать в основную сборку -->
-        <dependency>
-          <groupId>org.apache.ignite</groupId>
-          <artifactId>ignite-core</artifactId>
-          <version>2.17.0</version>
-        </dependency>
-        <dependency>
-          <groupId>org.apache.ignite</groupId>
-          <artifactId>ignite-spring</artifactId>
-          <version>2.17.0</version>
-        </dependency>
-      </dependencies>
-      <build>
-        <plugins>
-          <plugin>
-            <groupId>org.apache.maven.plugins</groupId>
-            <artifactId>maven-compiler-plugin</artifactId>
-            <version>${maven.compiler.plugin.version}</version>
-            <configuration combine.self="override">
-              <source>21</source>
-              <target>21</target>
-              <!-- В migration профиле DataMigration включён — excludes сброшены -->
-            </configuration>
-          </plugin>
-          <plugin>
-            <groupId>org.apache.maven.plugins</groupId>
-            <artifactId>maven-assembly-plugin</artifactId>
-            <version>${maven.assembly.plugin.version}</version>
-            <configuration>
-              <finalName>bchgrp-migration</finalName>
-              <descriptorRefs>
-                <descriptorRef>jar-with-dependencies</descriptorRef>
-              </descriptorRefs>
-              <archive>
-                <manifest>
-                  <mainClass>ru.chebe.litvinov.migration.DataMigration</mainClass>
-                </manifest>
-              </archive>
-            </configuration>
-            <executions>
-              <execution>
-                <id>make-migration-assembly</id>
-                <phase>package</phase>
-                <goals>
-                  <goal>single</goal>
-                </goals>
-              </execution>
-            </executions>
-          </plugin>
-        </plugins>
-      </build>
-    </profile>
-  </profiles>
 </project>
