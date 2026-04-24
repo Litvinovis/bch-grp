@@ -51,7 +51,11 @@ public class SchemaInitializer {
                 log.info("Миграция выполнена: {}", stmt);
                 ok++;
             } catch (Exception e) {
-                log.warn("Миграция пропущена ({}): {}", e.getMessage(), stmt);
+                if (isAlreadyExistsError(e)) {
+                    log.debug("Миграция пропущена — колонка уже существует: {}", stmt);
+                } else {
+                    log.warn("Миграция пропущена ({}): {}", e.getMessage(), stmt);
+                }
                 failed++;
             }
         }
@@ -92,6 +96,18 @@ public class SchemaInitializer {
             }
         }
         log.info("Схема Ignite 3 инициализирована: {} успешно, {} пропущено/ошибок", ok, failed);
+    }
+
+    private static boolean isAlreadyExistsError(Throwable t) {
+        Throwable current = t;
+        while (current != null) {
+            String msg = current.getMessage();
+            if (msg != null && msg.toLowerCase(java.util.Locale.ROOT).contains("already exists")) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 
     private String loadSqlResource() {
