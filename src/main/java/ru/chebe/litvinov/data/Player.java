@@ -7,6 +7,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.StringJoiner;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Игровой персонаж, привязанный к Discord-пользователю.
@@ -33,6 +35,46 @@ private int exp;
 	private String playerClass;
 	private List<String> achievements;
 	private Map<String, Long> activeBuffs;
+
+	private static final Map<String, String> ITEM_ICONS = Map.ofEntries(
+		// consumables
+		Map.entry("кружка цикория",      "☕"),
+		Map.entry("вино лаба",           "🍷"),
+		Map.entry("медовуха база",        "🍺"),
+		Map.entry("токен телепорта",     "🌀"),
+		Map.entry("протеин ябыса",       "💪"),
+		Map.entry("амулет рианель",      "🍀"),
+		Map.entry("щит чегоба",          "🛡️"),
+		Map.entry("речь ильи",           "📢"),
+		Map.entry("зелье лаба",          "🧪"),
+		// boss drops
+		Map.entry("бицушка ровера",      "🏋️"),
+		Map.entry("кисточка циника",     "🖌️"),
+		Map.entry("корона дарха",        "👑"),
+		Map.entry("кринж стина",         "😬"),
+		Map.entry("попка ушаса",         "🍑"),
+		Map.entry("око мора",            "👁️"),
+		Map.entry("очко бога",           "🎱"),
+		Map.entry("хуй вущъта",          "🍆"),
+		Map.entry("удача рианель",       "🌟"),
+		Map.entry("шарики лаба",         "🔮"),
+		Map.entry("вонь арктулза",       "💩"),
+		Map.entry("скейт ябыса",         "🛹"),
+		Map.entry("форточка орсона",     "🪟"),
+		Map.entry("месть гордона",       "🔪"),
+		Map.entry("хатка база",          "🏠"),
+		Map.entry("игла бувки",          "🪡"),
+		Map.entry("калькулятор сталкера","🧮"),
+		Map.entry("язык вороны",         "🐦"),
+		Map.entry("диплом ильи",         "📜"),
+		Map.entry("кресло чегоба",       "🪑"),
+		Map.entry("сиськи ред",          "🍒"),
+		Map.entry("банка эдика",         "🫙")
+	);
+
+	public static String itemIcon(String name) {
+		return ITEM_ICONS.getOrDefault(name.toLowerCase(), "📦");
+	}
 
 	/**
 	 * Создаёт нового игрока с начальными характеристиками и стартовым инвентарём.
@@ -76,20 +118,42 @@ private int exp;
 
 	@Override
 	public String toString() {
-		String quest = activeEvent == null ? "" : "Квест - " + activeEvent.getDescription() + "\n";
-		return """
-				Вот твои характристики, игрок
-				Имя - %s
-				Уровень - %d
-				Опыт - %d/%d
-				Здоровье - %d/%d
-				Удача - %d
-				Броня - %d
-				Деньги - %d
-				Репутация - %d
-				Сила - %d
-				Локация - %s
-				%s""".formatted(nickName, level, exp, expToNextLvl, hp, maxHp, luck, armor, money, reputation, strength, location, quest);
+		var sb = new StringBuilder();
+		sb.append("🎮 **").append(nickName).append("**");
+		if (playerClass != null && !playerClass.isBlank()) {
+			sb.append(" [").append(playerClass).append("]");
+		}
+		sb.append(" — Уровень ").append(level).append("\n");
+
+		sb.append("❤️ HP: **").append(hp).append("/").append(maxHp).append("**")
+		  .append("  ⚔️ Сила: **").append(strength).append("**")
+		  .append("  🛡️ Броня: **").append(armor).append("**\n");
+
+		sb.append("🍀 Удача: **").append(luck).append("**")
+		  .append("  ⭐ Репутация: **").append(reputation).append("**")
+		  .append("  💰 Деньги: **").append(money).append("**\n");
+
+		sb.append("✨ Опыт: **").append(exp).append("/").append(expToNextLvl).append("**")
+		  .append("  📍 Локация: **").append(location).append("**\n");
+
+		if (activeEvent != null) {
+			sb.append("🗺️ Квест: ").append(activeEvent.getDescription()).append("\n");
+		}
+
+		if (activeBuffs != null && !activeBuffs.isEmpty()) {
+			long now = System.currentTimeMillis();
+			var buffs = new StringJoiner(", ");
+			for (Map.Entry<String, Long> e : activeBuffs.entrySet()) {
+				long minsLeft = TimeUnit.MILLISECONDS.toMinutes(e.getValue() - now);
+				if (minsLeft > 0) buffs.add(e.getKey() + " (" + minsLeft + " мин)");
+			}
+			String buffStr = buffs.toString();
+			if (!buffStr.isEmpty()) {
+				sb.append("⚡ Баффы: ").append(buffStr).append("\n");
+			}
+		}
+
+		return sb.toString().stripTrailing();
 	}
 
 	/**
@@ -104,7 +168,14 @@ private int exp;
 				inventory.put(entry.getKey(), 3);
 			}
 		}
-		return inventory.toString();
+		var sb = new StringBuilder();
+		sb.append("🎒 **Инвентарь ").append(nickName).append("**\n");
+		inventory.entrySet().stream()
+			.sorted(Map.Entry.comparingByKey())
+			.forEach(e -> sb.append(itemIcon(e.getKey()))
+				.append(" ").append(e.getKey())
+				.append(" — ×").append(e.getValue()).append("\n"));
+		return sb.toString().stripTrailing();
 	}
 }
 
