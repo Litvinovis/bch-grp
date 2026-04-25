@@ -102,7 +102,7 @@ public class ItemsManagerTest {
     public void item_activeFlag_showsCorrectLabel() {
         Item active = Item.builder().name("зелье").price(10).action(true).description("heal").build();
         String s = active.toString();
-        assertTrue(s.contains("активируемое"));
+        assertTrue(s.contains("Активируемое"));
         assertFalse(s.contains("Постоянное"));
     }
 
@@ -135,6 +135,6 @@ public class ItemsManagerTest {
     public void item_sellPriceIsHalfOfBuyPrice() {
         Item item = Item.builder().name("x").price(200).action(false).description("y").build();
         String s = item.toString();
-        assertTrue("Expected sell price 100 in toString", s.contains("Цена продажи - 100"));
+        assertTrue("Expected sell price 100 in toString", s.contains("Продажа: **100**"));
     }
 }

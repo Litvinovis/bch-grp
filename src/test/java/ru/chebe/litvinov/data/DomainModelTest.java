@@ -17,7 +17,7 @@ public class DomainModelTest {
         assertEquals(100, p.getHp());
         assertTrue(p.getInventory().containsKey("токен телепорта"));
         assertNotNull(p.inventoryInfo());
-        assertTrue(p.toString().contains("Имя - nick"));
+        assertTrue(p.toString().contains("**nick**"));
     }
 
     @Test
@@ -54,9 +54,9 @@ public class DomainModelTest {
                 .expireTime(System.currentTimeMillis() + 60_000)
                 .build();
         String s = item.toString();
-        assertTrue(s.contains("Название - меч"));
-        assertTrue(s.contains("Цена - 100"));
-        assertTrue(s.contains("Описание - острый"));
+        assertTrue(s.contains("**меч**"));
+        assertTrue(s.contains("Цена: **100**"));
+        assertTrue(s.contains("острый"));
     }
 
     @Test
