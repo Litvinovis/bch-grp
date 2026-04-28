@@ -1,120 +1,64 @@
 package ru.chebe.litvinov.ignite3;
 
-import org.apache.ignite.client.IgniteClient;
-import org.apache.ignite.table.KeyValueView;
-import org.apache.ignite.table.Tuple;
-import ru.chebe.litvinov.Ignite3Configurator;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import ru.chebe.litvinov.data.Item;
 
-/**
- * Репозиторий предметов для Ignite 3.
- * Получает клиент через {@link Ignite3Configurator} — view автоматически сбрасывается
- * при смене клиента после переподключения.
- */
+import javax.sql.DataSource;
+import java.sql.*;
+
 public class ItemRepository {
 
-    private static final String TABLE = "items";
+    private static final Logger log = LoggerFactory.getLogger(ItemRepository.class);
+    private final DataSource dataSource;
 
-    private final Ignite3Configurator configurator;
-    private volatile IgniteClient lastClient;
-    private volatile KeyValueView<Tuple, Tuple> view;
+    public ItemRepository(DataSource dataSource) { this.dataSource = dataSource; }
 
-    /**
-     * Создаёт репозиторий.
-     *
-     * @param configurator менеджер подключения Ignite 3
-     */
-    public ItemRepository(Ignite3Configurator configurator) {
-        this.configurator = configurator;
-    }
-
-    private KeyValueView<Tuple, Tuple> view() {
-        IgniteClient current = configurator.getClient();
-        if (current == null) {
-            throw new IllegalStateException("Ignite 3 недоступен — соединение ещё не установлено");
-        }
-        if (view == null || current != lastClient) {
-            synchronized (this) {
-                current = configurator.getClient();
-                if (current == null) {
-                    throw new IllegalStateException("Ignite 3 недоступен — соединение ещё не установлено");
-                }
-                if (view == null || current != lastClient) {
-                    view = current.tables().table(TABLE).keyValueView();
-                    lastClient = current;
-                }
-            }
-        }
-        return view;
-    }
-
-    /**
-     * Возвращает предмет по названию или null если не найден.
-     *
-     * @param name название предмета
-     * @return объект Item или null
-     */
     public Item get(String name) {
-        Tuple key = Tuple.create().set("name", name);
-        Tuple row = view().get(null, key);
-        if (row == null) return null;
-        return rowToItem(row, name);
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement ps = conn.prepareStatement(
+                 "SELECT name, description, price, luck, strength, health, armor, reputation, " +
+                 "xp_generation, quantity, expire_time, action FROM items WHERE name = ?")) {
+            ps.setString(1, name);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return mapRow(rs);
+            }
+        } catch (Exception e) { log.warn("Ошибка get({}): {}", name, e.getMessage()); }
+        return null;
     }
 
-    /**
-     * Сохраняет или обновляет предмет.
-     *
-     * @param name название предмета
-     * @param item объект Item
-     */
-    public void put(String name, Item item) {
-        Tuple key = Tuple.create().set("name", name);
-        Tuple val = itemToRow(item);
-        view().put(null, key, val);
-    }
-
-    /**
-     * Проверяет наличие предмета в таблице.
-     *
-     * @param name название предмета
-     * @return true если предмет существует
-     */
     public boolean contains(String name) {
-        Tuple key = Tuple.create().set("name", name);
-        return view().contains(null, key);
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement ps = conn.prepareStatement("SELECT 1 FROM items WHERE name = ?")) {
+            ps.setString(1, name);
+            try (ResultSet rs = ps.executeQuery()) { return rs.next(); }
+        } catch (Exception e) { log.warn("Ошибка contains({}): {}", name, e.getMessage()); }
+        return false;
     }
 
-    // ---- маппинг ----
+    public void put(String name, Item item) {
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement ps = conn.prepareStatement(
+                 "INSERT INTO items (name, description, price, luck, strength, health, armor, reputation, xp_generation, quantity, expire_time, action) " +
+                 "VALUES (?,?,?,?,?,?,?,?,?,?,?,?) " +
+                 "ON CONFLICT (name) DO UPDATE SET description=EXCLUDED.description, price=EXCLUDED.price, " +
+                 "luck=EXCLUDED.luck, strength=EXCLUDED.strength, health=EXCLUDED.health, armor=EXCLUDED.armor, " +
+                 "reputation=EXCLUDED.reputation, xp_generation=EXCLUDED.xp_generation, " +
+                 "quantity=EXCLUDED.quantity, expire_time=EXCLUDED.expire_time, action=EXCLUDED.action")) {
+            ps.setString(1, name); ps.setString(2, item.getDescription()); ps.setInt(3, item.getPrice());
+            ps.setInt(4, item.getLuck()); ps.setInt(5, item.getStrength()); ps.setInt(6, item.getHealth());
+            ps.setInt(7, item.getArmor()); ps.setInt(8, item.getReputation()); ps.setInt(9, item.getXpGeneration());
+            ps.setInt(10, item.getQuantity()); ps.setLong(11, item.getExpireTime()); ps.setBoolean(12, item.isAction());
+            ps.executeUpdate();
+        } catch (Exception e) { log.error("Ошибка put({}): {}", name, e.getMessage()); }
+    }
 
-    private Item rowToItem(Tuple row, String name) {
+    private Item mapRow(ResultSet rs) throws SQLException {
         return Item.builder()
-                .name(name)
-                .description(row.stringValue("description"))
-                .price(row.intValue("price"))
-                .luck(row.intValue("luck"))
-                .strength(row.intValue("strength"))
-                .health(row.intValue("health"))
-                .armor(row.intValue("armor"))
-                .reputation(row.intValue("reputation"))
-                .xpGeneration(row.intValue("xp_generation"))
-                .quantity(row.intValue("quantity"))
-                .expireTime(row.longValue("expire_time"))
-                .action(row.booleanValue("action"))
-                .build();
-    }
-
-    private Tuple itemToRow(Item item) {
-        return Tuple.create()
-                .set("description", item.getDescription())
-                .set("price", item.getPrice())
-                .set("luck", item.getLuck())
-                .set("strength", item.getStrength())
-                .set("health", item.getHealth())
-                .set("armor", item.getArmor())
-                .set("reputation", item.getReputation())
-                .set("xp_generation", item.getXpGeneration())
-                .set("quantity", item.getQuantity())
-                .set("expire_time", item.getExpireTime())
-                .set("action", item.isAction());
+                .name(rs.getString("name")).description(rs.getString("description"))
+                .price(rs.getInt("price")).luck(rs.getInt("luck")).strength(rs.getInt("strength"))
+                .health(rs.getInt("health")).armor(rs.getInt("armor")).reputation(rs.getInt("reputation"))
+                .xpGeneration(rs.getInt("xp_generation")).quantity(rs.getInt("quantity"))
+                .expireTime(rs.getLong("expire_time")).action(rs.getBoolean("action")).build();
     }
 }

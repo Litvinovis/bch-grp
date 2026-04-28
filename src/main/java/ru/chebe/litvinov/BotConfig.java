@@ -8,38 +8,28 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Конфигурация бота, загружаемая из файла application.yml.
- * Содержит параметры Discord-каналов, администраторов и настройки Apache Ignite 3.
- */
 public record BotConfig(
         List<String> allowedChannelIds,
         List<String> adminIds,
-        String ignite3Address
+        String dbUrl,
+        String dbUsername,
+        String dbPassword
 ) {
 
-    /**
-     * Загружает конфигурацию из файла application.yml в classpath.
-     * При отсутствии файла или ошибке чтения возвращает конфигурацию с параметрами по умолчанию.
-     *
-     * @return загруженный или дефолтный объект BotConfig
-     */
     @SuppressWarnings("unchecked")
     public static BotConfig load() {
         try (InputStream is = BotConfig.class.getClassLoader().getResourceAsStream("application.yml")) {
-            if (is == null) {
-                return defaults();
-            }
+            if (is == null) return defaults();
             Map<String, Object> root = new Yaml().load(is);
-            if (root == null) {
-                return defaults();
-            }
+            if (root == null) return defaults();
 
             List<String> channelIds = readStringList(root, "discord", "allowed-channel-ids");
-            List<String> adminIds = readStringList(root, "discord", "admin-ids");
-            String ignite3Addr = readString(root, "ignite3", "address", "127.0.0.1:10300");
+            List<String> adminIds   = readStringList(root, "discord", "admin-ids");
+            String dbUrl      = readString(root, "db", "url",      "jdbc:postgresql://127.0.0.1:5432/bchgrp");
+            String dbUsername = readString(root, "db", "username", "bchgrp");
+            String dbPassword = readString(root, "db", "password", "");
 
-            return new BotConfig(channelIds, adminIds, ignite3Addr);
+            return new BotConfig(channelIds, adminIds, dbUrl, dbUsername, dbPassword);
         } catch (Exception e) {
             return defaults();
         }
@@ -72,6 +62,12 @@ public record BotConfig(
     }
 
     private static BotConfig defaults() {
-        return new BotConfig(Collections.emptyList(), Collections.emptyList(), "127.0.0.1:10300");
+        return new BotConfig(
+                Collections.emptyList(),
+                Collections.emptyList(),
+                "jdbc:postgresql://127.0.0.1:5432/bchgrp",
+                "bchgrp",
+                ""
+        );
     }
 }

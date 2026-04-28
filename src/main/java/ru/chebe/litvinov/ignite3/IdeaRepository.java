@@ -1,163 +1,79 @@
 package ru.chebe.litvinov.ignite3;
 
-import org.apache.ignite.client.IgniteClient;
-import org.apache.ignite.table.KeyValueView;
-import org.apache.ignite.table.Tuple;
-import ru.chebe.litvinov.Ignite3Configurator;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import ru.chebe.litvinov.data.Idea;
 
+import javax.sql.DataSource;
+import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Репозиторий идей для Ignite 3.
- * Для scan-запросов (поиск по статусу) использует SQL через IgniteClient.sql().
- * Получает клиент через {@link Ignite3Configurator} — view автоматически сбрасывается
- * при смене клиента после переподключения.
- */
 public class IdeaRepository {
 
-    private static final String TABLE = "ideas";
+    private static final Logger log = LoggerFactory.getLogger(IdeaRepository.class);
+    private final DataSource dataSource;
 
-    private final Ignite3Configurator configurator;
-    private volatile IgniteClient lastClient;
-    private volatile KeyValueView<Tuple, Tuple> view;
+    public IdeaRepository(DataSource dataSource) { this.dataSource = dataSource; }
 
-    /**
-     * Создаёт репозиторий.
-     *
-     * @param configurator менеджер подключения Ignite 3
-     */
-    public IdeaRepository(Ignite3Configurator configurator) {
-        this.configurator = configurator;
-    }
-
-    private KeyValueView<Tuple, Tuple> view() {
-        IgniteClient current = configurator.getClient();
-        if (current == null) {
-            throw new IllegalStateException("Ignite 3 недоступен — соединение ещё не установлено");
-        }
-        if (view == null || current != lastClient) {
-            synchronized (this) {
-                current = configurator.getClient();
-                if (current == null) {
-                    throw new IllegalStateException("Ignite 3 недоступен — соединение ещё не установлено");
-                }
-                if (view == null || current != lastClient) {
-                    view = current.tables().table(TABLE).keyValueView();
-                    lastClient = current;
-                }
-            }
-        }
-        return view;
-    }
-
-    /**
-     * Возвращает идею по номеру или null если не найдена.
-     *
-     * @param id номер идеи
-     * @return объект Idea или null
-     */
     public Idea get(int id) {
-        Tuple key = Tuple.create().set("id", id);
-        Tuple row = view().get(null, key);
-        if (row == null) return null;
-        return rowToIdea(row, id);
-    }
-
-    /**
-     * Сохраняет или обновляет идею.
-     *
-     * @param id   номер идеи
-     * @param idea объект Idea
-     */
-    public void put(int id, Idea idea) {
-        Tuple key = Tuple.create().set("id", id);
-        Tuple val = ideaToRow(idea);
-        view().put(null, key, val);
-    }
-
-    /**
-     * Возвращает количество идей в таблице.
-     *
-     * @return количество записей
-     */
-    public int size() {
-        IgniteClient client = configurator.getClient();
-        if (client == null) return 0;
-        try (var cursor = client.sql().execute(null, "SELECT COUNT(*) FROM ideas")) {
-            if (cursor.hasNext()) {
-                var row = cursor.next();
-                return (int) row.longValue(0);
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement ps = conn.prepareStatement(
+                 "SELECT id, description, author, resolution FROM ideas WHERE id = ?")) {
+            ps.setInt(1, id);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return mapRow(rs);
             }
-        }
+        } catch (Exception e) { log.warn("Ошибка get({}): {}", id, e.getMessage()); }
+        return null;
+    }
+
+    public void put(int id, Idea idea) {
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement ps = conn.prepareStatement(
+                 "INSERT INTO ideas (id, description, author, resolution) VALUES (?,?,?,?) " +
+                 "ON CONFLICT (id) DO UPDATE SET description=EXCLUDED.description, " +
+                 "author=EXCLUDED.author, resolution=EXCLUDED.resolution")) {
+            ps.setInt(1, id); ps.setString(2, idea.getDescription());
+            ps.setString(3, idea.getAuthor()); ps.setString(4, idea.getResolution());
+            ps.executeUpdate();
+        } catch (Exception e) { log.error("Ошибка put({}): {}", id, e.getMessage()); }
+    }
+
+    public int size() {
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement ps = conn.prepareStatement("SELECT COUNT(*) FROM ideas");
+             ResultSet rs = ps.executeQuery()) {
+            if (rs.next()) return rs.getInt(1);
+        } catch (Exception e) { log.warn("Ошибка size(): {}", e.getMessage()); }
         return 0;
     }
 
-    /**
-     * Возвращает все идеи с указанным статусом.
-     *
-     * @param resolution статус для фильтрации
-     * @return список идей
-     */
     public List<Idea> findByResolution(String resolution) {
         List<Idea> result = new ArrayList<>();
-        IgniteClient client = configurator.getClient();
-        if (client == null) return result;
-        try (var cursor = client.sql().execute(null,
-                "SELECT id, description, author, resolution FROM ideas WHERE resolution = ?", resolution)) {
-            while (cursor.hasNext()) {
-                var row = cursor.next();
-                result.add(Idea.builder()
-                        .id(row.intValue("id"))
-                        .description(row.stringValue("description"))
-                        .author(row.stringValue("author"))
-                        .resolution(row.stringValue("resolution"))
-                        .build());
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement ps = conn.prepareStatement(
+                 "SELECT id, description, author, resolution FROM ideas WHERE resolution = ?")) {
+            ps.setString(1, resolution);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) result.add(mapRow(rs));
             }
-        }
+        } catch (Exception e) { log.warn("Ошибка findByResolution({}): {}", resolution, e.getMessage()); }
         return result;
     }
 
-    /**
-     * Возвращает все идеи.
-     *
-     * @return список всех идей
-     */
     public List<Idea> findAll() {
         List<Idea> result = new ArrayList<>();
-        IgniteClient client = configurator.getClient();
-        if (client == null) return result;
-        try (var cursor = client.sql().execute(null,
-                "SELECT id, description, author, resolution FROM ideas")) {
-            while (cursor.hasNext()) {
-                var row = cursor.next();
-                result.add(Idea.builder()
-                        .id(row.intValue("id"))
-                        .description(row.stringValue("description"))
-                        .author(row.stringValue("author"))
-                        .resolution(row.stringValue("resolution"))
-                        .build());
-            }
-        }
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement ps = conn.prepareStatement("SELECT id, description, author, resolution FROM ideas");
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) result.add(mapRow(rs));
+        } catch (Exception e) { log.warn("Ошибка findAll(): {}", e.getMessage()); }
         return result;
     }
 
-    // ---- маппинг ----
-
-    private Idea rowToIdea(Tuple row, int id) {
-        return Idea.builder()
-                .id(id)
-                .description(row.stringValue("description"))
-                .author(row.stringValue("author"))
-                .resolution(row.stringValue("resolution"))
-                .build();
-    }
-
-    private Tuple ideaToRow(Idea idea) {
-        return Tuple.create()
-                .set("description", idea.getDescription())
-                .set("author", idea.getAuthor())
-                .set("resolution", idea.getResolution());
+    private Idea mapRow(ResultSet rs) throws SQLException {
+        return Idea.builder().id(rs.getInt("id")).description(rs.getString("description"))
+                .author(rs.getString("author")).resolution(rs.getString("resolution")).build();
     }
 }

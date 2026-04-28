@@ -1,27 +1,26 @@
 package ru.chebe.litvinov.command;
 
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
-import ru.chebe.litvinov.service.IgniteHealthChecker;
 
-/**
- * Команда +статус — показывает состояние Ignite-кэшей.
- */
+import javax.sql.DataSource;
+import java.sql.Connection;
+
 public class StatusCommand implements Command {
 
-    private final IgniteHealthChecker healthChecker;
+    private final DataSource dataSource;
 
-    /**
-     * Создаёт команду отображения статуса Ignite-кэшей.
-     *
-     * @param healthChecker сервис проверки состояния Ignite
-     */
-    public StatusCommand(IgniteHealthChecker healthChecker) {
-        this.healthChecker = healthChecker;
+    public StatusCommand(DataSource dataSource) {
+        this.dataSource = dataSource;
     }
 
     @Override
     public void execute(MessageReceivedEvent event) {
-        String report = healthChecker.getStatusReport();
+        String report;
+        try (Connection conn = dataSource.getConnection()) {
+            report = "✅ Бот работает. БД: PostgreSQL — соединение активно.";
+        } catch (Exception e) {
+            report = "⚠️ Бот работает, но БД недоступна: " + e.getMessage();
+        }
         event.getChannel().sendMessage(report).queue();
     }
 }
