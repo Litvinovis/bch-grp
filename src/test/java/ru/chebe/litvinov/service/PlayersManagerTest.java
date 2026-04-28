@@ -2,7 +2,7 @@ package ru.chebe.litvinov.service;
 
 import junit.framework.TestCase;
 import ru.chebe.litvinov.data.Player;
-import ru.chebe.litvinov.ignite3.PlayerRepository;
+import ru.chebe.litvinov.repository.PlayerRepository;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;

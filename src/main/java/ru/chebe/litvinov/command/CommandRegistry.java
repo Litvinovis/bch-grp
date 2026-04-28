@@ -1,13 +1,9 @@
 package ru.chebe.litvinov.command;
 
-import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import ru.chebe.litvinov.service.interfaces.IIdeasManager;
 import ru.chebe.litvinov.service.interfaces.ILocationManager;
 import ru.chebe.litvinov.service.interfaces.IPlayersManager;
 import ru.chebe.litvinov.service.ItemsManager;
-import ru.chebe.litvinov.raid.RaidCommand;
-import ru.chebe.litvinov.raid.RaidJoinCommand;
-import ru.chebe.litvinov.raid.RaidManager;
 
 import java.util.*;
 
@@ -88,91 +84,82 @@ public class CommandRegistry {
                                         IIdeasManager ideasManager,
                                         ILocationManager locationManager,
                                         ItemsManager itemsManager,
-                                        RaidManager raidManager,
                                         String helpMessage,
                                         String infoMessage) {
         CommandRegistry registry = new CommandRegistry();
 
         // --- Регистрация ---
-        registry.register("+регистрация", new RegistrationCommand(playersManager));
+        registry.register("+регистрация", playersManager::createPlayer);
 
         // --- Справка / инфо (не требуют авторизации) ---
-        registry.register("+помощь", event ->
-                event.getChannel().sendMessage(helpMessage).submit());
-        registry.register("+инфо", event ->
-                event.getChannel().sendMessage(infoMessage).submit());
+        registry.register("+помощь", event -> event.getChannel().sendMessage(helpMessage).submit());
+        registry.register("+инфо", event -> event.getChannel().sendMessage(infoMessage).submit());
 
         // --- Статистика и передвижение ---
-        registry.register("+стата", new StatsCommand(playersManager));
-        registry.register("+идти", new MoveCommand(playersManager));
-        registry.register("+локация", event ->
-                locationManager.locationInfo(event,
-                        null /* будет определено внутри LocationManager */));
-        registry.register("+карта", event -> locationManager.map(event));
+        registry.register("+стата", playersManager::getPlayerInfo);
+        registry.register("+идти", playersManager::move);
+        registry.register("+локация", event -> locationManager.locationInfo(event, null));
+        registry.register("+карта", locationManager::map);
 
         // --- Инвентарь и предметы ---
-        registry.register("+инвентарь", new InventoryCommand(playersManager));
-        registry.register("+предмет", event -> itemsManager.getItemInfo(event));
-        registry.register("+купить", new BuyItemCommand(playersManager));
-        registry.register("+использовать", new UseItemCommand(playersManager));
-        registry.register("+продать", new SellItemCommand(playersManager));
+        registry.register("+инвентарь", playersManager::getInventoryInfo);
+        registry.register("+предмет", itemsManager::getItemInfo);
+        registry.register("+купить", playersManager::buyItem);
+        registry.register("+использовать", playersManager::useItem);
+        registry.register("+продать", playersManager::sellItem);
 
         // --- Таверна ---
-        registry.register("+кости", new DieCastCommand(playersManager));
-        registry.register("+рулетка", new RouletteCommand(playersManager));
-        registry.register("+кнб", new RockPaperScissorsCommand(playersManager));
-        registry.register("+число", new GuessNumberCommand(playersManager));
+        registry.register("+кости", playersManager::dieCast);
+        registry.register("+рулетка", playersManager::playRoulette);
+        registry.register("+кнб", playersManager::rockPaperScissors);
+        registry.register("+число", playersManager::guessTheNumber);
 
         // --- Квесты ---
-        registry.register("+взять квест", new QuestAssignCommand(playersManager));
-        registry.register("+выполнить квест", new QuestCheckCommand(playersManager));
-        registry.register("+поменять квест", new QuestChangeCommand(playersManager));
+        registry.register("+взять квест", playersManager::assignEvent);
+        registry.register("+выполнить квест", playersManager::checkEvent);
+        registry.register("+поменять квест", playersManager::changeEvent);
 
         // --- Бой ---
-        registry.register("+убить босса", new AttackCommand(playersManager));
-        registry.register("+пвп", new PvpCommand(playersManager));
-        registry.register("+нпс", event -> playersManager.fightNpc(event));
-
-        // --- Рейды ---
-        registry.register("+рейд", new RaidCommand(raidManager));
-        registry.register("+присоединиться", new RaidJoinCommand(raidManager));
+        registry.register("+убить босса", playersManager::bossFight);
+        registry.register("+пвп", playersManager::playersFight);
+        registry.register("+нпс", playersManager::fightNpc);
 
         // --- Бонус ---
-        registry.register("+бонус", new DailyBonusCommand(playersManager));
+        registry.register("+бонус", playersManager::dailyBonus);
 
         // --- Таблица лидеров ---
-        registry.register("+топ", new TopCommand(playersManager));
+        registry.register("+топ", playersManager::topLeaderboard);
 
         // --- Классы персонажей ---
-        registry.register("+класс", new ChooseClassCommand(playersManager));
+        registry.register("+класс", playersManager::chooseClass);
 
         // --- Достижения ---
-        registry.register("+достижения", new AchievementsCommand(playersManager));
+        registry.register("+достижения", playersManager::getAchievements);
 
         // --- Торговля (длинный префикс перед +принять) ---
-        registry.register("+передать", new TradeItemCommand(playersManager));
+        registry.register("+передать", playersManager::tradeItem);
 
         // --- Дуэли (+принять и +отказать до более коротких совпадений) ---
-        registry.register("+вызов", new DuelChallengeCommand(playersManager));
-        registry.register("+принять", new DuelAcceptCommand(playersManager));
-        registry.register("+отказать", new DuelDeclineCommand(playersManager));
+        registry.register("+вызов", playersManager::challengeDuel);
+        registry.register("+принять", playersManager::acceptDuel);
+        registry.register("+отказать", playersManager::declineDuel);
 
         // --- Клановые (длинные префиксы раньше коротких) ---
-        registry.register("+новый клан", new ClanRegisterCommand(playersManager));
-        registry.register("+покинуть клан", new ClanLeaveCommand(playersManager));
-        registry.register("+вступить в клан", new ClanJoinCommand(playersManager));
-        registry.register("+принять заявки", new ClanAcceptCommand(playersManager));
-        registry.register("+отклонить заявки", new ClanRejectCommand(playersManager));
-        registry.register("+клан инфо", new ClanInfoCommand(playersManager));
+        registry.register("+новый клан", playersManager::clanRegister);
+        registry.register("+покинуть клан", playersManager::clanLeave);
+        registry.register("+вступить в клан", playersManager::clanJoin);
+        registry.register("+принять заявки", playersManager::acceptApply);
+        registry.register("+отклонить заявки", playersManager::rejectApply);
+        registry.register("+клан инфо", playersManager::clanInfo);
 
         // --- Идеи (обычные) ---
-        registry.register("+идея", new IdeaCommand(ideasManager));
+        registry.register("+идея", ideasManager::putIdea);
 
         // --- Администраторские ---
-        registry.registerAdmin("+всеидеи", new AdminIdeasAllCommand(ideasManager));
-        registry.registerAdmin("+новыеидеи", new AdminIdeasNewCommand(ideasManager));
-        registry.registerAdmin("+идеяномер", new AdminIdeaGetCommand(ideasManager));
-        registry.registerAdmin("+идеястатус", new AdminIdeaStatusCommand(ideasManager));
+        registry.registerAdmin("+всеидеи", ideasManager::getAllIdeas);
+        registry.registerAdmin("+новыеидеи", ideasManager::getNewIdeas);
+        registry.registerAdmin("+идеяномер", ideasManager::getIdea);
+        registry.registerAdmin("+идеястатус", ideasManager::changeIdeaStatus);
 
         return registry;
     }

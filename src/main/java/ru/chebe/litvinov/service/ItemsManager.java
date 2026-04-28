@@ -2,7 +2,7 @@ package ru.chebe.litvinov.service;
 
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import ru.chebe.litvinov.data.Item;
-import ru.chebe.litvinov.ignite3.ItemRepository;
+import ru.chebe.litvinov.repository.ItemRepository;
 
 import java.util.ArrayList;
 import java.util.HashMap;

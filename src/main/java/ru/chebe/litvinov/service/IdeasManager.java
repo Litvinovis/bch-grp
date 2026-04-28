@@ -2,7 +2,7 @@ package ru.chebe.litvinov.service;
 
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import ru.chebe.litvinov.data.Idea;
-import ru.chebe.litvinov.ignite3.IdeaRepository;
+import ru.chebe.litvinov.repository.IdeaRepository;
 
 /**
  * Менеджер пользовательских идей и предложений.

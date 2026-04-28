@@ -5,7 +5,7 @@ import org.junit.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import ru.chebe.litvinov.data.Item;
-import ru.chebe.litvinov.ignite3.ItemRepository;
+import ru.chebe.litvinov.repository.ItemRepository;
 
 import static org.junit.Assert.*;
 import static org.mockito.Mockito.*;

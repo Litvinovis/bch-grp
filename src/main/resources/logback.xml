@@ -45,9 +45,6 @@
     <logger name="ru.chebe.litvinov" level="INFO" additivity="false">
         <appender-ref ref="TECH-LOG"/>
     </logger>
-    <logger name="org.apache.ignite.internal.IgniteKernal" level="INFO" additivity="false">
-        <appender-ref ref="TECH-LOG"/>
-    </logger>
     <root level="INFO">
         <appender-ref ref="TECH-LOG"/>
     </root>

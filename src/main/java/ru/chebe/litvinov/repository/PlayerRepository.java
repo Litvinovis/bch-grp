@@ -1,4 +1,4 @@
-package ru.chebe.litvinov.ignite3;
+package ru.chebe.litvinov.repository;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,6 +15,7 @@ import java.util.Map;
 public class PlayerRepository {
 
     private static final Logger log = LoggerFactory.getLogger(PlayerRepository.class);
+    private static final com.fasterxml.jackson.databind.ObjectMapper MAPPER = new com.fasterxml.jackson.databind.ObjectMapper();
 
     private final DataSource dataSource;
 
@@ -139,8 +140,7 @@ public class PlayerRepository {
         String eventJson = rs.getString("active_event");
         if (eventJson != null && !eventJson.isBlank() && !eventJson.equals("null")) {
             try {
-                com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-                p.setActiveEvent(mapper.readValue(eventJson, Event.class));
+                p.setActiveEvent(MAPPER.readValue(eventJson, Event.class));
             } catch (Exception e) {
                 log.warn("Не удалось десериализовать activeEvent для игрока {}: {}", id, e.getMessage());
                 p.setActiveEvent(null);
@@ -152,8 +152,7 @@ public class PlayerRepository {
     private String serializeEvent(Player player) {
         if (player.getActiveEvent() == null) return null;
         try {
-            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-            return mapper.writeValueAsString(player.getActiveEvent());
+            return MAPPER.writeValueAsString(player.getActiveEvent());
         } catch (Exception e) {
             log.warn("Не удалось сериализовать activeEvent для игрока {}: {}", player.getId(), e.getMessage());
             return null;

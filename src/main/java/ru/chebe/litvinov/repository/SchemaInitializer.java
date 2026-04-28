@@ -1,4 +1,4 @@
-package ru.chebe.litvinov.ignite3;
+package ru.chebe.litvinov.repository;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -49,8 +49,6 @@ public class SchemaInitializer {
         }
         log.info("Схема PostgreSQL инициализирована: {} успешно, {} пропущено", ok, skipped);
     }
-
-    public void migrate() {}
 
     private String loadResource(String name) {
         try (InputStream is = getClass().getClassLoader().getResourceAsStream(name)) {

@@ -8,7 +8,7 @@ import ru.chebe.litvinov.data.Item;
 import ru.chebe.litvinov.data.Location;
 import ru.chebe.litvinov.data.Person;
 import ru.chebe.litvinov.data.Player;
-import ru.chebe.litvinov.ignite3.PlayerRepository;
+import ru.chebe.litvinov.repository.PlayerRepository;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
