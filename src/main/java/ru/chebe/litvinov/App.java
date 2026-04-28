@@ -1,40 +1,26 @@
 package ru.chebe.litvinov;
 
-import lombok.extern.slf4j.Slf4j;
-import net.dv8tion.jda.api.JDA;
+import com.zaxxer.hikari.HikariConfig;
+import com.zaxxer.hikari.HikariDataSource;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.entities.Activity;
 import net.dv8tion.jda.api.requests.GatewayIntent;
-import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.chebe.litvinov.eventHandlers.MessageHandler;
 
-/**
- * Точка входа приложения BCH-GRP RPG Discord бота.
- * Инициализирует Apache Ignite кластер и подключает JDA Discord-клиент.
- */
-@Slf4j
+import javax.sql.DataSource;
+import java.util.Optional;
+
 public class App {
     private static final Logger logger = LoggerFactory.getLogger(App.class);
 
-    /**
-     * Читает токен Discord из переменной окружения BCHGRP_DISCORD_TOKEN.
-     *
-     * @return токен, обёрнутый в Optional, или пустой Optional если переменная не задана
-     */
     static Optional<String> resolveDiscordToken() {
         return Optional.ofNullable(System.getenv("BCHGRP_DISCORD_TOKEN"))
                 .map(String::trim)
                 .filter(s -> !s.isEmpty());
     }
 
-    /**
-     * Главный метод запуска приложения.
-     * Последовательно инициализирует Ignite, активирует кластер и запускает Discord-бота.
-     *
-     * @param args аргументы командной строки (не используются)
-     */
     public static void main(String[] args) {
         logger.info("Запуск приложения bchgrp");
 
@@ -51,11 +37,19 @@ public class App {
                 .orElseThrow(() -> new IllegalStateException(
                         "Не задан токен Discord. Установите переменную окружения BCHGRP_DISCORD_TOKEN"));
 
-        logger.info("Инициализация Apache Ignite 3 thin client");
-        Ignite3Configurator configurator = new Ignite3Configurator(botConfig.ignite3Address());
-        logger.info("Apache Ignite 3 thin client инициализирован (переподключение при недоступности выполнит IgniteHealthChecker)");
+        logger.info("Инициализация пула соединений PostgreSQL");
+        HikariConfig hikariConfig = new HikariConfig();
+        hikariConfig.setJdbcUrl(botConfig.dbUrl());
+        hikariConfig.setUsername(botConfig.dbUsername());
+        hikariConfig.setPassword(botConfig.dbPassword());
+        hikariConfig.setMaximumPoolSize(5);
+        hikariConfig.setConnectionTimeout(30000);
+        hikariConfig.setIdleTimeout(600000);
+        hikariConfig.setMaxLifetime(1800000);
+        DataSource dataSource = new HikariDataSource(hikariConfig);
+        logger.info("Пул соединений PostgreSQL инициализирован");
 
-        MessageHandler handler = new MessageHandler(configurator, botConfig.allowedChannelIds(), botConfig.adminIds());
+        MessageHandler handler = new MessageHandler(dataSource, botConfig.allowedChannelIds(), botConfig.adminIds());
 
         logger.info("Инициализация Discord бота");
         int delaySec = 5;

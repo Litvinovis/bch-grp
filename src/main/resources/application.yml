@@ -5,5 +5,7 @@ discord:
   admin-ids:
     - "253576055317594114"
 
-ignite3:
-  address: "127.0.0.1:10300"
+db:
+  url: "jdbc:postgresql://127.0.0.1:5432/bchgrp"
+  username: "bchgrp"
+  password: "bchgrp_pg_2026"

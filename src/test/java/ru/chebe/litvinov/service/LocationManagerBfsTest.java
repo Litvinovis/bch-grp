@@ -17,7 +17,7 @@ public class LocationManagerBfsTest {
         private final Map<String, Location> store = new HashMap<>();
 
         public StubLocationRepository() {
-            super(null); // Ignite3Configurator = null — соединение не нужно
+            super(null); // DataSource = null — соединение не нужно, все методы переопределены
         }
 
         @Override public Location get(String key) { return store.get(key); }

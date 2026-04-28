@@ -3,8 +3,8 @@ package ru.chebe.litvinov.eventHandlers;
 import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
-import ru.chebe.litvinov.Ignite3Configurator;
 import org.jetbrains.annotations.NotNull;
+import javax.sql.DataSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.chebe.litvinov.Constants;
@@ -45,35 +45,24 @@ public class MessageHandler extends ListenerAdapter {
 	private final PlayersManager playersManager;
 	private final IdeasManager ideasManager;
 	private final RaidManager raidManager;
-	private final IgniteHealthChecker healthChecker;
 	private final CommandRegistry commandRegistry;
 
 	private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
 
-	/**
-	 * Создаёт обработчик сообщений, инициализируя все игровые сервисы через Ignite 3 репозитории.
-	 *
-	 * @param configurator      менеджер подключения Ignite 3
-	 * @param allowedChannelIds список идентификаторов Discord-каналов, в которых работает бот
-	 * @param adminIds          список идентификаторов Discord-пользователей с правами администратора
-	 */
-	public MessageHandler(Ignite3Configurator configurator, java.util.List<String> allowedChannelIds, java.util.List<String> adminIds) {
+	public MessageHandler(DataSource dataSource, java.util.List<String> allowedChannelIds, java.util.List<String> adminIds) {
 		this.allowedChannelIds = new HashSet<>(allowedChannelIds == null ? java.util.List.of() : allowedChannelIds);
 		this.adminIds = new HashSet<>(adminIds == null ? java.util.List.of() : adminIds);
 
-		// Инициализация схемы Ignite 3 (пропускается если Ignite недоступен при старте)
-		if (configurator.getClient() != null) {
-			SchemaInitializer schemaInitializer = new SchemaInitializer(configurator.getClient());
-			schemaInitializer.migrate();
-			schemaInitializer.init();
-		}
+		SchemaInitializer schemaInitializer = new SchemaInitializer(dataSource);
+		schemaInitializer.migrate();
+		schemaInitializer.init();
 
-		this.playerRepository = new PlayerRepository(configurator);
-		this.locationManager = new LocationManager(new LocationRepository(configurator));
-		this.itemsManager = new ItemsManager(new ItemRepository(configurator));
-		this.ideasManager = new IdeasManager(new IdeaRepository(configurator));
-		ClanManager clanManager = new ClanManager(new ClanRepository(configurator), playerRepository);
-		BattleManager battleManager = new BattleManager(new BossRepository(configurator));
+		this.playerRepository = new PlayerRepository(dataSource);
+		this.locationManager = new LocationManager(new LocationRepository(dataSource));
+		this.itemsManager = new ItemsManager(new ItemRepository(dataSource));
+		this.ideasManager = new IdeasManager(new IdeaRepository(dataSource));
+		ClanManager clanManager = new ClanManager(new ClanRepository(dataSource), playerRepository);
+		BattleManager battleManager = new BattleManager(new BossRepository(dataSource));
 
 		NpcManager npcManager = new NpcManager();
 		this.playersManager = new PlayersManager(playerRepository, locationManager, itemsManager,
@@ -83,15 +72,11 @@ public class MessageHandler extends ListenerAdapter {
 
 		new DataIntegrityService(playerRepository, locationManager).checkAndFix();
 
-		this.healthChecker = new IgniteHealthChecker(configurator);
-		this.healthChecker.start();
-
 		this.commandRegistry = CommandRegistry.build(
 				playersManager, ideasManager, locationManager, itemsManager,
 				raidManager, HELP_MESSAGE, INFO_MESSAGE);
 
-		// Регистрируем дополнительные команды, которым нужен healthChecker
-		commandRegistry.register("+статус", new StatusCommand(healthChecker));
+		commandRegistry.register("+статус", new StatusCommand(dataSource));
 	}
 
 	@Override
