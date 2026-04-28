@@ -14,7 +14,7 @@ import ru.chebe.litvinov.data.Boss;
 import ru.chebe.litvinov.data.Location;
 import ru.chebe.litvinov.data.Person;
 import ru.chebe.litvinov.data.Player;
-import ru.chebe.litvinov.ignite3.PlayerRepository;
+import ru.chebe.litvinov.repository.PlayerRepository;
 
 import java.util.ArrayList;
 import java.util.Collections;

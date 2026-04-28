@@ -3,7 +3,7 @@ package ru.chebe.litvinov.service;
 import org.junit.Before;
 import org.junit.Test;
 import ru.chebe.litvinov.data.Location;
-import ru.chebe.litvinov.ignite3.LocationRepository;
+import ru.chebe.litvinov.repository.LocationRepository;
 
 import java.util.HashMap;
 import java.util.Map;

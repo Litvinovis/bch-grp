@@ -2,8 +2,8 @@ package ru.chebe.litvinov.service;
 
 import ru.chebe.litvinov.data.Clan;
 import ru.chebe.litvinov.data.Player;
-import ru.chebe.litvinov.ignite3.ClanRepository;
-import ru.chebe.litvinov.ignite3.PlayerRepository;
+import ru.chebe.litvinov.repository.ClanRepository;
+import ru.chebe.litvinov.repository.PlayerRepository;
 
 import java.util.ArrayList;
 import java.util.List;

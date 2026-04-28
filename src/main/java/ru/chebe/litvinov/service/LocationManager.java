@@ -6,7 +6,7 @@ import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.utils.FileUpload;
 import ru.chebe.litvinov.data.Location;
 import ru.chebe.litvinov.data.Player;
-import ru.chebe.litvinov.ignite3.LocationRepository;
+import ru.chebe.litvinov.repository.LocationRepository;
 
 import java.io.File;
 import java.util.*;

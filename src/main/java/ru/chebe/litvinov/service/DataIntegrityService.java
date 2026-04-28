@@ -4,7 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.chebe.litvinov.data.Location;
 import ru.chebe.litvinov.data.Player;
-import ru.chebe.litvinov.ignite3.PlayerRepository;
+import ru.chebe.litvinov.repository.PlayerRepository;
 
 import java.util.*;
 

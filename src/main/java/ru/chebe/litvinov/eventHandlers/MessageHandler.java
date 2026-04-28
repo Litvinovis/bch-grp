@@ -10,9 +10,7 @@ import org.slf4j.LoggerFactory;
 import ru.chebe.litvinov.Constants;
 import ru.chebe.litvinov.command.*;
 import ru.chebe.litvinov.data.Player;
-import ru.chebe.litvinov.ignite3.*;
-import ru.chebe.litvinov.raid.RaidCommand;
-import ru.chebe.litvinov.raid.RaidJoinCommand;
+import ru.chebe.litvinov.repository.*;
 import ru.chebe.litvinov.raid.RaidManager;
 import ru.chebe.litvinov.service.*;
 
@@ -53,9 +51,7 @@ public class MessageHandler extends ListenerAdapter {
 		this.allowedChannelIds = new HashSet<>(allowedChannelIds == null ? java.util.List.of() : allowedChannelIds);
 		this.adminIds = new HashSet<>(adminIds == null ? java.util.List.of() : adminIds);
 
-		SchemaInitializer schemaInitializer = new SchemaInitializer(dataSource);
-		schemaInitializer.migrate();
-		schemaInitializer.init();
+		new SchemaInitializer(dataSource).init();
 
 		this.playerRepository = new PlayerRepository(dataSource);
 		this.locationManager = new LocationManager(new LocationRepository(dataSource));
@@ -74,7 +70,7 @@ public class MessageHandler extends ListenerAdapter {
 
 		this.commandRegistry = CommandRegistry.build(
 				playersManager, ideasManager, locationManager, itemsManager,
-				raidManager, HELP_MESSAGE, INFO_MESSAGE);
+				HELP_MESSAGE, INFO_MESSAGE);
 
 		commandRegistry.register("+статус", new StatusCommand(dataSource));
 	}
@@ -264,7 +260,7 @@ public class MessageHandler extends ListenerAdapter {
 						+идея (текст) - добавить идею/предложение/багрепорт
 						+инфо - общая информация об игре
 						+помощь - эта справка
-						+статус - состояние Ignite-кэшей (база данных)
+						+статус - состояние базы данных
 						""";
 	}
 

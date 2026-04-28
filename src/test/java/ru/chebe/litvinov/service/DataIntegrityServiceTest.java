@@ -6,7 +6,7 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import ru.chebe.litvinov.data.Location;
 import ru.chebe.litvinov.data.Player;
-import ru.chebe.litvinov.ignite3.PlayerRepository;
+import ru.chebe.litvinov.repository.PlayerRepository;
 
 import java.util.ArrayList;
 import java.util.List;

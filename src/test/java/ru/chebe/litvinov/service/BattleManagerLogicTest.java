@@ -9,7 +9,7 @@ import org.mockito.MockitoAnnotations;
 import ru.chebe.litvinov.data.Boss;
 import ru.chebe.litvinov.data.Person;
 import ru.chebe.litvinov.data.Player;
-import ru.chebe.litvinov.ignite3.BossRepository;
+import ru.chebe.litvinov.repository.BossRepository;
 
 import java.util.ArrayList;
 import java.util.List;
