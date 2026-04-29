@@ -1,6 +1,6 @@
 # БЧ-ГРП — Discord RPG Бот
 
-**БЧ-ГРП** (BCH-GRP) — многопользовательская текстовая RPG-игра, работающая как Discord-бот. Игра написана на Java, использует Apache Ignite в качестве распределённого хранилища данных и JDA для взаимодействия с Discord API.
+**БЧ-ГРП** (BCH-GRP) — многопользовательская текстовая RPG-игра, работающая как Discord-бот. Игра написана на Java, использует PostgreSQL в качестве хранилища данных и JDA для взаимодействия с Discord API.
 
 Создана по мотивам легендарной ЧБ-РПГ для чатика безумия.
 
@@ -103,7 +103,7 @@
 | Команда | Описание |
 |---|---|
 | `+идея <текст>` | Оставить идею / баг-репорт |
-| `+статус` | Состояние Ignite-кэшей (база данных) |
+| `+статус` | Состояние базы данных |
 
 ### Административные (только для admins)
 
@@ -120,7 +120,8 @@
 
 - **Java 25**
 - **JDA 5.6.1** — Discord API
-- **Apache Ignite 3.1.0** (thin client) — распределённое хранилище данных (таблицы: players, locations, items, ideas, clans, bosses)
+- **PostgreSQL 16** — хранилище данных (таблицы: players, locations, items, ideas, clans, bosses)
+- **HikariCP 6.3.0** — пул соединений
 - **Logback** — логирование
 - **SnakeYAML** — парсинг конфигурации
 - **Maven** + **maven-assembly-plugin** — сборка fat-jar
@@ -131,13 +132,7 @@
 
 Конфигурация загружается из `application.yml` (не хранится в репозитории — содержит чувствительные данные).
 
-Скопируйте шаблон и заполните:
-
-```bash
-cp src/main/resources/application.yml.example src/main/resources/application.yml
-```
-
-Параметры в `application.yml`:
+Создайте файл `src/main/resources/application.yml` со следующей структурой:
 
 ```yaml
 discord:
@@ -146,8 +141,10 @@ discord:
   admin-ids:             # ID пользователей с правами администратора
     - "ADMIN_USER_ID"
 
-ignite3:
-  address: "127.0.0.1:10300"   # Адрес Ignite 3 thin client
+db:
+  url: "jdbc:postgresql://127.0.0.1:5432/bchgrp"
+  username: "bchgrp"
+  password: "ваш_пароль"
 ```
 
 **Токен Discord** передаётся через переменную окружения (не в конфиге):
@@ -164,7 +161,7 @@ export BCHGRP_DISCORD_TOKEN="ваш_токен"
 
 - JDK 25+
 - Maven 3.8+
-- Запущенный кластер Apache Ignite 3.1.0
+- PostgreSQL 16+
 
 ### Сборка
 
@@ -179,6 +176,7 @@ export BCHGRP_DISCORD_TOKEN="ваш_токен_discord"
 java -jar target/bchgrp-1.0-SNAPSHOT-jar-with-dependencies.jar
 ```
 
+Схема БД создаётся автоматически при первом запуске (`schema.sql`).
 
 ---
 
@@ -225,26 +223,23 @@ bch-grp/
 │   ├── App.java                        # Точка входа
 │   ├── BotConfig.java                  # Загрузка конфигурации из application.yml
 │   ├── Constants.java                  # Строковые константы
-│   ├── Ignite3Configurator.java        # Подключение к Ignite 3 thin client
 │   ├── data/                           # Модели данных (Player, Boss, Clan, Item, ...)
 │   ├── eventHandlers/
 │   │   └── MessageHandler.java         # Обработка Discord-сообщений, маршрутизация команд
-│   ├── ignite3/                        # Репозитории и инициализация схемы Ignite 3
-│   │   ├── SchemaInitializer.java      # DDL + миграции (ALTER TABLE)
+│   ├── repository/                     # Репозитории (JDBC + HikariCP) и инициализация схемы
+│   │   ├── SchemaInitializer.java      # Создание таблиц из schema.sql при старте
 │   │   ├── PlayerRepository.java
 │   │   ├── LocationRepository.java
 │   │   ├── ItemRepository.java
 │   │   ├── BossRepository.java
 │   │   ├── IdeaRepository.java
 │   │   └── ClanRepository.java
-│   ├── migration/
-│   │   └── DataMigration.java          # Утилита миграции с Ignite 2 → Ignite 3
+│   ├── command/                        # CommandRegistry + StatusCommand
 │   ├── raid/                           # Логика рейдов
-│   ├── command/                        # Реализации команд и CommandRegistry
-│   └── service/                        # Бизнес-логика (PlayersManager, BattleManager, ...)
+│   ├── service/                        # Бизнес-логика (PlayersManager, BattleManager, ...)
+│   └── util/                           # Утилиты (JsonUtil, ...)
 ├── src/main/resources/
-│   ├── application.yml.example         # Шаблон конфигурации
-│   ├── ignite3-schema.sql              # DDL схема Ignite 3
+│   ├── schema.sql                      # DDL схема PostgreSQL
 │   ├── logback.xml                     # Конфигурация логирования
 │   └── map.png                         # Карта мира
 ├── .github/workflows/deploy.yml        # CI/CD pipeline
