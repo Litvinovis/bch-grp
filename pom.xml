@@ -18,10 +18,10 @@
     <!-- Dependency versions -->
     <junit.version>4.13.2</junit.version>
     <mockito.version>5.23.0</mockito.version>
-    <jda.version>5.6.1</jda.version>
+    <jda.version>6.4.1</jda.version>
     <lombok.version>1.18.46</lombok.version>
     <snakeyaml.version>2.6</snakeyaml.version>
-    <jackson.version>2.21.2</jackson.version>
+    <jackson.version>2.21.3</jackson.version>
     <logback.version>1.5.32</logback.version>
     <slf4j.version>2.0.17</slf4j.version>
 
@@ -34,11 +34,11 @@
   <!-- Security: override vulnerable transitive dependencies -->
   <dependencyManagement>
     <dependencies>
-      <!-- Override jackson-core from JDA: CVE GHSA-72hv-8253-57qq (HIGH) -->
+      <!-- Pin jackson-core to match jackson-databind and fix CVE GHSA-72hv-8253-57qq -->
       <dependency>
         <groupId>com.fasterxml.jackson.core</groupId>
         <artifactId>jackson-core</artifactId>
-        <version>2.21.2</version>
+        <version>2.21.3</version>
       </dependency>
     </dependencies>
   </dependencyManagement>
@@ -81,14 +81,14 @@
     <dependency>
       <groupId>org.postgresql</groupId>
       <artifactId>postgresql</artifactId>
-      <version>42.7.5</version>
+      <version>42.7.11</version>
     </dependency>
 
     <!-- HikariCP — пул соединений JDBC -->
     <dependency>
       <groupId>com.zaxxer</groupId>
       <artifactId>HikariCP</artifactId>
-      <version>6.3.0</version>
+      <version>7.0.2</version>
     </dependency>
 
     <!-- Реализация SLF4J для правильной работы логов -->
