@@ -34,11 +34,11 @@
   <!-- Security: override vulnerable transitive dependencies -->
   <dependencyManagement>
     <dependencies>
-      <!-- Override jackson-core from JDA: CVE GHSA-72hv-8253-57qq (HIGH) -->
+      <!-- Pin jackson-core to match jackson-databind and fix CVE GHSA-72hv-8253-57qq -->
       <dependency>
         <groupId>com.fasterxml.jackson.core</groupId>
         <artifactId>jackson-core</artifactId>
-        <version>2.21.2</version>
+        <version>2.21.3</version>
       </dependency>
     </dependencies>
   </dependencyManagement>
