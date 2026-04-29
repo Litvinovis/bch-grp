@@ -2,14 +2,14 @@ name: Build & Deploy — BCH-GRP Bot
 
 on:
   push:
-    branches: [ master ]
+    branches: [ main ]
   pull_request:
-    branches: [ master ]
+    branches: [ main ]
   workflow_dispatch:
     inputs:
       branch:
         description: 'Branch to deploy'
-        default: 'master'
+        default: 'main'
         required: false
 
 jobs:
