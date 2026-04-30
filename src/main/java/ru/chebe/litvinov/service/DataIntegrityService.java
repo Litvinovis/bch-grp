@@ -2,6 +2,7 @@ package ru.chebe.litvinov.service;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import ru.chebe.litvinov.PlayerProgressTables;
 import ru.chebe.litvinov.data.Location;
 import ru.chebe.litvinov.data.Player;
 import ru.chebe.litvinov.repository.PlayerRepository;
@@ -17,8 +18,8 @@ public class DataIntegrityService {
 
     private static final Logger log = LoggerFactory.getLogger(DataIntegrityService.class);
 
-    private static final Map<Integer, Integer> XP_MAP = buildXpMap();
-    private static final Map<Integer, Integer> HP_MAP = buildHpMap();
+    private static final Map<Integer, Integer> XP_MAP = PlayerProgressTables.XP_MAP;
+    private static final Map<Integer, Integer> HP_MAP = PlayerProgressTables.HP_MAP;
 
     private final PlayerRepository playerRepository;
     private final LocationManager locationManager;
@@ -125,25 +126,4 @@ public class DataIntegrityService {
         return map;
     }
 
-    // ---- level tables (same formula as PlayersManager) --------------------------
-
-    private static Map<Integer, Integer> buildXpMap() {
-        Map<Integer, Integer> map = new HashMap<>();
-        int xp = 100;
-        for (int i = 2; i <= 100; i++) {
-            map.put(i, xp);
-            xp += 100;
-        }
-        return map;
-    }
-
-    private static Map<Integer, Integer> buildHpMap() {
-        Map<Integer, Integer> map = new HashMap<>();
-        int hp = 100;
-        for (int i = 1; i <= 100; i++) {
-            map.put(i, hp);
-            hp += 10;
-        }
-        return map;
-    }
 }
