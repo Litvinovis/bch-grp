@@ -13,6 +13,8 @@ import ru.chebe.litvinov.repository.PlayerRepository;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.ToIntFunction;
+import java.util.function.ObjIntConsumer;
 import java.util.stream.Collectors;
 
 import static ru.chebe.litvinov.Constants.MIN_LVL_TO_CLAN_CREATE;
@@ -36,13 +38,8 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 	private final NpcManager npcManager;
 	private final Random random = new Random();
 
-	/**
-	 * Per-player ReentrantLock для атомарных read-modify-write операций.
-	 * Использование единой стратегии ReentrantLock (без смешения с synchronized).
-	 */
 	private final ConcurrentHashMap<String, ReentrantLock> playerLocks = new ConcurrentHashMap<>();
-	/** Ожидающие дуэли: challengedId → challengerId */
-	private final ConcurrentHashMap<String, String> pendingDuels = new ConcurrentHashMap<>();
+	private final DuelService duelService;
 
 	private ReentrantLock getPlayerLock(String id) {
 		return playerLocks.computeIfAbsent(id, k -> new ReentrantLock());
@@ -77,6 +74,7 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		this.clanManager = clanManager;
 		this.tavern = tavern;
 		this.npcManager = npcManager;
+		this.duelService = new DuelService(playerCache, this::getPlayerLock, this::unlockAchievement);
 	}
 
 	/**
@@ -191,21 +189,7 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 	 * @return актуальное количество денег после изменения
 	 */
 	public int changeMoney(String id, int money, boolean increase) {
-		ReentrantLock lock = getPlayerLock(id);
-		lock.lock();
-		try {
-			var player = playerCache.get(id);
-			if (player == null) return 0;
-			if (increase) {
-				player.setMoney(player.getMoney() + money);
-			} else {
-				player.setMoney(player.getMoney() - money);
-			}
-			playerCache.put(id, player);
-			return player.getMoney();
-		} finally {
-			lock.unlock();
-		}
+		return mutate(id, Player::getMoney, Player::setMoney, money, increase);
 	}
 
 	/**
@@ -217,21 +201,7 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 	 * @return актуальное значение репутации после изменения
 	 */
 	public int changeReputation(String id, int reputation, boolean increase) {
-		ReentrantLock lock = getPlayerLock(id);
-		lock.lock();
-		try {
-			var player = playerCache.get(id);
-			if (player == null) return 0;
-			if (increase) {
-				player.setReputation(player.getReputation() + reputation);
-			} else {
-				player.setReputation(player.getReputation() - reputation);
-			}
-			playerCache.put(id, player);
-			return player.getReputation();
-		} finally {
-			lock.unlock();
-		}
+		return mutate(id, Player::getReputation, Player::setReputation, reputation, increase);
 	}
 
 	/**
@@ -532,19 +502,7 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 	}
 
 	private int changeArmor(String id, int armor, boolean increase) {
-		ReentrantLock lock = getPlayerLock(id);
-		lock.lock();
-		try {
-			Player player = playerCache.get(id);
-			if (player == null) return 0;
-			player.setArmor(increase ?
-							player.getArmor() + armor :
-							player.getArmor() - armor);
-			playerCache.put(id, player);
-			return player.getArmor();
-		} finally {
-			lock.unlock();
-		}
+		return mutate(id, Player::getArmor, Player::setArmor, armor, increase);
 	}
 
 	/**
@@ -556,21 +514,7 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 	 * @return актуальное значение удачи после изменения
 	 */
 	public int changeLuck(String id, int luck, boolean increase) {
-		ReentrantLock lock = getPlayerLock(id);
-		lock.lock();
-		try {
-			var player = playerCache.get(id);
-			if (player == null) return 0;
-			if (increase) {
-				player.setLuck(player.getLuck() + luck);
-			} else {
-				player.setLuck(player.getLuck() - luck);
-			}
-			playerCache.put(id, player);
-			return player.getLuck();
-		} finally {
-			lock.unlock();
-		}
+		return mutate(id, Player::getLuck, Player::setLuck, luck, increase);
 	}
 
 	/**
@@ -582,18 +526,18 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 	 * @return актуальное значение силы после изменения
 	 */
 	public int changeStrength(String id, int strength, boolean increase) {
+		return mutate(id, Player::getStrength, Player::setStrength, strength, increase);
+	}
+
+	private int mutate(String id, ToIntFunction<Player> get, ObjIntConsumer<Player> set, int delta, boolean increase) {
 		ReentrantLock lock = getPlayerLock(id);
 		lock.lock();
 		try {
-			var player = playerCache.get(id);
+			Player player = playerCache.get(id);
 			if (player == null) return 0;
-			if (increase) {
-				player.setStrength(player.getStrength() + strength);
-			} else {
-				player.setStrength(player.getStrength() - strength);
-			}
+			set.accept(player, increase ? get.applyAsInt(player) + delta : get.applyAsInt(player) - delta);
 			playerCache.put(id, player);
-			return player.getStrength();
+			return get.applyAsInt(player);
 		} finally {
 			lock.unlock();
 		}
@@ -1385,105 +1329,14 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		}
 	}
 
-	/**
-	 * Вызов игрока на дуэль.
-	 * Синтаксис: +вызов @игрок
-	 */
-	public void challengeDuel(MessageReceivedEvent event) {
-		var mentions = event.getMessage().getMentions().getUsers();
-		if (mentions.isEmpty()) {
-			event.getChannel().sendMessage("Укажите соперника: +вызов @игрок").submit();
-			return;
-		}
-		String challengerId = event.getAuthor().getId();
-		String challengedId = mentions.get(0).getId();
+	/** Вызов игрока на дуэль (+вызов @игрок). */
+	public void challengeDuel(MessageReceivedEvent event) { duelService.challengeDuel(event); }
 
-		if (challengerId.equals(challengedId)) {
-			event.getChannel().sendMessage("Нельзя вызвать самого себя на дуэль.").submit();
-			return;
-		}
-		if (!playerCache.contains(challengedId)) {
-			event.getChannel().sendMessage("Игрок не зарегистрирован в игре.").submit();
-			return;
-		}
-		if (pendingDuels.containsKey(challengedId)) {
-			event.getChannel().sendMessage("У этого игрока уже есть активный вызов на дуэль.").submit();
-			return;
-		}
-		pendingDuels.put(challengedId, challengerId);
-		Player challenger = playerCache.get(challengerId);
-		event.getChannel().sendMessage(mentions.get(0).getAsMention() + ", **" + challenger.getNickName()
-				+ "** вызывает вас на дуэль! Напишите `+принять` или `+отказать`.").submit();
-	}
+	/** Принять вызов на дуэль (+принять). */
+	public void acceptDuel(MessageReceivedEvent event) { duelService.acceptDuel(event); }
 
-	/**
-	 * Принять вызов на дуэль.
-	 */
-	public void acceptDuel(MessageReceivedEvent event) {
-		String challengedId = event.getAuthor().getId();
-		String challengerId = pendingDuels.remove(challengedId);
-		if (challengerId == null) {
-			event.getChannel().sendMessage("У вас нет активных вызовов на дуэль.").submit();
-			return;
-		}
-		if (!playerCache.contains(challengerId)) {
-			event.getChannel().sendMessage("Противник больше не в игре.").submit();
-			return;
-		}
-
-		boolean challengerFirst = challengerId.compareTo(challengedId) < 0;
-		ReentrantLock first = challengerFirst ? getPlayerLock(challengerId) : getPlayerLock(challengedId);
-		ReentrantLock second = challengerFirst ? getPlayerLock(challengedId) : getPlayerLock(challengerId);
-		first.lock();
-		try {
-			second.lock();
-			try {
-				Player challenger = playerCache.get(challengerId);
-				Player challenged = playerCache.get(challengedId);
-
-				int challengerRoll = challenger.getStrength() + random.nextInt(Math.max(challenger.getLuck(), 1)) + random.nextInt(20) + 1;
-				int challengedRoll = challenged.getStrength() + random.nextInt(Math.max(challenged.getLuck(), 1)) + random.nextInt(20) + 1;
-
-				Player winner = challengerRoll >= challengedRoll ? challenger : challenged;
-				Player loser = challengerRoll >= challengedRoll ? challenged : challenger;
-
-				int prize = 100;
-				winner.setMoney(winner.getMoney() + prize);
-				loser.setMoney(Math.max(0, loser.getMoney() - prize / 2));
-				winner.setReputation(winner.getReputation() + 5);
-				unlockAchievement(winner, "дуэлянт");
-
-				playerCache.put(challenger.getId(), challenger);
-				playerCache.put(challenged.getId(), challenged);
-
-				event.getChannel().sendMessage(String.format(
-						"Дуэль: **%s** (бросок %d) vs **%s** (бросок %d)\nПобедитель: **%s** (+%d монет, +5 репутации)\nПроигравший: **%s** (-%d монет)",
-						challenger.getNickName(), challengerRoll,
-						challenged.getNickName(), challengedRoll,
-						winner.getNickName(), prize,
-						loser.getNickName(), prize / 2
-				)).submit();
-			} finally {
-				second.unlock();
-			}
-		} finally {
-			first.unlock();
-		}
-	}
-
-	/**
-	 * Отказаться от дуэли.
-	 */
-	public void declineDuel(MessageReceivedEvent event) {
-		String challengedId = event.getAuthor().getId();
-		String challengerId = pendingDuels.remove(challengedId);
-		if (challengerId == null) {
-			event.getChannel().sendMessage("У вас нет активных вызовов на дуэль.").submit();
-			return;
-		}
-		Player challenged = playerCache.get(challengedId);
-		event.getChannel().sendMessage("**" + challenged.getNickName() + "** отказался от дуэли. Трус!").submit();
-	}
+	/** Отказаться от дуэли (+отказать). */
+	public void declineDuel(MessageReceivedEvent event) { duelService.declineDuel(event); }
 
 	// ---- achievements helpers ----
 
