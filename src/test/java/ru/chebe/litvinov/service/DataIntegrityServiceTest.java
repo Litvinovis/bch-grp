@@ -105,19 +105,19 @@ public class DataIntegrityServiceTest {
 
     @Test
     public void checkAndFix_multipleLevelUpsAtOnce_allApplied() {
-        // xpMap: level 2→100, level 3→200, level 4→300
-        // level=1, exp=350, expToNextLvl=100
-        // lvl1→2: spend 100, remain 250, expToNext=xpMap[2]=100
-        // lvl2→3: spend 100, remain 150, expToNext=xpMap[3]=200
-        // lvl3: 150 < 200, stop → lvl3, exp=150
-        Player p = playerWith("p1", "мейн", 1, 100, 100, 350, 100);
+        // xpMap (quadratic i*i*80): XP_MAP[2]=320, XP_MAP[3]=720
+        // level=1, exp=800, expToNextLvl=320
+        // lvl1→2: spend 320, remain 480, expToNext=XP_MAP[2]=320
+        // lvl2→3: spend 320, remain 160, expToNext=XP_MAP[3]=720
+        // lvl3: 160 < 720, stop → lvl3, exp=160
+        Player p = playerWith("p1", "мейн", 1, 100, 100, 800, 320);
         when(playerRepository.getAll()).thenReturn(List.of(p));
         stubEmptyLocations();
 
         service.checkAndFix();
 
         assertEquals(3, p.getLevel());
-        assertEquals(150, p.getExp());
+        assertEquals(160, p.getExp());
         verify(playerRepository).put("p1", p);
     }
 
