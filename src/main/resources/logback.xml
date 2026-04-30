@@ -1,6 +1,5 @@
 <!-- Для подключения используйте ключ -Dlogback.configurationFile=path/to/logback.xml -->
 <configuration scan="true">
-    <jmxConfigurator />
 
     <appender name="TECH-LOG" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>logs/TECH-LOG.log</file>
