@@ -52,8 +52,3 @@ Thumbs.db
 logs/
 *.log
 *.log.gz
-
-### Apache Ignite ###
-ignite/work/
-ignite/*/work/
-/tmp/ignite-*/

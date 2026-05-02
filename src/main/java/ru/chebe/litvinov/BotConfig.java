@@ -25,9 +25,9 @@ public record BotConfig(
 
             List<String> channelIds = readStringList(root, "discord", "allowed-channel-ids");
             List<String> adminIds   = readStringList(root, "discord", "admin-ids");
-            String dbUrl      = readString(root, "db", "url",      "jdbc:postgresql://127.0.0.1:5432/bchgrp");
-            String dbUsername = readString(root, "db", "username", "bchgrp");
-            String dbPassword = readString(root, "db", "password", "");
+            String dbUrl      = envOr("DB_URL",      readString(root, "db", "url",      "jdbc:postgresql://127.0.0.1:5432/bchgrp"));
+            String dbUsername = envOr("DB_USERNAME", readString(root, "db", "username", "bchgrp"));
+            String dbPassword = envOr("DB_PASSWORD", readString(root, "db", "password", ""));
 
             return new BotConfig(channelIds, adminIds, dbUrl, dbUsername, dbPassword);
         } catch (Exception e) {
@@ -52,6 +52,11 @@ public record BotConfig(
     }
 
     @SuppressWarnings("unchecked")
+    private static String envOr(String envKey, String fallback) {
+        String val = System.getenv(envKey);
+        return (val != null && !val.isBlank()) ? val : fallback;
+    }
+
     private static String readString(Map<String, Object> root, String section, String key, String def) {
         Object secObj = root.get(section);
         if (!(secObj instanceof Map<?, ?> sec)) return def;
