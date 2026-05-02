@@ -46,6 +46,8 @@ public class App {
         hikariConfig.setConnectionTimeout(30000);
         hikariConfig.setIdleTimeout(600000);
         hikariConfig.setMaxLifetime(1800000);
+        hikariConfig.setKeepaliveTime(30_000);
+        hikariConfig.setInitializationFailTimeout(-1);
         DataSource dataSource = new HikariDataSource(hikariConfig);
         logger.info("Пул соединений PostgreSQL инициализирован");
 
