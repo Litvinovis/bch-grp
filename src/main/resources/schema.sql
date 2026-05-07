@@ -23,7 +23,8 @@ CREATE TABLE IF NOT EXISTS players (
     clan_name     TEXT NOT NULL DEFAULT '',
     daily_streak  INTEGER NOT NULL DEFAULT 0,
     player_class  TEXT NOT NULL DEFAULT '',
-    achievements  TEXT NOT NULL DEFAULT '[]'
+    achievements  TEXT NOT NULL DEFAULT '[]',
+    active_buffs  TEXT NOT NULL DEFAULT '{}'
 );
 
 CREATE TABLE IF NOT EXISTS locations (

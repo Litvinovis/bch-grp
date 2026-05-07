@@ -49,6 +49,21 @@ public final class JsonUtil {
     }
 
     /**
+     * Десериализует JSON-строку в Map&lt;String, Long&gt;.
+     *
+     * @param json JSON-строка
+     * @return десериализованная Map или пустая Map при ошибке/null
+     */
+    public static Map<String, Long> fromJsonToMapStringLong(String json) {
+        if (json == null || json.isBlank()) return new HashMap<>();
+        try {
+            return MAPPER.readValue(json, new TypeReference<Map<String, Long>>() {});
+        } catch (IOException e) {
+            return new HashMap<>();
+        }
+    }
+
+    /**
      * Десериализует JSON-строку в List&lt;String&gt;.
      *
      * @param json JSON-строка

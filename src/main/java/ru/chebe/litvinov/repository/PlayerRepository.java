@@ -9,6 +9,7 @@ import ru.chebe.litvinov.util.JsonUtil;
 import javax.sql.DataSource;
 import java.sql.*;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -28,7 +29,7 @@ public class PlayerRepository {
         try (Connection conn = dataSource.getConnection();
              PreparedStatement ps = conn.prepareStatement(
                  "SELECT id, nick_name, hp, max_hp, luck, money, reputation, armor, strength, location, level, " +
-                 "player_exp, exp_to_next, inventory, answer, active_event, daily_time, clan_name, daily_streak, player_class, achievements FROM players");
+                 "player_exp, exp_to_next, inventory, answer, active_event, daily_time, clan_name, daily_streak, player_class, achievements, active_buffs FROM players");
              ResultSet rs = ps.executeQuery()) {
             while (rs.next()) result.add(mapRow(rs));
         } catch (Exception e) {
@@ -41,7 +42,7 @@ public class PlayerRepository {
         try (Connection conn = dataSource.getConnection();
              PreparedStatement ps = conn.prepareStatement(
                  "SELECT id, nick_name, hp, max_hp, luck, money, reputation, armor, strength, location, level, " +
-                 "player_exp, exp_to_next, inventory, answer, active_event, daily_time, clan_name, daily_streak, player_class, achievements FROM players WHERE id = ?")) {
+                 "player_exp, exp_to_next, inventory, answer, active_event, daily_time, clan_name, daily_streak, player_class, achievements, active_buffs FROM players WHERE id = ?")) {
             ps.setString(1, id);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) return mapRow(rs);
@@ -68,15 +69,15 @@ public class PlayerRepository {
         try (Connection conn = dataSource.getConnection();
              PreparedStatement ps = conn.prepareStatement(
                  "INSERT INTO players (id, nick_name, hp, max_hp, luck, money, reputation, armor, strength, location, level, " +
-                 "player_exp, exp_to_next, inventory, answer, active_event, daily_time, clan_name, daily_streak, player_class, achievements) " +
-                 "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) " +
+                 "player_exp, exp_to_next, inventory, answer, active_event, daily_time, clan_name, daily_streak, player_class, achievements, active_buffs) " +
+                 "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) " +
                  "ON CONFLICT (id) DO UPDATE SET " +
                  "nick_name=EXCLUDED.nick_name, hp=EXCLUDED.hp, max_hp=EXCLUDED.max_hp, luck=EXCLUDED.luck, " +
                  "money=EXCLUDED.money, reputation=EXCLUDED.reputation, armor=EXCLUDED.armor, strength=EXCLUDED.strength, " +
                  "location=EXCLUDED.location, level=EXCLUDED.level, player_exp=EXCLUDED.player_exp, exp_to_next=EXCLUDED.exp_to_next, " +
                  "inventory=EXCLUDED.inventory, answer=EXCLUDED.answer, active_event=EXCLUDED.active_event, " +
                  "daily_time=EXCLUDED.daily_time, clan_name=EXCLUDED.clan_name, daily_streak=EXCLUDED.daily_streak, " +
-                 "player_class=EXCLUDED.player_class, achievements=EXCLUDED.achievements")) {
+                 "player_class=EXCLUDED.player_class, achievements=EXCLUDED.achievements, active_buffs=EXCLUDED.active_buffs")) {
             ps.setString(1, id);
             ps.setString(2, player.getNickName());
             ps.setInt(3, player.getHp());
@@ -98,6 +99,7 @@ public class PlayerRepository {
             ps.setInt(19, player.getDailyStreak());
             ps.setString(20, player.getPlayerClass() != null ? player.getPlayerClass() : "");
             ps.setString(21, JsonUtil.toJson(player.getAchievements() != null ? player.getAchievements() : new ArrayList<>()));
+            ps.setString(22, JsonUtil.toJson(player.getActiveBuffs() != null ? player.getActiveBuffs() : new HashMap<>()));
             ps.executeUpdate();
         } catch (Exception e) {
             log.error("Ошибка put({}): {}", id, e.getMessage());
@@ -136,6 +138,7 @@ public class PlayerRepository {
         p.setPlayerClass(rs.getString("player_class") != null ? rs.getString("player_class") : "");
         p.setAchievements(JsonUtil.fromJsonToListString(rs.getString("achievements")));
         p.setInventory(JsonUtil.fromJsonToMapStringInt(rs.getString("inventory")));
+        p.setActiveBuffs(JsonUtil.fromJsonToMapStringLong(rs.getString("active_buffs")));
 
         String eventJson = rs.getString("active_event");
         if (eventJson != null && !eventJson.isBlank() && !eventJson.equals("null")) {
