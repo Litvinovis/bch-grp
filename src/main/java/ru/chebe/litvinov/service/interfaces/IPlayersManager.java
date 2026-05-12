@@ -237,4 +237,7 @@ public interface IPlayersManager {
 
     /** Отказаться от дуэли. */
     void declineDuel(MessageReceivedEvent event);
+
+    /** Показывает ежедневные квесты игрока. */
+    void showDailyQuests(MessageReceivedEvent event);
 }

@@ -12,6 +12,7 @@ import ru.chebe.litvinov.command.*;
 import ru.chebe.litvinov.data.Player;
 import ru.chebe.litvinov.repository.*;
 import ru.chebe.litvinov.raid.RaidManager;
+import ru.chebe.litvinov.repository.DailyQuestRepository;
 import ru.chebe.litvinov.service.*;
 
 import java.util.Optional;
@@ -63,6 +64,10 @@ public class MessageHandler extends ListenerAdapter {
 		NpcManager npcManager = new NpcManager();
 		this.playersManager = new PlayersManager(playerRepository, locationManager, itemsManager,
 				battleManager, new EventsManager(), clanManager, new Tavern(), npcManager);
+
+		DailyQuestRepository dailyQuestRepository = new DailyQuestRepository(dataSource);
+		DailyQuestService dailyQuestService = new DailyQuestService(dailyQuestRepository, this.playersManager);
+		this.playersManager.setDailyQuestService(dailyQuestService);
 
 		this.raidManager = new RaidManager(battleManager, playersManager, this.allowedChannelIds);
 
@@ -230,6 +235,7 @@ public class MessageHandler extends ListenerAdapter {
 						+убить босса - атаковать босса текущей локации
 						+пвп - атаковать случайного игрока текущей локации (только в PVP зонах)
 						+бонус - получить ежедневный бонус (стрик: 3 дня = +50 монет, 7 дней = редкий предмет)
+						+дневные - показать ежедневные квесты (3 квеста в день, бонус за все: +300 XP, +200 монет)
 
 						Классы и прогресс:
 						+класс (воин/разбойник/маг) - выбрать класс с 5 уровня (один раз)

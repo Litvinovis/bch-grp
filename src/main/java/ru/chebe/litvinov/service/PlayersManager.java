@@ -3,6 +3,7 @@ package ru.chebe.litvinov.service;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import ru.chebe.litvinov.data.DailyQuest;
 import ru.chebe.litvinov.data.Event;
 import ru.chebe.litvinov.data.Item;
 import ru.chebe.litvinov.data.Location;
@@ -43,6 +44,12 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 
 	private final ConcurrentHashMap<String, ReentrantLock> playerLocks = new ConcurrentHashMap<>();
 	private final DuelService duelService;
+	private DailyQuestService dailyQuestService;
+
+	/** Устанавливает сервис ежедневных квестов (вызывается после конструктора). */
+	public void setDailyQuestService(DailyQuestService dailyQuestService) {
+		this.dailyQuestService = dailyQuestService;
+	}
 
 	private ReentrantLock getPlayerLock(String id) {
 		return playerLocks.computeIfAbsent(id, k -> new ReentrantLock());
@@ -583,7 +590,12 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 			event.getChannel().sendMessage("Я ж вижу, что у тебя таких денег отродясь не было, а нанимать ябыса трясти с тебя долг я не хочу").submit();
 			return;
 		}
+		int moneyBeforeDice = player.getMoney();
 		player = tavern.diceStart(event, player, bid);
+		if (player.getMoney() > moneyBeforeDice) {
+			questProgress(player.getId(), "WIN_TAVERN", 1);
+			questProgress(player.getId(), "EARN_GOLD", player.getMoney() - moneyBeforeDice);
+		}
 		playerCache.put(player.getId(), player);
 	}
 
@@ -769,6 +781,8 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 			event.getChannel().sendMessage("🏆 **Победа над " + bot.getNickName() + "!**\n💰 +" + bot.getMoneyReward() + " монет  ✨ +" + bot.getXpReward() + " опыта").submit();
 			changeMoney(playerId, bot.getMoneyReward(), true);
 			changeXp(playerId, bot.getXpReward());
+			questProgress(playerId, "KILL_NPC", 1);
+			questProgress(playerId, "EARN_GOLD", bot.getMoneyReward());
 			npcManager.respawnBot(bot);
 		} else {
 			int level = player.getLevel();
@@ -807,6 +821,7 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 			playerCache.put(playerId, player);
 			changeMoney(playerId, activeEvent.getMoneyReward(), true);
 			changeXp(playerId, activeEvent.getXpReward());
+			questProgress(playerId, "EARN_GOLD", activeEvent.getMoneyReward());
 			event.getChannel().sendMessage("Ты успешно завершил свой квест, опыт " + activeEvent.getXpReward() + " и деньги " + activeEvent.getMoneyReward() + " зачислены на твой счёт").submit();
 		} else {
 			event.getChannel().sendMessage("Ты не выполнил условия квеста или ответил неправильно!").submit();
@@ -865,10 +880,13 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 			battleManager.bossBattle(playersAsPerson, loc.getBoss(), event.getChannel());
 			for (Person play : players) {
 				if (play.getHp() > 0) {
-					changeXp(((Player) play).getId(), GameBalance.BOSS_KILL_XP);
-					changeMoney(((Player) play).getId(), GameBalance.BOSS_KILL_MONEY, true);
+					String winnerId = ((Player) play).getId();
+					changeXp(winnerId, GameBalance.BOSS_KILL_XP);
+					changeMoney(winnerId, GameBalance.BOSS_KILL_MONEY, true);
+					questProgress(winnerId, "DEFEAT_BOSS", 1);
+					questProgress(winnerId, "EARN_GOLD", GameBalance.BOSS_KILL_MONEY);
 					String bossItem = battleManager.getBossItemName(loc.getBoss());
-					addNewItem(((Player) play).getId(), bossItem);
+					addNewItem(winnerId, bossItem);
 					event.getChannel().sendMessage("В твой инвентарь добавлен предмет " + bossItem).submit();
 				} else {
 					deathOfPlayer(((Player) play));
@@ -999,6 +1017,17 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		} finally {
 			lock.unlock();
 		}
+	}
+
+	/**
+	 * Показывает ежедневные квесты игрока.
+	 *
+	 * @param event событие Discord-сообщения
+	 */
+	public void showDailyQuests(MessageReceivedEvent event) {
+		String id = event.getAuthor().getId();
+		DailyQuest quests = dailyQuestService.getDailyQuests(id);
+		event.getChannel().sendMessage(dailyQuestService.formatQuests(quests)).submit();
 	}
 
 	/**
@@ -1349,6 +1378,13 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		};
 	}
 
+	/** Безопасно увеличивает прогресс ежедневного квеста (игнорирует если сервис не задан). */
+	private void questProgress(String userId, String type, int amount) {
+		if (dailyQuestService != null) {
+			dailyQuestService.incrementProgress(userId, type, amount);
+		}
+	}
+
 	// Возвращает список игроков клана в текущей локации
 	private List<Player> getPlayersByClan(Player player) {
 		return clanManager.getClanMembers(player.getClanName()).stream()
@@ -1378,7 +1414,12 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		try {
 			int bid = Integer.parseInt(parts[1]);
 			String bet = parts[2];
+			int moneyBeforeRoulette = player.getMoney();
 			player = tavern.playRoulette(event, player, bid, bet);
+			if (player.getMoney() > moneyBeforeRoulette) {
+				questProgress(player.getId(), "WIN_TAVERN", 1);
+				questProgress(player.getId(), "EARN_GOLD", player.getMoney() - moneyBeforeRoulette);
+			}
 			playerCache.put(player.getId(), player);
 		} catch (NumberFormatException e) {
 			event.getChannel().sendMessage("Неверный формат ставки!").queue();
@@ -1406,7 +1447,12 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		try {
 			int bid = Integer.parseInt(parts[1]);
 			String choice = parts[2];
+			int moneyBeforeKnb = player.getMoney();
 			player = tavern.rockPaperScissors(event, player, bid, choice);
+			if (player.getMoney() > moneyBeforeKnb) {
+				questProgress(player.getId(), "WIN_TAVERN", 1);
+				questProgress(player.getId(), "EARN_GOLD", player.getMoney() - moneyBeforeKnb);
+			}
 			playerCache.put(player.getId(), player);
 		} catch (NumberFormatException e) {
 			event.getChannel().sendMessage("Неверный формат ставки!").queue();
@@ -1434,18 +1480,22 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		try {
 			int bid = Integer.parseInt(parts[1]);
 			int guess = Integer.parseInt(parts[2]);
-			
+
 			if (guess < 1 || guess > 10) {
 				event.getChannel().sendMessage("Число должно быть от 1 до 10!").queue();
 				return;
 			}
-			
+
 			int moneyBefore = player.getMoney();
 			player = tavern.guessTheNumber(event, player, bid, guess);
 			// Квест «Везунчик»: победа зафиксирована по увеличению денег сверх ставки
 			if (player.getMoney() > moneyBefore && player.getActiveEvent() != null
 					&& "Везунчик".equals(player.getActiveEvent().getType())) {
 				player.getActiveEvent().setAttempt(1);
+			}
+			if (player.getMoney() > moneyBefore) {
+				questProgress(player.getId(), "WIN_TAVERN", 1);
+				questProgress(player.getId(), "EARN_GOLD", player.getMoney() - moneyBefore);
 			}
 			playerCache.put(player.getId(), player);
 		} catch (NumberFormatException e) {

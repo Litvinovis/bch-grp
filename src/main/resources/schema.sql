@@ -77,3 +77,22 @@ CREATE TABLE IF NOT EXISTS clans (
     members   TEXT NOT NULL DEFAULT '[]',
     appliers  TEXT NOT NULL DEFAULT '[]'
 );
+
+CREATE TABLE IF NOT EXISTS daily_quests (
+    user_id          TEXT NOT NULL,
+    quest_date       DATE NOT NULL DEFAULT CURRENT_DATE,
+    quest1_type      TEXT NOT NULL,
+    quest1_progress  INTEGER NOT NULL DEFAULT 0,
+    quest1_required  INTEGER NOT NULL,
+    quest1_done      BOOLEAN NOT NULL DEFAULT FALSE,
+    quest2_type      TEXT NOT NULL,
+    quest2_progress  INTEGER NOT NULL DEFAULT 0,
+    quest2_required  INTEGER NOT NULL,
+    quest2_done      BOOLEAN NOT NULL DEFAULT FALSE,
+    quest3_type      TEXT NOT NULL,
+    quest3_progress  INTEGER NOT NULL DEFAULT 0,
+    quest3_required  INTEGER NOT NULL,
+    quest3_done      BOOLEAN NOT NULL DEFAULT FALSE,
+    bonus_claimed    BOOLEAN NOT NULL DEFAULT FALSE,
+    PRIMARY KEY (user_id, quest_date)
+);
