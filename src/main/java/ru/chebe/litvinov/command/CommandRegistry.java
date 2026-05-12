@@ -127,6 +127,9 @@ public class CommandRegistry {
         // --- Бонус ---
         registry.register("+бонус", playersManager::dailyBonus);
 
+        // --- Дневные квесты ---
+        registry.register("+дневные", playersManager::showDailyQuests);
+
         // --- Таблица лидеров ---
         registry.register("+топ", playersManager::topLeaderboard);
 
