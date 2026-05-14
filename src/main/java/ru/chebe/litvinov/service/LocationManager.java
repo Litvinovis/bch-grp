@@ -107,7 +107,12 @@ public class LocationManager implements ru.chebe.litvinov.service.interfaces.ILo
 	public void locationInfo(MessageReceivedEvent event, String currentLocation) {
 		String target = event.getMessage().getContentDisplay().substring(8).trim().toLowerCase();
 		if (target.equals("моя")) {
-			event.getChannel().sendMessage(locationCache.get(currentLocation).toString()).submit();
+			var loc = locationCache.get(currentLocation);
+			if (loc == null) {
+				event.getChannel().sendMessage("Информация о текущей локации не найдена").submit();
+			} else {
+				event.getChannel().sendMessage(loc.toString()).submit();
+			}
 		} else if (locationCache.get(target) != null) {
 			event.getChannel().sendMessage(locationCache.get(target).toString()).submit();
 		} else {

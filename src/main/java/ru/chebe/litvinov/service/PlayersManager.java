@@ -176,6 +176,8 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 	public void getInventoryInfo(MessageReceivedEvent event) {
 		String id = event.getMessage().getAuthor().getId();
 		var player = playerCache.get(id);
+		purgeExpiredItems(id, player);
+		player = playerCache.get(id);
 		String itemName = event.getMessage().getContentDisplay().substring(10).trim();
 		if (itemName.isEmpty()) {
 			if (player.getInventory().isEmpty()) {
@@ -389,16 +391,34 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		String message = event.getMessage().getContentDisplay().substring(13).trim().toLowerCase();
 		if (player.getInventory().containsKey(message.toLowerCase())) {
 			Item item = itemsManager.getItem(message);
+			if (item.getExpireTime() != 0 && item.getExpireTime() < System.currentTimeMillis()) {
+				deleteItem(playerId, item.getName());
+				event.getChannel().sendMessage("Предмет **" + item.getName() + "** истёк и был удалён из инвентаря").submit();
+				return;
+			}
 			if (item.isAction()) {
 				boolean hasBuff = item.getArmor() > 0 || item.getLuck() > 0
 						|| item.getStrength() > 0 || item.getReputation() > 0;
 
 				if (hasBuff) {
-					String conflicting = findActiveBuffOfSameType(player, item);
-					if (conflicting != null) {
-						event.getChannel().sendMessage("❌ У тебя уже активен бафф **" + conflicting + "** того же типа. Дождись его окончания.").submit();
-						return;
+					ReentrantLock lock = getPlayerLock(playerId);
+					lock.lock();
+					try {
+						Player p = playerCache.get(playerId);
+						if (p == null) return;
+						if (p.getActiveBuffs() == null) p.setActiveBuffs(new java.util.HashMap<>());
+						// Re-check conflict inside lock so check-and-set is atomic
+						String conflicting = findActiveBuffOfSameType(p, item);
+						if (conflicting != null) {
+							event.getChannel().sendMessage("❌ У тебя уже активен бафф **" + conflicting + "** того же типа. Дождись его окончания.").submit();
+							return;
+						}
+						p.getActiveBuffs().put(item.getName(), System.currentTimeMillis() + BUFF_DURATION_MS);
+						playerCache.put(playerId, p);
+					} finally {
+						lock.unlock();
 					}
+					event.getChannel().sendMessage("Бафф **" + item.getName() + "** активен 30 минут").submit();
 				}
 
 				if (item.getHealth() > 0) {
@@ -420,23 +440,6 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 				if (item.getReputation() > 0) {
 					int rep = changeReputation(playerId, item.getReputation(), true);
 					event.getChannel().sendMessage("Теперь у тебя " + rep + " репутации").submit();
-				}
-
-				if (hasBuff) {
-					// Сохраняем бафф с временем истечения
-					ReentrantLock lock = getPlayerLock(playerId);
-					lock.lock();
-					try {
-						Player p = playerCache.get(playerId);
-						if (p != null) {
-							if (p.getActiveBuffs() == null) p.setActiveBuffs(new java.util.HashMap<>());
-							p.getActiveBuffs().put(item.getName(), System.currentTimeMillis() + BUFF_DURATION_MS);
-							playerCache.put(playerId, p);
-						}
-					} finally {
-						lock.unlock();
-					}
-					event.getChannel().sendMessage("Бафф **" + item.getName() + "** активен 30 минут").submit();
 				}
 
 				deleteItem(playerId, item.getName());
@@ -826,7 +829,14 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 			changeMoney(playerId, activeEvent.getMoneyReward(), true);
 			changeXp(playerId, activeEvent.getXpReward());
 			questProgress(playerId, "EARN_GOLD", activeEvent.getMoneyReward());
-			event.getChannel().sendMessage("Ты успешно завершил свой квест, опыт " + activeEvent.getXpReward() + " и деньги " + activeEvent.getMoneyReward() + " зачислены на твой счёт").submit();
+			StringBuilder reward = new StringBuilder("Ты успешно завершил свой квест! Опыт: ")
+					.append(activeEvent.getXpReward()).append(", монеты: ").append(activeEvent.getMoneyReward());
+			String itemReward = activeEvent.getItemReward();
+			if (itemReward != null && !itemReward.isBlank()) {
+				addNewItem(playerId, itemReward);
+				reward.append(", предмет: **").append(itemReward).append("**");
+			}
+			event.getChannel().sendMessage(reward.toString()).submit();
 		} else {
 			event.getChannel().sendMessage("Ты не выполнил условия квеста или ответил неправильно!").submit();
 		}
@@ -1097,15 +1107,13 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		String clanName = event.getMessage().getContentDisplay().substring(16).trim().toLowerCase();
 		var player = playerCache.get(event.getAuthor().getId());
 		if (player.getLevel() < MIN_LVL_TO_CLAN_JOIN) {
-			event.getChannel().sendMessage("Вы не можете присоединиться к клану раньше, чем достигните 10 уровня").submit();
+			event.getChannel().sendMessage("Вы не можете присоединиться к клану раньше, чем достигните " + MIN_LVL_TO_CLAN_JOIN + " уровня").submit();
 			return;
 		}
 		if (player.getClanName() == null || player.getClanName().isEmpty()) {
 			String result = clanManager.joinClan(clanName, player.getId());
-			if (!result.isEmpty()) {
-				player.setClanName(result);
-				playerCache.put(player.getId(), player);
-				event.getChannel().sendMessage("Вы присоединились к клану " + player.getClanName()).submit();
+			if (result.isEmpty()) {
+				event.getChannel().sendMessage("Ваша заявка на вступление в клан " + clanName + " подана. Ожидайте подтверждения лидера").submit();
 			} else {
 				event.getChannel().sendMessage(result).submit();
 			}
@@ -1399,6 +1407,21 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 	private void questProgress(String userId, String type, int amount) {
 		if (dailyQuestService != null) {
 			dailyQuestService.incrementProgress(userId, type, amount);
+		}
+	}
+
+	/** Удаляет истёкшие предметы из инвентаря игрока. */
+	private void purgeExpiredItems(String playerId, Player player) {
+		if (player == null || player.getInventory() == null) return;
+		long now = System.currentTimeMillis();
+		List<String> toRemove = player.getInventory().keySet().stream()
+				.filter(name -> {
+					Item item = itemsManager.getItem(name);
+					return item != null && item.getExpireTime() != 0 && item.getExpireTime() < now;
+				})
+				.collect(Collectors.toList());
+		if (!toRemove.isEmpty()) {
+			toRemove.forEach(name -> deleteItem(playerId, name));
 		}
 	}
 
