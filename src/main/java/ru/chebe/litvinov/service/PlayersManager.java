@@ -44,6 +44,10 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 
 	private final ConcurrentHashMap<String, ReentrantLock> playerLocks = new ConcurrentHashMap<>();
 	private final DuelService duelService;
+
+	// Кулдаун на убийство босса
+	private static final long BOSS_COOLDOWN_HOURS = 4;
+	private final java.util.concurrent.ConcurrentHashMap<String, java.time.Instant> lastBossKillTime = new java.util.concurrent.ConcurrentHashMap<>();
 	private DailyQuestService dailyQuestService;
 
 	/** Устанавливает сервис ежедневных квестов (вызывается после конструктора). */
@@ -863,6 +867,17 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 	 */
 	public void bossFight(MessageReceivedEvent event) {
 		Player player = playerCache.get(event.getAuthor().getId());
+		// Проверка кулдауна на бой с боссом
+		String playerId = event.getAuthor().getId();
+		java.time.Instant lastKill = lastBossKillTime.get(playerId);
+		if (lastKill != null) {
+			java.time.Instant nextAllowed = lastKill.plusSeconds(BOSS_COOLDOWN_HOURS * 3600);
+			if (java.time.Instant.now().isBefore(nextAllowed)) {
+				long minutesLeft = java.time.Duration.between(java.time.Instant.now(), nextAllowed).toMinutes() + 1;
+				event.getChannel().sendMessage("⏳ Ты недавно сражался с боссом. Следующий бой доступен через **" + minutesLeft + " мин**.").submit();
+				return;
+			}
+		}
 		var loc = locationManager.getLocation(player.getLocation());
 		if (loc.getBoss() == null) {
 			event.getChannel().sendMessage("В этой локации нет босса, перейди в другую если хочешь присесть на бутылку").submit();
@@ -888,6 +903,8 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 					String bossItem = battleManager.getBossItemName(loc.getBoss());
 					addNewItem(winnerId, bossItem);
 					event.getChannel().sendMessage("В твой инвентарь добавлен предмет " + bossItem).submit();
+					// Записываем время победы над боссом для кулдауна
+					lastBossKillTime.put(((Player) play).getId(), java.time.Instant.now());
 				} else {
 					deathOfPlayer(((Player) play));
 				}

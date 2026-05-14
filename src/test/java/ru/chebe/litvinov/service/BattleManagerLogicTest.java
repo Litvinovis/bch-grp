@@ -236,6 +236,113 @@ public class BattleManagerLogicTest {
         verify(bossRepository, atLeastOnce()).put(argThat(k -> !"Darhalas".equals(k)), any(Boss.class));
     }
 
+    // ---- критический удар (Feature #14) ----------------------------------------
+
+    /**
+     * Подкласс BattleManager, у которого можно управлять результатом isCriticalHit.
+     * Используется в тестах, чтобы не зависеть от Random.
+     */
+    private static class ControlledBattleManager extends BattleManager {
+        private final boolean critResult;
+
+        ControlledBattleManager(BossRepository bossCache, boolean critResult) {
+            super(bossCache);
+            this.critResult = critResult;
+        }
+
+        @Override
+        protected boolean isCriticalHit(int luckPercent) {
+            return critResult;
+        }
+    }
+
+    @Test
+    public void criticalHit_doublesBaseDamage() {
+        // Всегда крит — урон от первого удара должен быть удвоен.
+        // Defender имеет 1 HP, поэтому умирает с первого удара → один раунд, один удар.
+        ControlledBattleManager bm = new ControlledBattleManager(bossRepository, true);
+
+        Player attacker = new Player("Attacker", "a1");
+        attacker.setHp(100000);
+        attacker.setStrength(10);
+        attacker.setArmor(0);
+
+        Player defender = new Player("Defender", "d1");
+        defender.setHp(1);
+        defender.setStrength(0); // контратаки нет (strength=0 → damage=0)
+        defender.setArmor(0);
+
+        List<Person> team1 = new ArrayList<>();
+        team1.add(attacker);
+        List<Person> team2 = new ArrayList<>();
+        team2.add(defender);
+
+        bm.battleMechanic(team1, team2, channel);
+
+        // defender.getHp() = 1 - damage (может быть очень отрицательным)
+        int damageDealt = 1 - defender.getHp();
+        // При крите urон * 2, base=10, min=7*2=14, max=13*2=26
+        assertTrue("Крит должен нанести минимум 14 урона, нанесено: " + damageDealt, damageDealt >= 14);
+        assertTrue("Крит не должен превышать 26 урона, нанесено: " + damageDealt, damageDealt <= 26);
+    }
+
+    @Test
+    public void normalHit_doesNotDouble() {
+        // Никогда не крит — урон не удваивается.
+        // Defender имеет 1 HP → умирает с первого удара, один раунд.
+        ControlledBattleManager bm = new ControlledBattleManager(bossRepository, false);
+
+        Player attacker = new Player("Attacker", "a2");
+        attacker.setHp(100000);
+        attacker.setStrength(10);
+        attacker.setArmor(0);
+
+        Player defender = new Player("Defender", "d2");
+        defender.setHp(1);
+        defender.setStrength(0);
+        defender.setArmor(0);
+
+        List<Person> team1 = new ArrayList<>();
+        team1.add(attacker);
+        List<Person> team2 = new ArrayList<>();
+        team2.add(defender);
+
+        bm.battleMechanic(team1, team2, channel);
+
+        int damageDealt = 1 - defender.getHp();
+        // Без крита: base=10, урон от 7 до 13
+        assertTrue("Обычный удар: минимум 7, получено: " + damageDealt, damageDealt >= 7);
+        assertTrue("Обычный удар: максимум 13 (не удвоен), получено: " + damageDealt, damageDealt <= 13);
+    }
+
+    @Test
+    public void critHit_withHighLuck_higherChance() {
+        // У игрока с luck=20 шанс крита = 10 + 20/2 = 20%
+        // isCriticalHit(20) должна возвращать true для значений rand < 20 из 100
+        // Проверяем через прямой вызов метода (protected, тот же пакет)
+        // Создаём подкласс, который позволяет нам управлять Random через reflection
+        BattleManager bm = new BattleManager(bossRepository);
+
+        // Проверяем, что при luckPercent=20 хоть иногда возвращает true (статистически)
+        int trueCount = 0;
+        for (int i = 0; i < 1000; i++) {
+            if (bm.isCriticalHit(20)) {
+                trueCount++;
+            }
+        }
+        // При 20% шансе за 1000 испытаний ожидается ~200 успехов, минимум допустим 100
+        assertTrue("Ожидалось > 100 крит-срабатываний из 1000 при шансе 20%, получено: " + trueCount, trueCount > 100);
+    }
+
+    @Test
+    public void isCriticalHit_falseWhenRandHigher() {
+        // При luckPercent=0 крит никогда не должен случиться
+        BattleManager bm = new BattleManager(bossRepository);
+        for (int i = 0; i < 200; i++) {
+            assertFalse("При luckPercent=0 крит невозможен", bm.isCriticalHit(0));
+        }
+    }
+
     // ---- helpers ---------------------------------------------------------------
 
     private List<Person> buildTeam(int size, int hp, int strength, int armor) {
