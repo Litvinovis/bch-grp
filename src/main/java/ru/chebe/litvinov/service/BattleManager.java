@@ -177,9 +177,19 @@ public class BattleManager {
 			Person defender = getRandomPlayer(team2);
 
 			if (attacker != null && defender != null) {
+				// Рассчитываем шанс крита: базовый 10%, у игрока +luck/2
+				int critChance = 10;
+				if (attacker instanceof Player) {
+					critChance = 10 + ((Player) attacker).getLuck() / 2;
+				}
+				boolean crit = isCriticalHit(critChance);
 				int damage = randomizeDamage(attacker.getStrength());
+				if (crit) {
+					damage *= 2;
+				}
 				defender.setHp(defender.getHp() - damage);
-				sb.append("⚔️ **").append(attacker.getNickName()).append("** наносит **").append(damage)
+				String hitPrefix = crit ? "💥 КРИТ! **" : "⚔️ **";
+				sb.append(hitPrefix).append(attacker.getNickName()).append("** наносит **").append(damage)
 						.append("** 🩸 → **").append(defender.getNickName())
 						.append("** (❤️ **").append(Math.max(0, defender.getHp())).append("** HP)\n");
 
@@ -231,6 +241,16 @@ public class BattleManager {
 		if (baseDamage <= 0) return 0;
 		double percentageChange = (rand.nextInt(51) - 25) / 100.0; // От -25% до +25%
 		return Math.max(1, (int) (baseDamage * (1 + percentageChange)));
+	}
+
+	/**
+	 * Определяет, является ли удар критическим.
+	 *
+	 * @param luckPercent шанс крита в процентах (например, 10 = 10%)
+	 * @return true если удар критический
+	 */
+	protected boolean isCriticalHit(int luckPercent) {
+		return rand.nextInt(100) < luckPercent;
 	}
 
 	private Person getRandomPlayer(List<Person> players) {
