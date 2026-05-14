@@ -200,11 +200,11 @@ public class RaidManager {
             return;
         }
 
+        RaidBoss boss = RaidBoss.createDefault();
+
         channel.sendMessage("🔥 **РЕЙД НАЧАЛСЯ!** 🔥\n" +
                 "👥 Участников: **" + participants.size() + "**\n" +
-                "👹 Противник: **Рейд-Чебеш** (❤️ HP: **5000** | ⚔️ Сила: **25**)").queue();
-
-        RaidBoss boss = RaidBoss.createDefault();
+                "👹 Противник: **" + boss.getNickName() + "** (❤️ HP: **" + boss.getHp() + "** | ⚔️ Сила: **" + boss.getStrength() + "**)").queue();
 
         // Каждый игрок атакует босса по очереди; трекаем нанесённый урон
         Map<String, Integer> damageDealt = new LinkedHashMap<>();
@@ -224,7 +224,7 @@ public class RaidManager {
                 if (player.getHp() <= 0) continue;
                 if (boss.getHp() <= 0) break;
 
-                int dmg = randomizeDamage(player.getStrength(), rand);
+                int dmg = Math.max(1, randomizeDamage(player.getStrength() - boss.getArmor(), rand));
                 boss.setHp(boss.getHp() - dmg);
                 damageDealt.merge(player.getId(), dmg, Integer::sum);
                 roundLog.append("⚔️ **").append(player.getNickName()).append("** → 💥 **").append(dmg)
@@ -236,7 +236,7 @@ public class RaidManager {
                 Player target = alivePlayers.get(rand.nextInt(alivePlayers.size()));
                 int bossDmg = randomizeDamage(boss.getStrength() - target.getArmor(), rand);
                 target.setHp(target.getHp() - bossDmg);
-                roundLog.append("👹 **Рейд-Чебеш** → 💀 **").append(bossDmg)
+                roundLog.append("👹 **").append(boss.getNickName()).append("** → 💀 **").append(bossDmg)
                         .append("** по **").append(target.getNickName())
                         .append("** | ❤️ **").append(Math.max(0, target.getHp())).append("** HP\n");
             }

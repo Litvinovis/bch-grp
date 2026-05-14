@@ -96,6 +96,9 @@ public class ClanManager {
 	 */
 	public String acceptApply(String clanName, String id) {
 		var clan = clanCache.get(clanName);
+		if (clan == null) {
+			return "Клан с таким названием не существует";
+		}
 		if (clan.getLeaderId().equals(id)) {
 			if (clan.getAppliers().isEmpty()) {
 				return "Нет активных заявок";
@@ -133,6 +136,9 @@ public class ClanManager {
 	 */
 	public String rejectApply(String clanName, String id) {
 		var clan = clanCache.get(clanName);
+		if (clan == null) {
+			return "Клан с таким названием не существует";
+		}
 		if (clan.getLeaderId().equals(id)) {
 			if (clan.getAppliers().isEmpty()) {
 				return "Нет активных заявок";
@@ -161,11 +167,14 @@ public class ClanManager {
 		}
 		StringBuilder sb = new StringBuilder();
 		sb.append("Клан: ").append(clanName).append("\n");
-		sb.append("Лидер: ").append(playerCache.get(clan.getLeaderId()).getNickName()).append("\n");
+		var leader = playerCache.get(clan.getLeaderId());
+		sb.append("Лидер: ").append(leader != null ? leader.getNickName() : clan.getLeaderId()).append("\n");
 		sb.append("Участники: ");
 		for (var member : clan.getMembers()) {
 			var player = playerCache.get(member);
-			sb.append(player.getNickName()).append("\n");
+			if (player != null) {
+				sb.append(player.getNickName()).append("\n");
+			}
 		}
 		sb.append("Количество заявок на вступление: ").append(clan.getAppliers().size()).append("\n");
 		return sb.toString();
