@@ -240,4 +240,34 @@ public interface IPlayersManager {
 
     /** Показывает ежедневные квесты игрока. */
     void showDailyQuests(MessageReceivedEvent event);
+
+    void lastBattleLog(MessageReceivedEvent event);
+    void clanNpcFight(MessageReceivedEvent event);
+    void locationPath(MessageReceivedEvent event);
+    void exploreLocation(MessageReceivedEvent event);
+    void goHome(MessageReceivedEvent event);
+    void bankCommand(MessageReceivedEvent event);
+    void upgradeItem(MessageReceivedEvent event);
+    void compareItems(MessageReceivedEvent event);
+    void craftItem(MessageReceivedEvent event);
+    void merchantShop(MessageReceivedEvent event);
+    void questJournal(MessageReceivedEvent event);
+    void takeCredit(MessageReceivedEvent event);
+    void repayCredit(MessageReceivedEvent event);
+    void playPoker(MessageReceivedEvent event);
+    void horseRacingInfo(MessageReceivedEvent event);
+    void betOnHorse(MessageReceivedEvent event);
+    void exchangeInfo(MessageReceivedEvent event);
+    void sellResource(MessageReceivedEvent event);
+    void clanLeaderboard(MessageReceivedEvent event);
+    void clanBankCommand(MessageReceivedEvent event);
+    void clanUpgradesCommand(MessageReceivedEvent event);
+    void setClanBase(MessageReceivedEvent event);
+    void clanWar(MessageReceivedEvent event);
+    void promoteClanMember(MessageReceivedEvent event);
+    void kickClanMember(MessageReceivedEvent event);
+    void seasonLeaderboard(MessageReceivedEvent event);
+    void prestige(MessageReceivedEvent event);
+    void playerProfile(MessageReceivedEvent event);
+    void hallOfFame(MessageReceivedEvent event);
 }

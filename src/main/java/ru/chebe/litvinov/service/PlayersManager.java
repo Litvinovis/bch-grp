@@ -21,6 +21,8 @@ import java.util.function.ToIntFunction;
 import java.util.function.ObjIntConsumer;
 import java.util.stream.Collectors;
 
+import static java.util.Objects.requireNonNullElse;
+
 import static ru.chebe.litvinov.Constants.MIN_LVL_TO_CLAN_CREATE;
 import static ru.chebe.litvinov.Constants.MIN_LVL_TO_CLAN_JOIN;
 
@@ -98,7 +100,16 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 	public void getPlayerInfo(MessageReceivedEvent event) {
 		String id = event.getMessage().getAuthor().getId();
 		removeExpiredBuffs(id);
-		event.getChannel().sendMessage(playerCache.get(id).toString()).submit();
+		Player player = playerCache.get(id);
+		String statsMsg = player.toString();
+		String title = getTitle(player);
+		String prestige = player.getPrestige() > 0 ? " ⭐×" + player.getPrestige() : "";
+		String extra = "\n🏷️ Звание: **" + title + "**" + prestige;
+		List<String> achs = player.getAchievements();
+		if (achs != null && !achs.isEmpty()) {
+			extra += "\n🌟 Редкое достижение: **" + achievementName(achs.get(achs.size() - 1)) + "**";
+		}
+		event.getChannel().sendMessage(statsMsg + extra).submit();
 	}
 
 	/**
@@ -243,6 +254,8 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 				player.setMaxHp(getMaxHp(player));  // Обновляем максимальное HP
 				player.setHp(player.getMaxHp());     // Восстанавливаем HP при повышении уровня
 				expToNext = player.getExpToNextLvl();
+				if (player.getLevel() == 10) unlockAchievement(player, "10_уровень");
+				if (player.getLevel() >= 50) unlockAchievement(player, "легенда");
 			}
 			
 			player.setExp(totalXp);
@@ -645,8 +658,13 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 				return;
 			}
 		}
+		String prevLocation = player.getLocation();
 		nextLocation = locationManager.movePlayerInPopulation(player, nextLocation.getName());
 		player.setLocation(nextLocation.getName());
+
+		// История перемещений (27)
+		if (player.getLocationHistory() == null) player.setLocationHistory(new ArrayList<>());
+		player.getLocationHistory().add(prevLocation);
 
 		// Квест «Путешественник»: считаем посещённые локации
 		Event activeEvent = player.getActiveEvent();
@@ -654,6 +672,7 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 			activeEvent.setAttempt(activeEvent.getAttempt() + 1);
 		}
 		playerCache.put(player.getId(), player);
+		checkExplorerAchievement(player);
 
 		var token = player.getInventory().get("токен телепорта") == null ? 0 : player.getInventory().get("токен телепорта");
 		String teleport = isTeleport ? " с помощью токена телепорта, осталось " + token : "";
@@ -690,9 +709,13 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 
 				// Квест «Охота»: считаем убитых мобов
 				player = playerCache.get(player.getId());
-				if (player != null && player.getActiveEvent() != null
-						&& "Охота".equals(player.getActiveEvent().getType())) {
-					player.getActiveEvent().setAttempt(player.getActiveEvent().getAttempt() + 1);
+				if (player != null) {
+					if (player.getActiveEvent() != null && "Охота".equals(player.getActiveEvent().getType())) {
+						player.getActiveEvent().setAttempt(player.getActiveEvent().getAttempt() + 1);
+					}
+					// Трекинг убийств мобов (71)
+					player.setMobKills(player.getMobKills() + 1);
+					if (player.getMobKills() >= 50) unlockAchievement(player, "ветеран");
 					playerCache.put(player.getId(), player);
 				}
 
@@ -824,6 +847,10 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		
 		boolean isCompleted = eventsManager.checkEvent(activeEvent, player);
 		if (isCompleted) {
+			// Добавляем квест в журнал (48)
+			if (player.getCompletedQuests() == null) player.setCompletedQuests(new ArrayList<>());
+			player.getCompletedQuests().add(activeEvent.getDescription());
+
 			player.setActiveEvent(null);
 			playerCache.put(playerId, player);
 			changeMoney(playerId, activeEvent.getMoneyReward(), true);
@@ -915,6 +942,15 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 					event.getChannel().sendMessage("В твой инвентарь добавлен предмет " + bossItem).submit();
 					// Записываем время победы над боссом для кулдауна
 					lastBossKillTime.put(((Player) play).getId(), java.time.Instant.now());
+					// Достижения рейда (71)
+					Player winPlayer = playerCache.get(winnerId);
+					if (winPlayer != null) {
+						unlockAchievement(winPlayer, "первый_рейд");
+						unlockAchievement(winPlayer, "победитель_рейда");
+						checkRichAchievement(winPlayer);
+						checkCollectorAchievement(winPlayer);
+						playerCache.put(winnerId, winPlayer);
+					}
 				} else {
 					deathOfPlayer(((Player) play));
 				}
@@ -985,10 +1021,22 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 				if (attackers.contains(p)) {
 					changeMoney(pObj.getId(), GameBalance.PVP_WIN_MONEY, true);
 					changeXp(pObj.getId(), GameBalance.PVP_WIN_XP);
+					// Трекинг PvP побед (71)
+					ReentrantLock pvpLock = getPlayerLock(pObj.getId());
+					pvpLock.lock();
+					try {
+						Player pvpWinner = playerCache.get(pObj.getId());
+						if (pvpWinner != null) {
+							pvpWinner.setPvpWins(pvpWinner.getPvpWins() + 1);
+							if (pvpWinner.getPvpWins() >= 100) unlockAchievement(pvpWinner, "100_pvp");
+							playerCache.put(pObj.getId(), pvpWinner);
+						}
+					} finally {
+						pvpLock.unlock();
+					}
 					event.getChannel().sendMessage(pObj.getNickName() + " получает награду!").queue();
 				}
 			} else {
-				// Используем метод deathOfPlayer из PlayersManager
 				deathOfPlayer(pObj);
 				event.getChannel().sendMessage(pObj.getNickName() + " погиб!").queue();
 			}
@@ -1035,6 +1083,23 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 					msg.append("\n Стрик ").append(streak).append(" дней! Получен редкий предмет: ").append(rareItem).append("!");
 					unlockAchievement(player, "стрик_7");
 				}
+
+				// Налог на богатство (68)
+				if (player.getMoney() > GameBalance.WEALTH_TAX_THRESHOLD) {
+					int tax = (int)(player.getMoney() * GameBalance.WEALTH_TAX_RATE);
+					player.setMoney(player.getMoney() - tax);
+					msg.append("\n💰 Налог на богатство: -").append(tax).append(" монет");
+				}
+
+				// Процент по долгу (63)
+				if (player.getDebt() > 0) {
+					int interest = (int)(player.getDebt() * GameBalance.CREDIT_DAILY_INTEREST);
+					if (player.getMoney() >= interest) {
+						player.setMoney(player.getMoney() - interest);
+						msg.append("\n💳 Проценты по кредиту: -").append(interest).append(" монет (долг: ").append(player.getDebt()).append(")");
+					}
+				}
+
 				playerCache.put(id, player);
 				event.getChannel().sendMessage(msg.toString()).submit();
 			} else {
@@ -1113,6 +1178,8 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		if (player.getClanName() == null || player.getClanName().isEmpty()) {
 			String result = clanManager.joinClan(clanName, player.getId());
 			if (result.isEmpty()) {
+				unlockAchievement(player, "клановый_чел");
+				playerCache.put(player.getId(), player);
 				event.getChannel().sendMessage("Ваша заявка на вступление в клан " + clanName + " подана. Ожидайте подтверждения лидера").submit();
 			} else {
 				event.getChannel().sendMessage(result).submit();
@@ -1361,6 +1428,13 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 				playerCache.put(senderId, sender);
 				playerCache.put(receiverId, receiver);
 				event.getChannel().sendMessage("Вы передали " + quantity + "x " + itemName + " игроку " + targetUser.getName() + ".").submit();
+				// DM уведомление получателю (81)
+				final String finalItemName = itemName;
+				final int finalQuantity = quantity;
+				try {
+					targetUser.openPrivateChannel().submit()
+							.thenAccept(ch -> ch.sendMessage("🎁 Вам передан предмет **" + finalItemName + "** ×" + finalQuantity + " от **" + event.getAuthor().getName() + "**!").submit());
+				} catch (Exception ignored) {}
 			} finally {
 				second.unlock();
 			}
@@ -1377,6 +1451,913 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 
 	/** Отказаться от дуэли (+отказать). */
 	public void declineDuel(MessageReceivedEvent event) { duelService.declineDuel(event); }
+
+	/** +последний бой — показывает лог последнего боя (24) */
+	public void lastBattleLog(MessageReceivedEvent event) {
+		String id = event.getAuthor().getId();
+		String log = battleManager.getLastBattleLog(id);
+		if (log == null || log.isBlank() || log.equals("Нет данных о последнем бое.")) {
+			event.getChannel().sendMessage("У тебя ещё не было боёв, или данные не сохранились.").submit();
+		} else {
+			event.getChannel().sendMessage("📜 **Последний бой:**\n" + log).submit();
+		}
+	}
+
+	/** +убить нпс — клановый бой против NPC (25) */
+	public void clanNpcFight(MessageReceivedEvent event) {
+		String playerId = event.getAuthor().getId();
+		Player player = playerCache.get(playerId);
+		if (player.getClanName() == null || player.getClanName().isEmpty()) {
+			event.getChannel().sendMessage("Клановый бой доступен только участникам клана.").submit();
+			return;
+		}
+		List<java.util.concurrent.locks.ReentrantLock> locks = new ArrayList<>();
+		List<Player> clanPlayers = getPlayersByClan(player);
+		if (clanPlayers.isEmpty()) {
+			event.getChannel().sendMessage("Нет других членов клана в этой локации.").submit();
+			return;
+		}
+		clanPlayers.add(0, player);
+		List<ru.chebe.litvinov.data.Person> members = clanPlayers.stream()
+				.map(p -> (ru.chebe.litvinov.data.Person) p)
+				.collect(Collectors.toList());
+		event.getChannel().sendMessage("⚔️ Клан **" + player.getClanName() + "** идёт в бой!").submit();
+		List<ru.chebe.litvinov.data.Person> result = battleManager.clanNpcBattle(members, event.getChannel());
+		for (ru.chebe.litvinov.data.Person p : result) {
+			if (p instanceof Player pl && pl.getId() != null) {
+				if (pl.getHp() > 0) {
+					changeMoney(pl.getId(), GameBalance.MOB_KILL_MONEY * 2, true);
+					changeXp(pl.getId(), GameBalance.MOB_KILL_XP * 2);
+				} else {
+					deathOfPlayer(pl);
+				}
+			}
+		}
+	}
+
+	/** +путь — история перемещений (27) / поиск пути (41) */
+	public void locationPath(MessageReceivedEvent event) {
+		String id = event.getAuthor().getId();
+		Player player = playerCache.get(id);
+		String arg = event.getMessage().getContentDisplay().substring(5).trim().toLowerCase();
+		if (arg.isEmpty()) {
+			List<String> history = player.getLocationHistory();
+			if (history == null || history.isEmpty()) {
+				event.getChannel().sendMessage("История перемещений пуста.").submit();
+			} else {
+				int start = Math.max(0, history.size() - 5);
+				List<String> last5 = history.subList(start, history.size());
+				event.getChannel().sendMessage("🗺️ Последние локации: " + String.join(" → ", last5)).submit();
+			}
+		} else {
+			if (!player.getInventory().containsKey("карта мира")) {
+				event.getChannel().sendMessage("Для поиска пути нужна **карта мира** в инвентаре.").submit();
+				return;
+			}
+			String nextStep = locationManager.findNextStep(player.getLocation(), arg);
+			if (nextStep == null) {
+				event.getChannel().sendMessage("Маршрут до **" + arg + "** не найден.").submit();
+			} else {
+				event.getChannel().sendMessage("🗺️ Следующий шаг до **" + arg + "**: **" + nextStep + "**").submit();
+			}
+		}
+	}
+
+	/** +исследовать — даёт случайный предмет или монеты раз в 6 часов (29) */
+	public void exploreLocation(MessageReceivedEvent event) {
+		String id = event.getAuthor().getId();
+		ReentrantLock lock = getPlayerLock(id);
+		lock.lock();
+		try {
+			Player player = playerCache.get(id);
+			long now = System.currentTimeMillis();
+			if (now - player.getLastExploreTime() < GameBalance.EXPLORE_COOLDOWN_MS) {
+				long minLeft = (GameBalance.EXPLORE_COOLDOWN_MS - (now - player.getLastExploreTime())) / 60000;
+				event.getChannel().sendMessage("⏳ Ты уже исследовал локацию. Следующее исследование через **" + minLeft + "** мин.").submit();
+				return;
+			}
+			player.setLastExploreTime(now);
+			if (random.nextBoolean()) {
+				int money = GameBalance.EXPLORE_MONEY_MIN + random.nextInt(GameBalance.EXPLORE_MONEY_MAX - GameBalance.EXPLORE_MONEY_MIN + 1);
+				player.setMoney(player.getMoney() + money);
+				playerCache.put(id, player);
+				event.getChannel().sendMessage("🔍 Ты исследовал локацию и нашёл **" + money + "** монет!").submit();
+				checkRichAchievement(player);
+			} else {
+				String drop = itemsManager.getRandomItemName();
+				if (drop != null) {
+					player.getInventory().merge(drop, 1, Integer::sum);
+					playerCache.put(id, player);
+					event.getChannel().sendMessage("🔍 Ты исследовал локацию и нашёл предмет: **" + drop + "**!").submit();
+				} else {
+					int money = GameBalance.EXPLORE_MONEY_MIN;
+					player.setMoney(player.getMoney() + money);
+					playerCache.put(id, player);
+					event.getChannel().sendMessage("🔍 Ты исследовал локацию и нашёл **" + money + "** монет!").submit();
+				}
+			}
+		} finally {
+			lock.unlock();
+		}
+	}
+
+	/** +домой — телепортирует в клановую базу (34) */
+	public void goHome(MessageReceivedEvent event) {
+		String id = event.getAuthor().getId();
+		Player player = playerCache.get(id);
+		if (player.getClanName() == null || player.getClanName().isEmpty()) {
+			event.getChannel().sendMessage("Ты не состоишь в клане.").submit();
+			return;
+		}
+		String base = clanManager.getClanBase(player.getClanName());
+		locationManager.movePlayerInPopulation(player, base);
+		addToLocationHistory(id, player.getLocation());
+		player.setLocation(base);
+		playerCache.put(id, player);
+		event.getChannel().sendMessage("🏠 Ты телепортировался в клановую базу: **" + base + "**").submit();
+	}
+
+	private void addToLocationHistory(String id, String location) {
+		ReentrantLock lock = getPlayerLock(id);
+		lock.lock();
+		try {
+			Player p = playerCache.get(id);
+			if (p == null) return;
+			if (p.getLocationHistory() == null) p.setLocationHistory(new ArrayList<>());
+			p.getLocationHistory().add(location);
+			playerCache.put(id, p);
+		} finally {
+			lock.unlock();
+		}
+	}
+
+	/** +банк — показывает банк или выполняет операцию (35) */
+	public void bankCommand(MessageReceivedEvent event) {
+		String id = event.getAuthor().getId();
+		Player player = playerCache.get(id);
+		String raw = event.getMessage().getContentDisplay().substring(5).trim().toLowerCase();
+		if (raw.isEmpty()) {
+			Map<String, Integer> bank = player.getBankInventory();
+			if (bank == null || bank.isEmpty()) {
+				event.getChannel().sendMessage("🏦 Ваш банк пуст.").submit();
+			} else {
+				var sb = new StringBuilder("🏦 **Банк " + player.getNickName() + "**\n");
+				bank.entrySet().stream().sorted(Map.Entry.comparingByKey())
+						.forEach(e -> sb.append(ru.chebe.litvinov.data.Player.itemIcon(e.getKey()))
+								.append(" ").append(e.getKey()).append(" — ×").append(e.getValue()).append("\n"));
+				event.getChannel().sendMessage(sb.toString().stripTrailing()).submit();
+			}
+		} else if (raw.startsWith("положить ")) {
+			String itemName = raw.substring(9).trim();
+			ReentrantLock lock = getPlayerLock(id);
+			lock.lock();
+			try {
+				Player p = playerCache.get(id);
+				if (!p.getInventory().containsKey(itemName)) {
+					event.getChannel().sendMessage("Такого предмета нет в инвентаре.").submit();
+					return;
+				}
+				if (p.getBankInventory() == null) p.setBankInventory(new java.util.HashMap<>());
+				if (p.getBankInventory().size() >= 20) {
+					event.getChannel().sendMessage("Банк заполнен (максимум 20 предметов).").submit();
+					return;
+				}
+				Integer count = p.getInventory().get(itemName);
+				if (count != null && count > 1) p.getInventory().put(itemName, count - 1);
+				else p.getInventory().remove(itemName);
+				p.getBankInventory().merge(itemName, 1, Integer::sum);
+				playerCache.put(id, p);
+				event.getChannel().sendMessage("✅ Предмет **" + itemName + "** помещён в банк.").submit();
+			} finally {
+				lock.unlock();
+			}
+		} else if (raw.startsWith("взять ")) {
+			String itemName = raw.substring(6).trim();
+			ReentrantLock lock = getPlayerLock(id);
+			lock.lock();
+			try {
+				Player p = playerCache.get(id);
+				if (p.getBankInventory() == null || !p.getBankInventory().containsKey(itemName)) {
+					event.getChannel().sendMessage("Такого предмета нет в банке.").submit();
+					return;
+				}
+				Integer count = p.getBankInventory().get(itemName);
+				if (count != null && count > 1) p.getBankInventory().put(itemName, count - 1);
+				else p.getBankInventory().remove(itemName);
+				p.getInventory().merge(itemName, 1, Integer::sum);
+				playerCache.put(id, p);
+				event.getChannel().sendMessage("✅ Предмет **" + itemName + "** перемещён из банка в инвентарь.").submit();
+			} finally {
+				lock.unlock();
+			}
+		} else {
+			event.getChannel().sendMessage("Использование: +банк / +банк положить [предмет] / +банк взять [предмет]").submit();
+		}
+	}
+
+	/** +улучшить [предмет] — улучшает предмет за 200 монет (37) */
+	public void upgradeItem(MessageReceivedEvent event) {
+		String id = event.getAuthor().getId();
+		String itemName = event.getMessage().getContentDisplay().substring(9).trim().toLowerCase();
+		ReentrantLock lock = getPlayerLock(id);
+		lock.lock();
+		try {
+			Player player = playerCache.get(id);
+			if (!player.getInventory().containsKey(itemName)) {
+				event.getChannel().sendMessage("Такого предмета нет в вашем инвентаре.").submit();
+				return;
+			}
+			if (player.getMoney() < GameBalance.ITEM_UPGRADE_COST) {
+				event.getChannel().sendMessage("Недостаточно монет (нужно " + GameBalance.ITEM_UPGRADE_COST + ").").submit();
+				return;
+			}
+			player.setMoney(player.getMoney() - GameBalance.ITEM_UPGRADE_COST);
+			int statIdx = random.nextInt(4);
+			String statName;
+			switch (statIdx) {
+				case 0 -> { player.setStrength(player.getStrength() + 1); statName = "⚔️ Сила"; }
+				case 1 -> { player.setArmor(player.getArmor() + 1); statName = "🛡️ Броня"; }
+				case 2 -> { player.setLuck(player.getLuck() + 1); statName = "🍀 Удача"; }
+				default -> { player.setMaxHp(player.getMaxHp() + 10); statName = "❤️ HP"; }
+			}
+			playerCache.put(id, player);
+			event.getChannel().sendMessage("✨ Предмет **" + itemName + "** улучшен! +" + statName + " (стоимость: " + GameBalance.ITEM_UPGRADE_COST + " монет)").submit();
+		} finally {
+			lock.unlock();
+		}
+	}
+
+	/** +сравнить [предмет1] с [предмет2] — сравнение предметов (38) */
+	public void compareItems(MessageReceivedEvent event) {
+		String raw = event.getMessage().getContentDisplay().substring(9).trim().toLowerCase();
+		String[] parts = raw.split("\\s+с\\s+", 2);
+		if (parts.length < 2) {
+			event.getChannel().sendMessage("Использование: +сравнить [предмет1] с [предмет2]").submit();
+			return;
+		}
+		ru.chebe.litvinov.data.Item item1 = itemsManager.getItem(parts[0].trim());
+		ru.chebe.litvinov.data.Item item2 = itemsManager.getItem(parts[1].trim());
+		if (item1 == null || item2 == null) {
+			event.getChannel().sendMessage("Один из предметов не найден.").submit();
+			return;
+		}
+		var sb = new StringBuilder("⚖️ **Сравнение:** " + item1.getName() + " vs " + item2.getName() + "\n");
+		sb.append(diffLine("❤️ HP", item1.getHealth(), item2.getHealth()));
+		sb.append(diffLine("⚔️ Сила", item1.getStrength(), item2.getStrength()));
+		sb.append(diffLine("🛡️ Броня", item1.getArmor(), item2.getArmor()));
+		sb.append(diffLine("🍀 Удача", item1.getLuck(), item2.getLuck()));
+		sb.append(diffLine("⭐ Репутация", item1.getReputation(), item2.getReputation()));
+		sb.append(diffLine("✨ XP", item1.getXpGeneration(), item2.getXpGeneration()));
+		sb.append(diffLine("💰 Цена", item1.getPrice(), item2.getPrice()));
+		event.getChannel().sendMessage(sb.toString()).submit();
+	}
+
+	private String diffLine(String stat, int v1, int v2) {
+		int diff = v1 - v2;
+		String sign = diff > 0 ? "+" : "";
+		return String.format("%s: %d vs %d (%s%d)\n", stat, v1, v2, sign, diff);
+	}
+
+	private static final Map<String, Map<String, Integer>> CRAFT_RECIPES = Map.of(
+		"зелье силы", Map.of("кружка цикория", 2, "вино лаба", 1),
+		"боевой эликсир", Map.of("зелье лаба", 1, "протеин ябыса", 1),
+		"счастливый амулет", Map.of("амулет рианель", 1, "шарики лаба", 1)
+	);
+
+	/** +крафт — список рецептов / +крафт [предмет] — создание (39) */
+	public void craftItem(MessageReceivedEvent event) {
+		String id = event.getAuthor().getId();
+		String arg = event.getMessage().getContentDisplay().substring(6).trim().toLowerCase();
+		if (arg.isEmpty()) {
+			var sb = new StringBuilder("⚒️ **Рецепты крафта:**\n");
+			CRAFT_RECIPES.forEach((result, ingredients) -> {
+				sb.append("• **").append(result).append("**: ");
+				ingredients.forEach((mat, qty) -> sb.append(qty).append("x ").append(mat).append(", "));
+				sb.setLength(sb.length() - 2);
+				sb.append("\n");
+			});
+			event.getChannel().sendMessage(sb.toString()).submit();
+			return;
+		}
+		Map<String, Integer> recipe = CRAFT_RECIPES.get(arg);
+		if (recipe == null) {
+			event.getChannel().sendMessage("Рецепт **" + arg + "** не найден. Введи +крафт для списка рецептов.").submit();
+			return;
+		}
+		ReentrantLock lock = getPlayerLock(id);
+		lock.lock();
+		try {
+			Player player = playerCache.get(id);
+			for (Map.Entry<String, Integer> e : recipe.entrySet()) {
+				if (player.getInventory().getOrDefault(e.getKey(), 0) < e.getValue()) {
+					event.getChannel().sendMessage("❌ Недостаточно **" + e.getKey() + "** (нужно: " + e.getValue() + ", есть: " + player.getInventory().getOrDefault(e.getKey(), 0) + ")").submit();
+					return;
+				}
+			}
+			recipe.forEach((mat, qty) -> {
+				int have = player.getInventory().get(mat);
+				if (have <= qty) player.getInventory().remove(mat);
+				else player.getInventory().put(mat, have - qty);
+			});
+			player.getInventory().merge(arg, 1, Integer::sum);
+			playerCache.put(id, player);
+			event.getChannel().sendMessage("✅ Создан предмет: **" + arg + "**!").submit();
+		} finally {
+			lock.unlock();
+		}
+	}
+
+	/** +торговец — случайные предметы в локации (42) */
+	public void merchantShop(MessageReceivedEvent event) {
+		String id = event.getAuthor().getId();
+		Player player = playerCache.get(id);
+		List<String> merchantItems = itemsManager.getMerchantItems(player.getLocation());
+		String discountItem = itemsManager.getSeasonalDiscountItem();
+		var sb = new StringBuilder("🛒 **Торговец в " + player.getLocation() + "**\n");
+		for (String name : merchantItems) {
+			ru.chebe.litvinov.data.Item item = itemsManager.getItem(name);
+			if (item == null) continue;
+			int price = item.getPrice();
+			if (name.equals(discountItem)) {
+				price = price / 2;
+				sb.append("• **").append(name).append("** — ").append(price).append(" монет 🏷️ Скидка 50%!\n");
+			} else {
+				sb.append("• **").append(name).append("** — ").append(price).append(" монет\n");
+			}
+		}
+		sb.append("Купить: +купить [предмет]");
+		event.getChannel().sendMessage(sb.toString()).submit();
+	}
+
+	/** +квесты — журнал выполненных квестов (48) */
+	public void questJournal(MessageReceivedEvent event) {
+		String id = event.getAuthor().getId();
+		Player player = playerCache.get(id);
+		List<String> completed = player.getCompletedQuests();
+		if (completed == null || completed.isEmpty()) {
+			event.getChannel().sendMessage("📜 Ты ещё не выполнил ни одного квеста.").submit();
+			return;
+		}
+		int start = Math.max(0, completed.size() - 10);
+		List<String> last10 = completed.subList(start, completed.size());
+		var sb = new StringBuilder("📜 **Журнал квестов:**\n");
+		for (int i = 0; i < last10.size(); i++) {
+			sb.append(i + 1).append(". ").append(last10.get(i)).append("\n");
+		}
+		event.getChannel().sendMessage(sb.toString()).submit();
+	}
+
+	/** +кредит [amount] — кредит из таверны (63) */
+	public void takeCredit(MessageReceivedEvent event) {
+		String id = event.getAuthor().getId();
+		String raw = event.getMessage().getContentDisplay().substring(8).trim();
+		int amount;
+		try {
+			amount = Integer.parseInt(raw);
+		} catch (NumberFormatException e) {
+			event.getChannel().sendMessage("Укажите сумму кредита: +кредит [сумма]").submit();
+			return;
+		}
+		if (amount <= 0 || amount > GameBalance.CREDIT_MAX) {
+			event.getChannel().sendMessage("Сумма кредита от 1 до " + GameBalance.CREDIT_MAX + " монет.").submit();
+			return;
+		}
+		ReentrantLock lock = getPlayerLock(id);
+		lock.lock();
+		try {
+			Player player = playerCache.get(id);
+			if (player.getDebt() > 0) {
+				event.getChannel().sendMessage("У вас уже есть долг: **" + player.getDebt() + "** монет. Сначала погасите его (+погасить).").submit();
+				return;
+			}
+			player.setMoney(player.getMoney() + amount);
+			player.setDebt(amount);
+			playerCache.put(id, player);
+			event.getChannel().sendMessage("💳 Вы взяли кредит **" + amount + "** монет. Долг: **" + amount + "** (5% в день).").submit();
+		} finally {
+			lock.unlock();
+		}
+	}
+
+	/** +погасить — погасить кредит (63) */
+	public void repayCredit(MessageReceivedEvent event) {
+		String id = event.getAuthor().getId();
+		ReentrantLock lock = getPlayerLock(id);
+		lock.lock();
+		try {
+			Player player = playerCache.get(id);
+			if (player.getDebt() <= 0) {
+				event.getChannel().sendMessage("У вас нет долга.").submit();
+				return;
+			}
+			int debt = player.getDebt();
+			int total = (int) (debt * 1.05);
+			if (player.getMoney() < total) {
+				event.getChannel().sendMessage("Недостаточно монет для погашения долга **" + total + "** (долг " + debt + " + 5% процентов).").submit();
+				return;
+			}
+			player.setMoney(player.getMoney() - total);
+			player.setDebt(0);
+			playerCache.put(id, player);
+			event.getChannel().sendMessage("✅ Долг погашен! Уплачено **" + total + "** монет (включая проценты).").submit();
+		} finally {
+			lock.unlock();
+		}
+	}
+
+	/** +покер @игрок [ставка] (65) */
+	public void playPoker(MessageReceivedEvent event) {
+		var mentions = event.getMessage().getMentions().getUsers();
+		if (mentions.isEmpty()) {
+			event.getChannel().sendMessage("Укажите оппонента: +покер @игрок [ставка]").submit();
+			return;
+		}
+		String senderId = event.getAuthor().getId();
+		String opponentId = mentions.get(0).getId();
+		if (senderId.equals(opponentId)) {
+			event.getChannel().sendMessage("Нельзя играть против себя.").submit();
+			return;
+		}
+		if (!playerCache.contains(opponentId)) {
+			event.getChannel().sendMessage("Оппонент не зарегистрирован.").submit();
+			return;
+		}
+		String raw = event.getMessage().getContentRaw();
+		int mentionEnd = raw.indexOf('>') + 1;
+		String rest = mentionEnd > 0 ? raw.substring(mentionEnd).trim() : "";
+		int bet;
+		try {
+			bet = Integer.parseInt(rest);
+		} catch (NumberFormatException e) {
+			event.getChannel().sendMessage("Укажите ставку: +покер @игрок [ставка]").submit();
+			return;
+		}
+		if (bet <= 0) {
+			event.getChannel().sendMessage("Ставка должна быть больше нуля.").submit();
+			return;
+		}
+		Player challenger = playerCache.get(senderId);
+		Player opponent = playerCache.get(opponentId);
+		tavern.playPoker(event, challenger, opponent, bet);
+		playerCache.put(senderId, challenger);
+		playerCache.put(opponentId, opponent);
+	}
+
+	/** +скачки — информация о скачках; +поставить [лошадь] [сумма] — ставка (66) */
+	public void horseRacingInfo(MessageReceivedEvent event) {
+		event.getChannel().sendMessage(tavern.getHorseRacingInfo()).submit();
+	}
+
+	public void betOnHorse(MessageReceivedEvent event) {
+		String id = event.getAuthor().getId();
+		String[] parts = event.getMessage().getContentDisplay().split("\\s+");
+		if (parts.length < 3) {
+			event.getChannel().sendMessage("Использование: +поставить [лошадь] [сумма]").submit();
+			return;
+		}
+		String horseName = parts[1];
+		int bet;
+		try {
+			bet = Integer.parseInt(parts[2]);
+		} catch (NumberFormatException e) {
+			event.getChannel().sendMessage("Укажите корректную сумму ставки.").submit();
+			return;
+		}
+		int horseIndex = -1;
+		for (int i = 0; i < Tavern.HORSES.length; i++) {
+			if (Tavern.HORSES[i].equalsIgnoreCase(horseName)) { horseIndex = i; break; }
+		}
+		if (horseIndex < 0) {
+			event.getChannel().sendMessage("Неизвестная лошадь. Доступны: " + String.join(", ", Tavern.HORSES)).submit();
+			return;
+		}
+		ReentrantLock lock = getPlayerLock(id);
+		lock.lock();
+		try {
+			Player player = playerCache.get(id);
+			long now = System.currentTimeMillis();
+			if (now - player.getLastHorseRaceTime() < GameBalance.ONE_DAY_MS) {
+				long minLeft = (GameBalance.ONE_DAY_MS - (now - player.getLastHorseRaceTime())) / 60000;
+				event.getChannel().sendMessage("⏳ Скачки доступны раз в день. Следующие через **" + minLeft + "** мин.").submit();
+				return;
+			}
+			if (player.getMoney() < bet) {
+				event.getChannel().sendMessage("Недостаточно монет.").submit();
+				return;
+			}
+			player.setLastHorseRaceTime(now);
+			int winnerIdx = tavern.runHorseRace();
+			String winnerHorse = Tavern.HORSES[winnerIdx];
+			event.getChannel().sendMessage("🏇 Скачки начались! Победитель: **" + winnerHorse + "**").submit();
+			if (winnerIdx == horseIndex) {
+				int win = bet * Tavern.HORSE_ODDS[horseIndex];
+				player.setMoney(player.getMoney() + win - bet);
+				playerCache.put(id, player);
+				event.getChannel().sendMessage("🏆 Вы выиграли! **" + player.getNickName() + "** получает **" + win + "** монет (x" + Tavern.HORSE_ODDS[horseIndex] + ")!").submit();
+				checkRichAchievement(player);
+			} else {
+				player.setMoney(player.getMoney() - bet);
+				playerCache.put(id, player);
+				event.getChannel().sendMessage("💸 Ваша лошадь **" + horseName + "** не выиграла. Потеряно **" + bet + "** монет.").submit();
+			}
+		} finally {
+			lock.unlock();
+		}
+	}
+
+	/** +биржа — текущие цены на ресурсы (69); +продать ресурс [предмет] [qty] */
+	public void exchangeInfo(MessageReceivedEvent event) {
+		var sb = new StringBuilder("📊 **Биржа ресурсов** (цены меняются ±20% каждый день)\n\n");
+		int seed = (int)(System.currentTimeMillis() / GameBalance.ONE_DAY_MS);
+		Random rng = new Random(seed);
+		String[] resources = {"кружка цикория", "вино лаба", "медовуха база", "протеин ябыса"};
+		for (String res : resources) {
+			ru.chebe.litvinov.data.Item item = itemsManager.getItem(res);
+			if (item == null) continue;
+			double factor = 0.8 + rng.nextDouble() * 0.4;
+			int price = Math.max(1, (int)(item.getPrice() * factor));
+			sb.append("• **").append(res).append("** — ").append(price).append(" монет\n");
+		}
+		sb.append("\nПродать: +продать ресурс [предмет] [количество]");
+		event.getChannel().sendMessage(sb.toString()).submit();
+	}
+
+	public void sellResource(MessageReceivedEvent event) {
+		String id = event.getAuthor().getId();
+		String raw = event.getMessage().getContentDisplay().substring(16).trim().toLowerCase();
+		String[] parts = raw.split("\\s+");
+		if (parts.length < 2) {
+			event.getChannel().sendMessage("Использование: +продать ресурс [предмет] [количество]").submit();
+			return;
+		}
+		int qty;
+		try {
+			qty = Integer.parseInt(parts[parts.length - 1]);
+		} catch (NumberFormatException e) {
+			event.getChannel().sendMessage("Укажите количество.").submit();
+			return;
+		}
+		String itemName = raw.substring(0, raw.lastIndexOf(parts[parts.length - 1])).trim();
+		ReentrantLock lock = getPlayerLock(id);
+		lock.lock();
+		try {
+			Player player = playerCache.get(id);
+			int have = player.getInventory().getOrDefault(itemName, 0);
+			if (have < qty) {
+				event.getChannel().sendMessage("Недостаточно **" + itemName + "** (есть: " + have + ").").submit();
+				return;
+			}
+			ru.chebe.litvinov.data.Item item = itemsManager.getItem(itemName);
+			if (item == null) {
+				event.getChannel().sendMessage("Предмет не найден на бирже.").submit();
+				return;
+			}
+			int seed = (int)(System.currentTimeMillis() / GameBalance.ONE_DAY_MS);
+			double factor = 0.8 + new Random(seed + itemName.hashCode()).nextDouble() * 0.4;
+			int price = Math.max(1, (int)(item.getPrice() * factor));
+			int total = price * qty;
+			if (have == qty) player.getInventory().remove(itemName);
+			else player.getInventory().put(itemName, have - qty);
+			player.setMoney(player.getMoney() + total);
+			playerCache.put(id, player);
+			event.getChannel().sendMessage("💱 Продано **" + qty + "x " + itemName + "** за **" + total + "** монет.").submit();
+			checkRichAchievement(player);
+		} finally {
+			lock.unlock();
+		}
+	}
+
+	/** +топ кланы — рейтинг кланов (56) */
+	public void clanLeaderboard(MessageReceivedEvent event) {
+		List<ru.chebe.litvinov.data.Clan> clans = clanManager.getAllClans();
+		if (clans.isEmpty()) {
+			event.getChannel().sendMessage("Кланов пока нет.").submit();
+			return;
+		}
+		clans.sort((a, b) -> {
+			int diff = b.getMembers().size() - a.getMembers().size();
+			if (diff != 0) return diff;
+			int aLvl = a.getMembers().stream().mapToInt(mid -> {
+				Player p = playerCache.get(mid);
+				return p != null ? p.getLevel() : 0;
+			}).sum();
+			int bLvl = b.getMembers().stream().mapToInt(mid -> {
+				Player p = playerCache.get(mid);
+				return p != null ? p.getLevel() : 0;
+			}).sum();
+			return bLvl - aLvl;
+		});
+		var sb = new StringBuilder("🏰 **Топ кланов:**\n");
+		for (int i = 0; i < Math.min(10, clans.size()); i++) {
+			ru.chebe.litvinov.data.Clan c = clans.get(i);
+			int totalLvl = c.getMembers().stream().mapToInt(mid -> {
+				Player p = playerCache.get(mid);
+				return p != null ? p.getLevel() : 0;
+			}).sum();
+			sb.append(String.format("%d. **%s** — %d уч., %d суммарный ур.\n", i + 1, c.getName(), c.getMembers().size(), totalLvl));
+		}
+		event.getChannel().sendMessage(sb.toString()).submit();
+	}
+
+	/** +клан банк / +клан положить [amount] / +клан снять [amount] (54) */
+	public void clanBankCommand(MessageReceivedEvent event) {
+		String id = event.getAuthor().getId();
+		Player player = playerCache.get(id);
+		if (player.getClanName() == null || player.getClanName().isEmpty()) {
+			event.getChannel().sendMessage("Вы не состоите в клане.").submit();
+			return;
+		}
+		String content = event.getMessage().getContentDisplay().trim().toLowerCase();
+		if (content.startsWith("+клан положить")) {
+			String amountStr = content.substring(14).trim();
+			int amount;
+			try { amount = Integer.parseInt(amountStr); } catch (NumberFormatException e) {
+				event.getChannel().sendMessage("Укажите сумму.").submit(); return;
+			}
+			String result = clanManager.clanBankDeposit(player.getClanName(), id, amount, player);
+			if (result.isEmpty()) {
+				event.getChannel().sendMessage("✅ Внесено **" + amount + "** монет в клановый банк.").submit();
+			} else {
+				event.getChannel().sendMessage("❌ " + result).submit();
+			}
+		} else if (content.startsWith("+клан снять")) {
+			String amountStr = content.substring(11).trim();
+			int amount;
+			try { amount = Integer.parseInt(amountStr); } catch (NumberFormatException e) {
+				event.getChannel().sendMessage("Укажите сумму.").submit(); return;
+			}
+			String result = clanManager.clanBankWithdraw(player.getClanName(), id, amount, player);
+			if (result.isEmpty()) {
+				event.getChannel().sendMessage("✅ Снято **" + amount + "** монет из кланового банка.").submit();
+			} else {
+				event.getChannel().sendMessage("❌ " + result).submit();
+			}
+		} else {
+			event.getChannel().sendMessage(clanManager.getClanBankInfo(player.getClanName())).submit();
+		}
+	}
+
+	/** +клан улучшения / +клан купить [улучшение] (55) */
+	public void clanUpgradesCommand(MessageReceivedEvent event) {
+		String id = event.getAuthor().getId();
+		Player player = playerCache.get(id);
+		if (player.getClanName() == null || player.getClanName().isEmpty()) {
+			event.getChannel().sendMessage("Вы не состоите в клане.").submit();
+			return;
+		}
+		String content = event.getMessage().getContentDisplay().trim().toLowerCase();
+		if (content.startsWith("+клан купить")) {
+			String upgrade = content.substring(12).trim();
+			String result = clanManager.purchaseClanUpgrade(player.getClanName(), id, upgrade);
+			if (result.isEmpty()) {
+				event.getChannel().sendMessage("✅ Улучшение **" + upgrade + "** куплено!").submit();
+			} else {
+				event.getChannel().sendMessage("❌ " + result).submit();
+			}
+		} else {
+			event.getChannel().sendMessage(clanManager.getClanUpgradesInfo(player.getClanName())).submit();
+		}
+	}
+
+	/** +клан база [локация] — установить базу клана (57) */
+	public void setClanBase(MessageReceivedEvent event) {
+		String id = event.getAuthor().getId();
+		Player player = playerCache.get(id);
+		if (player.getClanName() == null || player.getClanName().isEmpty()) {
+			event.getChannel().sendMessage("Вы не состоите в клане.").submit();
+			return;
+		}
+		String location = event.getMessage().getContentDisplay().substring("+клан база".length()).trim().toLowerCase();
+		if (location.isEmpty()) {
+			event.getChannel().sendMessage("Укажите локацию: +клан база [локация]").submit();
+			return;
+		}
+		if (locationManager.getLocation(location) == null) {
+			event.getChannel().sendMessage("Такой локации не существует.").submit();
+			return;
+		}
+		String result = clanManager.setClanBase(player.getClanName(), id, location);
+		if (result.isEmpty()) {
+			event.getChannel().sendMessage("✅ Клановая база установлена: **" + location + "**").submit();
+		} else {
+			event.getChannel().sendMessage("❌ " + result).submit();
+		}
+	}
+
+	/** +война [клан] — вызов на клановую войну (58) */
+	public void clanWar(MessageReceivedEvent event) {
+		String id = event.getAuthor().getId();
+		Player player = playerCache.get(id);
+		if (player.getClanName() == null || player.getClanName().isEmpty()) {
+			event.getChannel().sendMessage("Вы не состоите в клане.").submit();
+			return;
+		}
+		String targetClan = event.getMessage().getContentDisplay().substring(7).trim().toLowerCase();
+		if (targetClan.isEmpty()) {
+			event.getChannel().sendMessage("Укажите название клана: +война [клан]").submit();
+			return;
+		}
+		if (targetClan.equals(player.getClanName())) {
+			event.getChannel().sendMessage("Нельзя объявить войну своему клану.").submit();
+			return;
+		}
+		ru.chebe.litvinov.data.Clan enemyClan = clanManager.getClan(targetClan);
+		if (enemyClan == null) {
+			event.getChannel().sendMessage("Клан **" + targetClan + "** не найден.").submit();
+			return;
+		}
+		List<Player> attackers = clanManager.getClanMembers(player.getClanName()).stream()
+				.map(playerCache::get).filter(Objects::nonNull).collect(Collectors.toList());
+		List<Player> defenders = clanManager.getClanMembers(targetClan).stream()
+				.map(playerCache::get).filter(Objects::nonNull).collect(Collectors.toList());
+		if (attackers.isEmpty() || defenders.isEmpty()) {
+			event.getChannel().sendMessage("Недостаточно участников для войны.").submit();
+			return;
+		}
+		event.getChannel().sendMessage("⚔️ **Клановая война:** **" + player.getClanName() + "** vs **" + targetClan + "**!").submit();
+		List<ru.chebe.litvinov.data.Person> atk = attackers.stream().map(p -> (ru.chebe.litvinov.data.Person) p).collect(Collectors.toList());
+		List<ru.chebe.litvinov.data.Person> def = defenders.stream().map(p -> (ru.chebe.litvinov.data.Person) p).collect(Collectors.toList());
+		battleManager.playerBattle(atk, def, event.getChannel());
+		boolean attackersWon = atk.stream().anyMatch(p -> p.getHp() > 0);
+		if (attackersWon) {
+			event.getChannel().sendMessage("🏆 Клан **" + player.getClanName() + "** победил! Каждый участник получает **" + GameBalance.CLAN_WAR_WIN_MONEY + "** монет!").submit();
+			attackers.forEach(p -> changeMoney(p.getId(), GameBalance.CLAN_WAR_WIN_MONEY, true));
+		} else {
+			event.getChannel().sendMessage("🏆 Клан **" + targetClan + "** победил! Каждый участник получает **" + GameBalance.CLAN_WAR_WIN_MONEY + "** монет!").submit();
+			defenders.forEach(p -> changeMoney(p.getId(), GameBalance.CLAN_WAR_WIN_MONEY, true));
+		}
+	}
+
+	/** +клан повысить @user — повысить роль (59) */
+	public void promoteClanMember(MessageReceivedEvent event) {
+		String id = event.getAuthor().getId();
+		Player player = playerCache.get(id);
+		if (player.getClanName() == null || player.getClanName().isEmpty()) {
+			event.getChannel().sendMessage("Вы не состоите в клане.").submit();
+			return;
+		}
+		var mentions = event.getMessage().getMentions().getUsers();
+		if (mentions.isEmpty()) {
+			event.getChannel().sendMessage("Укажите игрока: +клан повысить @игрок").submit();
+			return;
+		}
+		String targetId = mentions.get(0).getId();
+		String result = clanManager.promoteMember(player.getClanName(), id, targetId);
+		event.getChannel().sendMessage(result).submit();
+	}
+
+	/** +клан выгнать @user — исключить из клана (62) */
+	public void kickClanMember(MessageReceivedEvent event) {
+		String id = event.getAuthor().getId();
+		Player player = playerCache.get(id);
+		if (player.getClanName() == null || player.getClanName().isEmpty()) {
+			event.getChannel().sendMessage("Вы не состоите в клане.").submit();
+			return;
+		}
+		var mentions = event.getMessage().getMentions().getUsers();
+		if (mentions.isEmpty()) {
+			event.getChannel().sendMessage("Укажите игрока: +клан выгнать @игрок").submit();
+			return;
+		}
+		String targetId = mentions.get(0).getId();
+		String result = clanManager.kickMember(player.getClanName(), id, targetId);
+		if (result.isEmpty()) {
+			event.getChannel().sendMessage("✅ Игрок исключён из клана.").submit();
+		} else {
+			event.getChannel().sendMessage("❌ " + result).submit();
+		}
+	}
+
+	/** +сезон — топ-5 сезонного рейтинга (73) */
+	public void seasonLeaderboard(MessageReceivedEvent event) {
+		List<Player> all = playerCache.getAll();
+		all.sort(Comparator.comparingInt(Player::getLevel).reversed());
+		var sb = new StringBuilder("🏅 **Сезонный рейтинг** (топ-5 по уровню)\n");
+		for (int i = 0; i < Math.min(5, all.size()); i++) {
+			Player p = all.get(i);
+			sb.append(String.format("%d. %s — Ур. %d%s\n", i + 1, p.getNickName(), p.getLevel(), p.getPrestige() > 0 ? " ⭐×" + p.getPrestige() : ""));
+		}
+		sb.append("\n*Топ-3 получат уникальные предметы в конце месяца*");
+		event.getChannel().sendMessage(sb.toString()).submit();
+	}
+
+	/** +престиж — престиж на 100 уровне (74) */
+	public void prestige(MessageReceivedEvent event) {
+		String id = event.getAuthor().getId();
+		ReentrantLock lock = getPlayerLock(id);
+		lock.lock();
+		try {
+			Player player = playerCache.get(id);
+			if (player.getLevel() < GameBalance.PRESTIGE_REQUIRED_LEVEL) {
+				event.getChannel().sendMessage("Для престижа нужен **100 уровень** (текущий: " + player.getLevel() + ").").submit();
+				return;
+			}
+			player.setPrestige(player.getPrestige() + 1);
+			player.setLevel(1);
+			player.setExp(0);
+			player.setExpToNextLvl(100);
+			player.setStrength(player.getStrength() + GameBalance.PRESTIGE_STAT_BONUS);
+			player.setArmor(player.getArmor() + GameBalance.PRESTIGE_STAT_BONUS);
+			player.setLuck(player.getLuck() + GameBalance.PRESTIGE_STAT_BONUS);
+			player.setMaxHp(player.getMaxHp() + GameBalance.PRESTIGE_STAT_BONUS * 10);
+			player.setHp(player.getMaxHp());
+			playerCache.put(id, player);
+			event.getChannel().sendMessage("⭐ **Престиж " + player.getPrestige() + "!** Уровень сброшен, получено +5 к всем базовым статам.").submit();
+		} finally {
+			lock.unlock();
+		}
+	}
+
+	/** +профиль @игрок — профиль другого игрока (79) */
+	public void playerProfile(MessageReceivedEvent event) {
+		var mentions = event.getMessage().getMentions().getUsers();
+		if (mentions.isEmpty()) {
+			event.getChannel().sendMessage("Укажите игрока: +профиль @игрок").submit();
+			return;
+		}
+		String targetId = mentions.get(0).getId();
+		Player target = playerCache.get(targetId);
+		if (target == null) {
+			event.getChannel().sendMessage("Игрок не зарегистрирован.").submit();
+			return;
+		}
+		var sb = new StringBuilder("👤 **Профиль " + target.getNickName() + "**\n");
+		sb.append("🎮 Уровень: **").append(target.getLevel()).append("**");
+		if (target.getPrestige() > 0) sb.append(" ⭐×").append(target.getPrestige());
+		sb.append("\n");
+		if (target.getPlayerClass() != null && !target.getPlayerClass().isBlank())
+			sb.append("⚔️ Класс: **").append(target.getPlayerClass()).append("**\n");
+		if (target.getClanName() != null && !target.getClanName().isBlank())
+			sb.append("🏰 Клан: **").append(target.getClanName()).append("**\n");
+		sb.append("🏆 Звание: **").append(getTitle(target)).append("**\n");
+		List<String> achs = target.getAchievements();
+		if (achs != null && !achs.isEmpty())
+			sb.append("🌟 Лучшее достижение: **").append(achievementName(achs.get(achs.size() - 1))).append("**\n");
+		event.getChannel().sendMessage(sb.toString()).submit();
+	}
+
+	/** +зал — зал славы сервера (84) */
+	public void hallOfFame(MessageReceivedEvent event) {
+		List<Player> all = playerCache.getAll();
+		if (all.isEmpty()) {
+			event.getChannel().sendMessage("Зал славы пуст.").submit();
+			return;
+		}
+		Player richest = all.stream().max(Comparator.comparingInt(Player::getMoney)).orElse(null);
+		Player highest = all.stream().max(Comparator.comparingInt(Player::getLevel)).orElse(null);
+		Player streakKing = all.stream().max(Comparator.comparingInt(Player::getDailyStreak)).orElse(null);
+		Player mostAch = all.stream().max(Comparator.comparingInt(p -> p.getAchievements() == null ? 0 : p.getAchievements().size())).orElse(null);
+		var sb = new StringBuilder("🏛️ **Зал Славы БЧ-ГРП**\n\n");
+		if (richest != null) sb.append("💰 Богатейший: **").append(richest.getNickName()).append("** — ").append(richest.getMoney()).append(" монет\n");
+		if (highest != null) sb.append("⭐ Высший уровень: **").append(highest.getNickName()).append("** — ").append(highest.getLevel()).append(" ур.\n");
+		if (streakKing != null) sb.append("🔥 Самый длинный стрик: **").append(streakKing.getNickName()).append("** — ").append(streakKing.getDailyStreak()).append(" дн.\n");
+		if (mostAch != null) sb.append("🏆 Больше всех достижений: **").append(mostAch.getNickName()).append("** — ").append(mostAch.getAchievements() == null ? 0 : mostAch.getAchievements().size()).append(" достижений\n");
+		List<ru.chebe.litvinov.data.Clan> clans = clanManager.getAllClans();
+		if (!clans.isEmpty()) {
+			ru.chebe.litvinov.data.Clan strongestClan = clans.stream().max(Comparator.comparingInt(c -> c.getMembers().size())).orElse(null);
+			if (strongestClan != null) sb.append("🏰 Сильнейший клан: **").append(strongestClan.getName()).append("** — ").append(strongestClan.getMembers().size()).append(" участников");
+		}
+		event.getChannel().sendMessage(sb.toString()).submit();
+	}
+
+	private String getTitle(Player player) {
+		int achCount = player.getAchievements() == null ? 0 : player.getAchievements().size();
+		if (achCount >= 10) return "Легенда";
+		if (achCount >= 5) return "Герой";
+		if (achCount >= 3) return "Искатель";
+		return "Новичок";
+	}
+
+	private void checkRichAchievement(Player player) {
+		if (player.getMoney() >= 10000) {
+			unlockAchievement(player, "богач");
+			playerCache.put(player.getId(), player);
+		}
+	}
+
+	private void checkExplorerAchievement(Player player) {
+		List<String> history = player.getLocationHistory();
+		if (history != null && new java.util.HashSet<>(history).containsAll(LocationManager.locationList)) {
+			unlockAchievement(player, "исследователь");
+			playerCache.put(player.getId(), player);
+		}
+	}
+
+	private static final List<String> BOSS_ITEMS = List.of(
+		"бицушка ровера", "кисточка циника", "корона дарха", "кринж стина", "попка ушаса",
+		"око мора", "очко бога", "хуй вущъта", "удача рианель", "шарики лаба", "вонь арктулза",
+		"скейт ябыса", "форточка орсона", "месть гордона", "хатка база", "игла бувки",
+		"калькулятор сталкера", "язык вороны", "диплом ильи", "кресло чегоба",
+		"сиськи ред", "банка эдика", "кринж стина", "корона дарха"
+	);
+
+	private void checkCollectorAchievement(Player player) {
+		Map<String, Integer> inv = player.getInventory();
+		if (inv != null && BOSS_ITEMS.stream().distinct().allMatch(inv::containsKey)) {
+			unlockAchievement(player, "коллекционер");
+			playerCache.put(player.getId(), player);
+		}
+	}
 
 	// ---- achievements helpers ----
 
@@ -1399,6 +2380,16 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 			case "классовый"   -> "Классовый игрок — выбрать класс персонажа";
 			case "торговец"    -> "Торговец — передать предмет другому игроку";
 			case "дуэлянт"    -> "Дуэлянт — победить в дуэли";
+			case "первый_рейд" -> "Первый рейд — участие в рейде";
+			case "победитель_рейда" -> "Победитель рейда — победа в рейде";
+			case "100_pvp"     -> "100 PvP побед — одержать 100 побед в PvP";
+			case "10_уровень"  -> "10 уровень — достичь 10 уровня";
+			case "богач"       -> "Богач — накопить 10 000 монет";
+			case "коллекционер" -> "Коллекционер — собрать все предметы боссов";
+			case "исследователь" -> "Исследователь — посетить все локации";
+			case "ветеран"     -> "Ветеран — убить 50 мобов";
+			case "клановый_чел" -> "Клановый — вступить в клан";
+			case "легенда"     -> "Легенда — достичь 50 уровня";
 			default -> id;
 		};
 	}

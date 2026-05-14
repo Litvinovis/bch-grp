@@ -7,6 +7,7 @@ import ru.chebe.litvinov.data.Player;
 import ru.chebe.litvinov.repository.BossRepository;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Менеджер боевой системы.
@@ -17,6 +18,7 @@ public class BattleManager {
 	private final BossRepository bossCache;
 	private final Random rand = new Random();
 	private final Map<String, Boss> localBossMap = new HashMap<>();
+	private final Map<String, String> lastBattleLog = new ConcurrentHashMap<>();
 
 	/**
 	 * Создаёт менеджер боёв и инициализирует репозиторий боссов начальными данными.
@@ -122,6 +124,36 @@ public class BattleManager {
 		}
 	}
 
+	public String getMobTierDrop(int level) {
+		if (level <= 5) {
+			String[] consumables = {"кружка цикория", "вино лаба", "медовуха база", "токен телепорта"};
+			return consumables[rand.nextInt(consumables.length)];
+		} else if (level <= 15) {
+			String[] commonDrops = {"шарики лаба", "вонь арктулза", "скейт ябыса", "форточка орсона", "месть гордона", "хатка база", "игла бувки"};
+			return commonDrops[rand.nextInt(commonDrops.length)];
+		} else {
+			String[] rareDrops = {"калькулятор сталкера", "язык вороны", "диплом ильи", "кресло чегоба", "сиськи ред", "банка эдика", "бицушка ровера", "кисточка циника", "корона дарха"};
+			return rareDrops[rand.nextInt(rareDrops.length)];
+		}
+	}
+
+	public List<Person> clanNpcBattle(List<Person> players, MessageChannelUnion channel) {
+		int totalStrength = players.stream().mapToInt(p -> p.getStrength()).sum();
+		int avgLevel = (int) players.stream()
+				.filter(p -> p instanceof Player)
+				.mapToInt(p -> ((Player) p).getLevel())
+				.average().orElse(1.0);
+
+		int npcStrength = Math.max(3, avgLevel / 2 + 2);
+		int npcHp = 30 + avgLevel * 5;
+		Person npc = Boss.builder().nickName("Клановый НПС").hp(npcHp).strength(npcStrength).defeat(0).win(0).bossItem(null).build();
+		channel.sendMessage("⚔️ Клан атакует **Клановый НПС** [❤️ HP: **" + npcHp + "**]!").submit();
+		battleMechanic(players, List.of(npc), channel);
+		List<Person> result = new ArrayList<>(players);
+		result.add(npc);
+		return result;
+	}
+
 	/**
 	 * Проводит бой команды игроков против босса локации.
 	 * После боя HP босса восстанавливается до начального значения, обновляется статистика побед/поражений.
@@ -167,16 +199,51 @@ public class BattleManager {
 	 * @param channel Discord-канал для вывода сообщений о ходе боя
 	 */
 	public void battleMechanic(List<Person> team1, List<Person> team2, MessageChannelUnion channel) {
+		battleMechanicInternal(team1, team2, channel, null);
+	}
+
+	public void battleMechanicWithLog(List<Person> team1, List<Person> team2, MessageChannelUnion channel, String attackerPlayerId) {
+		battleMechanicInternal(team1, team2, channel, attackerPlayerId);
+	}
+
+	private void battleMechanicInternal(List<Person> team1, List<Person> team2, MessageChannelUnion channel, String logPlayerId) {
 		StringBuilder sb = new StringBuilder();
+		StringBuilder fullLog = new StringBuilder();
+		int round = 0;
 		while (checkHpPlayerList(team1) && checkHpPlayerList(team2)) {
+			round++;
 			if (sb.length() > 1800) {
 				channel.sendMessage(sb.toString()).submit();
 				sb.setLength(0);
 			}
+
+			// Воин: регенерация 5% HP в начале раунда (19)
+			for (Person p : team1) {
+				if (p instanceof Player pl && "ВОИН".equals(pl.getPlayerClass()) && pl.getHp() > 0) {
+					int regen = Math.max(1, pl.getMaxHp() / 20);
+					pl.setHp(Math.min(pl.getMaxHp(), pl.getHp() + regen));
+				}
+			}
+			for (Person p : team2) {
+				if (p instanceof Player pl && "ВОИН".equals(pl.getPlayerClass()) && pl.getHp() > 0) {
+					int regen = Math.max(1, pl.getMaxHp() / 20);
+					pl.setHp(Math.min(pl.getMaxHp(), pl.getHp() + regen));
+				}
+			}
+
 			Person attacker = getRandomPlayer(team1);
 			Person defender = getRandomPlayer(team2);
 
 			if (attacker != null && defender != null) {
+				String roundLabel = "**Раунд " + round + "**\n";
+				sb.append(roundLabel);
+				fullLog.append(roundLabel);
+
+				// Маг: первый удар без контратаки (17)
+				boolean isMageFirstStrike = attacker instanceof Player
+						&& "МАГ".equals(((Player) attacker).getPlayerClass())
+						&& round == 1;
+
 				// Рассчитываем шанс крита: базовый 10%, у игрока +luck/2
 				int critChance = 10;
 				if (attacker instanceof Player) {
@@ -187,20 +254,70 @@ public class BattleManager {
 				if (crit) {
 					damage *= 2;
 				}
-				defender.setHp(defender.getHp() - damage);
-				String hitPrefix = crit ? "💥 КРИТ! **" : "⚔️ **";
-				sb.append(hitPrefix).append(attacker.getNickName()).append("** наносит **").append(damage)
-						.append("** 🩸 → **").append(defender.getNickName())
-						.append("** (❤️ **").append(Math.max(0, defender.getHp())).append("** HP)\n");
 
-				if (defender.getHp() > 0) {
-					damage = randomizeDamage(defender.getStrength() - attacker.getArmor());
-					attacker.setHp(attacker.getHp() - damage);
-					sb.append("↩️ **").append(defender.getNickName()).append("** отвечает **").append(damage)
-							.append("** 🩸 → **").append(attacker.getNickName())
-							.append("** (❤️ **").append(Math.max(0, attacker.getHp())).append("** HP)\n");
+				// Блок защитника (16)
+				int defenderArmor = defender instanceof Player ? ((Player) defender).getArmor() : defender.getArmor();
+				int blockChance = defenderArmor * 3;
+				boolean blocked = rand.nextInt(100) < blockChance;
+				if (blocked) {
+					damage = damage / 2;
+					String blockMsg = "🛡️ **" + defender.getNickName() + "** заблокировал!\n";
+					sb.append(blockMsg);
+					fullLog.append(blockMsg);
+				}
+
+				// Уклонение защитника (15)
+				int defenderLuck = defender instanceof Player ? ((Player) defender).getLuck() : 0;
+				int dodgeChance = 5 + defenderLuck * 2;
+				boolean dodged = rand.nextInt(100) < dodgeChance;
+
+				if (dodged) {
+					String dodgeMsg = "💨 **" + defender.getNickName() + "** уклонился!\n";
+					sb.append(dodgeMsg);
+					fullLog.append(dodgeMsg);
+
+					// Контратака разбойника при уклонении (18)
+					if (defender instanceof Player defPlayer && "РАЗБОЙНИК".equals(defPlayer.getPlayerClass())) {
+						int counterDmg = randomizeDamage(defPlayer.getStrength() / 2);
+						attacker.setHp(attacker.getHp() - counterDmg);
+						String counterMsg = "🗡️ **" + defPlayer.getNickName() + "** контратакует: **" + counterDmg
+								+ "** 🩸 → **" + attacker.getNickName()
+								+ "** (❤️ **" + Math.max(0, attacker.getHp()) + "** HP)\n";
+						sb.append(counterMsg);
+						fullLog.append(counterMsg);
+					}
 				} else {
-					sb.append("💀 **").append(defender.getNickName()).append("** повержен!\n");
+					int defenderHpBefore = defender.getHp();
+					defender.setHp(defender.getHp() - damage);
+					String hitPrefix = crit ? "💥 КРИТ! **" : "⚔️ **";
+					String attackMsg = hitPrefix + attacker.getNickName() + "** наносит **" + damage
+							+ "** 🩸 → **" + defender.getNickName()
+							+ "** (❤️ **" + Math.max(0, defender.getHp()) + "** HP)\n";
+					sb.append(attackMsg);
+					fullLog.append(attackMsg);
+
+					if (defender.getHp() <= 0) {
+						String defeatMsg = "💀 **" + defender.getNickName() + "** повержен!\n";
+						sb.append(defeatMsg);
+						fullLog.append(defeatMsg);
+
+						// Чистая победа — убийство с одного удара (20)
+						if (defenderHpBefore > 0 && attacker instanceof Player pl) {
+							pl.setReputation(pl.getReputation() + 5);
+							String cleanKillMsg = "✨ Чистая победа! **" + pl.getNickName() + "** получает +5 репутации!\n";
+							sb.append(cleanKillMsg);
+							fullLog.append(cleanKillMsg);
+						}
+					} else if (!isMageFirstStrike) {
+						// Контратака защитника
+						damage = randomizeDamage(defender.getStrength() - attacker.getArmor());
+						attacker.setHp(attacker.getHp() - damage);
+						String counterMsg = "↩️ **" + defender.getNickName() + "** отвечает **" + damage
+								+ "** 🩸 → **" + attacker.getNickName()
+								+ "** (❤️ **" + Math.max(0, attacker.getHp()) + "** HP)\n";
+						sb.append(counterMsg);
+						fullLog.append(counterMsg);
+					}
 				}
 			} else {
 				break;
@@ -209,6 +326,13 @@ public class BattleManager {
 		if (!sb.isEmpty()) {
 			channel.sendMessage(sb.toString()).submit();
 		}
+		if (logPlayerId != null) {
+			lastBattleLog.put(logPlayerId, fullLog.toString());
+		}
+	}
+
+	public String getLastBattleLog(String playerId) {
+		return lastBattleLog.getOrDefault(playerId, "Нет данных о последнем бое.");
 	}
 
 	/**
