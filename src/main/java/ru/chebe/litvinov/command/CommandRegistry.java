@@ -106,6 +106,7 @@ public class CommandRegistry {
         registry.register("+предмет", itemsManager::getItemInfo);
         registry.register("+купить", playersManager::buyItem);
         registry.register("+использовать", playersManager::useItem);
+        registry.register("+продать ресурс", playersManager::sellResource);
         registry.register("+продать", playersManager::sellItem);
 
         // --- Таверна ---
@@ -120,6 +121,7 @@ public class CommandRegistry {
         registry.register("+поменять квест", playersManager::changeEvent);
 
         // --- Бой ---
+        registry.register("+убить нпс", playersManager::clanNpcFight);
         registry.register("+убить босса", playersManager::bossFight);
         registry.register("+пвп", playersManager::playersFight);
         registry.register("+нпс", playersManager::fightNpc);
@@ -130,7 +132,8 @@ public class CommandRegistry {
         // --- Дневные квесты ---
         registry.register("+дневные", playersManager::showDailyQuests);
 
-        // --- Таблица лидеров ---
+        // --- Таблица лидеров (длинные префиксы раньше) ---
+        registry.register("+топ кланы", playersManager::clanLeaderboard);
         registry.register("+топ", playersManager::topLeaderboard);
 
         // --- Классы персонажей ---
@@ -154,6 +157,50 @@ public class CommandRegistry {
         registry.register("+принять заявки", playersManager::acceptApply);
         registry.register("+отклонить заявки", playersManager::rejectApply);
         registry.register("+клан инфо", playersManager::clanInfo);
+        registry.register("+клан банк", playersManager::clanBankCommand);
+        registry.register("+клан положить", playersManager::clanBankCommand);
+        registry.register("+клан снять", playersManager::clanBankCommand);
+        registry.register("+клан улучшения", playersManager::clanUpgradesCommand);
+        registry.register("+клан купить", playersManager::clanUpgradesCommand);
+        registry.register("+клан база", playersManager::setClanBase);
+        registry.register("+клан повысить", playersManager::promoteClanMember);
+        registry.register("+клан выгнать", playersManager::kickClanMember);
+
+        // --- Новые боевые ---
+        registry.register("+последний бой", playersManager::lastBattleLog);
+
+        // --- Локации ---
+        registry.register("+путь", playersManager::locationPath);
+        registry.register("+исследовать", playersManager::exploreLocation);
+        registry.register("+домой", playersManager::goHome);
+
+        // --- Инвентарь ---
+        registry.register("+банк", playersManager::bankCommand);
+        registry.register("+улучшить", playersManager::upgradeItem);
+        registry.register("+сравнить", playersManager::compareItems);
+        registry.register("+крафт", playersManager::craftItem);
+        registry.register("+торговец", playersManager::merchantShop);
+
+        // --- Квесты ---
+        registry.register("+квесты", playersManager::questJournal);
+
+        // --- Рейтинги ---
+        registry.register("+сезон", playersManager::seasonLeaderboard);
+
+        // --- Экономика ---
+        registry.register("+кредит", playersManager::takeCredit);
+        registry.register("+погасить", playersManager::repayCredit);
+        registry.register("+покер", playersManager::playPoker);
+        registry.register("+скачки", playersManager::horseRacingInfo);
+        registry.register("+поставить", playersManager::betOnHorse);
+        registry.register("+биржа", playersManager::exchangeInfo);
+
+        // --- Прогрессия ---
+        registry.register("+престиж", playersManager::prestige);
+
+        // --- Социальные ---
+        registry.register("+профиль", playersManager::playerProfile);
+        registry.register("+зал", playersManager::hallOfFame);
 
         // --- Идеи (обычные) ---
         registry.register("+идея", ideasManager::putIdea);

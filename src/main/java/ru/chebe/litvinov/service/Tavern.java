@@ -3,7 +3,8 @@ package ru.chebe.litvinov.service;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import ru.chebe.litvinov.data.Player;
 
-import java.util.Random;
+import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Таверна — место для азартных игр в игровом мире.
@@ -11,20 +12,19 @@ import java.util.Random;
  */
 public class Tavern {
 	private final Random random;
+	private static final AtomicInteger jackpot = new AtomicInteger(0);
+	private static long lastJackpotTime = 0;
+	private static final long JACKPOT_INTERVAL_MS = 7L * 24 * 60 * 60 * 1000;
 
-	/**
-	 * Создаёт таверну со стандартным генератором случайных чисел.
-	 */
+	public static final String[] HORSES = {"Буря", "Молния", "Гром", "Ветер", "Огонь"};
+	public static final int[] HORSE_ODDS = {2, 3, 4, 5, 10};
+
+	public static int getJackpot() { return jackpot.get(); }
+
 	public Tavern() {
 		this.random = new Random();
 	}
 
-	/**
-	 * Создаёт таверну с указанным генератором случайных чисел.
-	 * Используется в тестах для воспроизводимых результатов.
-	 *
-	 * @param random генератор случайных чисел
-	 */
 	public Tavern(Random random) {
 		this.random = random;
 	}
@@ -103,6 +103,9 @@ public class Tavern {
 		boolean isWin = bet.equalsIgnoreCase(color) || bet.equals(String.valueOf(winNumber));
 		int payout = 1;
 
+		int jackpotContrib = Math.max(1, bid * 5 / 100);
+		jackpot.addAndGet(jackpotContrib);
+
 		if (isWin) {
 			if (bet.equalsIgnoreCase("красный") || bet.equalsIgnoreCase("черный")) {
 				payout = 2;
@@ -110,12 +113,70 @@ public class Tavern {
 				payout = 35;
 			}
 			player.setMoney(player.getMoney() + bid * payout);
-			event.getChannel().sendMessage("Выигрыш! Выпало: " + winNumber + " (" + color + "). Вы получаете " + (bid * payout)).queue();
+			event.getChannel().sendMessage("Выигрыш! Выпало: " + winNumber + " (" + color + "). Вы получаете " + (bid * payout) + " (Джекпот: " + jackpot.get() + ")").queue();
 		} else {
 			player.setMoney(player.getMoney() - bid);
-			event.getChannel().sendMessage("Проигрыш. Выпало: " + winNumber + " (" + color + ")").queue();
+			event.getChannel().sendMessage("Проигрыш. Выпало: " + winNumber + " (" + color + "). Джекпот: " + jackpot.get()).queue();
 		}
 		return player;
+	}
+
+	public int tryClaimJackpot(String playerId) {
+		long now = System.currentTimeMillis();
+		if (now - lastJackpotTime >= JACKPOT_INTERVAL_MS && jackpot.get() > 0) {
+			lastJackpotTime = now;
+			return jackpot.getAndSet(0);
+		}
+		return 0;
+	}
+
+	public Player playPoker(MessageReceivedEvent event, Player challenger, Player opponent, int bet) {
+		if (challenger.getMoney() < bet) {
+			event.getChannel().sendMessage("У вас недостаточно монет!").queue();
+			return challenger;
+		}
+		if (opponent.getMoney() < bet) {
+			event.getChannel().sendMessage("У оппонента недостаточно монет!").queue();
+			return challenger;
+		}
+		int handChallenger = random.nextInt(10);
+		int handOpponent = random.nextInt(10);
+		String[] hands = {"Старшая карта", "Пара", "Две пары", "Тройка", "Стрит", "Флеш", "Фулл хаус", "Каре", "Стрит-флеш", "Роял флеш"};
+		String cHand = hands[handChallenger];
+		String oHand = hands[handOpponent];
+		event.getChannel().sendMessage("🃏 **" + challenger.getNickName() + "**: " + cHand + " vs **" + opponent.getNickName() + "**: " + oHand).queue();
+		if (handChallenger > handOpponent) {
+			challenger.setMoney(challenger.getMoney() + bet);
+			opponent.setMoney(opponent.getMoney() - bet);
+			event.getChannel().sendMessage("🏆 **" + challenger.getNickName() + "** выигрывает покер! +" + bet + " монет").queue();
+		} else if (handOpponent > handChallenger) {
+			challenger.setMoney(challenger.getMoney() - bet);
+			opponent.setMoney(opponent.getMoney() + bet);
+			event.getChannel().sendMessage("🏆 **" + opponent.getNickName() + "** выигрывает покер! +" + bet + " монет").queue();
+		} else {
+			event.getChannel().sendMessage("🤝 Ничья в покере!").queue();
+		}
+		return challenger;
+	}
+
+	public String getHorseRacingInfo() {
+		var sb = new StringBuilder("🏇 **Скачки** — ставьте на лошадь командой `+поставить [лошадь] [сумма]`\n\n");
+		for (int i = 0; i < HORSES.length; i++) {
+			sb.append(String.format("• **%s** — коэффициент x%d\n", HORSES[i], HORSE_ODDS[i]));
+		}
+		return sb.toString();
+	}
+
+	public int runHorseRace() {
+		int totalWeight = 0;
+		for (int odds : HORSE_ODDS) totalWeight += (100 / odds);
+		int roll = random.nextInt(totalWeight);
+		int cum = 0;
+		for (int i = 0; i < HORSES.length; i++) {
+			cum += (100 / HORSE_ODDS[i]);
+			if (roll < cum) return i;
+		}
+		return HORSES.length - 1;
 	}
 
 	/**

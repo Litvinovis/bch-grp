@@ -5,6 +5,7 @@ import ru.chebe.litvinov.data.Item;
 import ru.chebe.litvinov.repository.ItemRepository;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -97,6 +98,8 @@ public class ItemsManager {
 						.description("+3 к репутации на 30 минут. Никто не понял, но все впечатлились").build());
 		map.put("зелье лаба", Item.builder().name("зелье лаба").armor(0).price(50).luck(1).health(80).reputation(0).strength(1).xpGeneration(0).action(true)
 						.description("Восстанавливает 80 HP, +1 к силе и +1 к удаче на 30 минут. Состав засекречен, но явно не вода").build());
+		map.put("карта мира", Item.builder().name("карта мира").armor(0).price(100).luck(0).health(0).reputation(0).strength(0).xpGeneration(0).action(false)
+						.description("Позволяет искать кратчайший путь до локации командой +путь [локация]").build());
 
 
 		if (itemsCache != null) {
@@ -148,5 +151,36 @@ public class ItemsManager {
 	public String getRandomItemName() {
 		if (itemsForSale.isEmpty()) return null;
 		return itemsForSale.get(new Random().nextInt(itemsForSale.size()));
+	}
+
+	private static String seasonalDiscountItem = null;
+	private static long lastDiscountTime = 0;
+	private static final long DISCOUNT_INTERVAL_MS = 7L * 24 * 60 * 60 * 1000;
+
+	public String getSeasonalDiscountItem() {
+		long now = System.currentTimeMillis();
+		if (seasonalDiscountItem == null || now - lastDiscountTime >= DISCOUNT_INTERVAL_MS) {
+			if (!itemsForSale.isEmpty()) {
+				seasonalDiscountItem = itemsForSale.get(new Random().nextInt(itemsForSale.size()));
+				lastDiscountTime = now;
+			}
+		}
+		return seasonalDiscountItem;
+	}
+
+	public List<String> getMerchantItems(String location) {
+		Random rng = new Random((location + System.currentTimeMillis() / (24 * 3600 * 1000L)).hashCode());
+		List<String> shuffled = new ArrayList<>(itemsForSale);
+		Collections.shuffle(shuffled, rng);
+		return shuffled.subList(0, Math.min(3, shuffled.size()));
+	}
+
+	public List<Item> getAllItems() {
+		List<Item> result = new ArrayList<>();
+		for (String name : itemsForSale) {
+			Item item = itemsCache.get(name);
+			if (item != null) result.add(item);
+		}
+		return result;
 	}
 }

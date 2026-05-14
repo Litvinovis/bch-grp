@@ -35,6 +35,15 @@ private int exp;
 	private String playerClass;
 	private List<String> achievements;
 	private Map<String, Long> activeBuffs;
+	private List<String> locationHistory;
+	private long lastExploreTime;
+	private Map<String, Integer> bankInventory;
+	private List<String> completedQuests;
+	private int debt;
+	private int pvpWins;
+	private int mobKills;
+	private int prestige;
+	private long lastHorseRaceTime;
 
 	private static final Map<String, String> ITEM_ICONS = Map.ofEntries(
 		// consumables
@@ -105,6 +114,15 @@ private int exp;
 		this.playerClass = "";
 		this.achievements = new ArrayList<>();
 		this.activeBuffs = new HashMap<>();
+		this.locationHistory = new ArrayList<>();
+		this.lastExploreTime = 0;
+		this.bankInventory = new HashMap<>();
+		this.completedQuests = new ArrayList<>();
+		this.debt = 0;
+		this.pvpWins = 0;
+		this.mobKills = 0;
+		this.prestige = 0;
+		this.lastHorseRaceTime = 0;
 	}
 
 	private Map<String, Integer> startInventory() {

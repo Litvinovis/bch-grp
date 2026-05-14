@@ -49,4 +49,33 @@ public final class GameBalance {
 
 	// ---- Квесты ----
 	public static final int QUEST_CHANGE_FEE = 20;
+	public static final int QUEST_FAIL_PENALTY = 10;
+
+	// ---- Кредит ----
+	public static final int CREDIT_MAX = 500;
+	public static final double CREDIT_DAILY_INTEREST = 0.05;
+
+	// ---- Налог на богатство ----
+	public static final int WEALTH_TAX_THRESHOLD = 10000;
+	public static final double WEALTH_TAX_RATE = 0.01;
+
+	// ---- Клановая война ----
+	public static final int CLAN_WAR_WIN_MONEY = 100;
+
+	// ---- Улучшение предмета ----
+	public static final int ITEM_UPGRADE_COST = 200;
+
+	// ---- Исследование локации ----
+	public static final long EXPLORE_COOLDOWN_MS = 6 * 60 * 60 * 1000L;
+	public static final int EXPLORE_MONEY_MIN = 10;
+	public static final int EXPLORE_MONEY_MAX = 50;
+
+	// ---- Клановый банк улучшения ----
+	public static final int CLAN_UPGRADE_DROP_COST = 500;
+	public static final int CLAN_UPGRADE_XP_COST = 750;
+	public static final int CLAN_UPGRADE_ARMOR_COST = 1000;
+
+	// ---- Престиж ----
+	public static final int PRESTIGE_REQUIRED_LEVEL = 100;
+	public static final int PRESTIGE_STAT_BONUS = 5;
 }

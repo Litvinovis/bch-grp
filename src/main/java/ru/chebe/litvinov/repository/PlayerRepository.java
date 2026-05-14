@@ -24,12 +24,15 @@ public class PlayerRepository {
         this.dataSource = dataSource;
     }
 
+    private static final String SELECT_COLS =
+        "id, nick_name, hp, max_hp, luck, money, reputation, armor, strength, location, level, " +
+        "player_exp, exp_to_next, inventory, answer, active_event, daily_time, clan_name, daily_streak, player_class, achievements, active_buffs, " +
+        "location_history, last_explore_time, bank_inventory, completed_quests, debt, pvp_wins, mob_kills, prestige, last_horse_race";
+
     public List<Player> getAll() {
         List<Player> result = new ArrayList<>();
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(
-                 "SELECT id, nick_name, hp, max_hp, luck, money, reputation, armor, strength, location, level, " +
-                 "player_exp, exp_to_next, inventory, answer, active_event, daily_time, clan_name, daily_streak, player_class, achievements, active_buffs FROM players");
+             PreparedStatement ps = conn.prepareStatement("SELECT " + SELECT_COLS + " FROM players");
              ResultSet rs = ps.executeQuery()) {
             while (rs.next()) result.add(mapRow(rs));
         } catch (Exception e) {
@@ -40,9 +43,7 @@ public class PlayerRepository {
 
     public Player get(String id) {
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(
-                 "SELECT id, nick_name, hp, max_hp, luck, money, reputation, armor, strength, location, level, " +
-                 "player_exp, exp_to_next, inventory, answer, active_event, daily_time, clan_name, daily_streak, player_class, achievements, active_buffs FROM players WHERE id = ?")) {
+             PreparedStatement ps = conn.prepareStatement("SELECT " + SELECT_COLS + " FROM players WHERE id = ?")) {
             ps.setString(1, id);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) return mapRow(rs);
@@ -69,15 +70,20 @@ public class PlayerRepository {
         try (Connection conn = dataSource.getConnection();
              PreparedStatement ps = conn.prepareStatement(
                  "INSERT INTO players (id, nick_name, hp, max_hp, luck, money, reputation, armor, strength, location, level, " +
-                 "player_exp, exp_to_next, inventory, answer, active_event, daily_time, clan_name, daily_streak, player_class, achievements, active_buffs) " +
-                 "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) " +
+                 "player_exp, exp_to_next, inventory, answer, active_event, daily_time, clan_name, daily_streak, player_class, achievements, active_buffs, " +
+                 "location_history, last_explore_time, bank_inventory, completed_quests, debt, pvp_wins, mob_kills, prestige, last_horse_race) " +
+                 "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) " +
                  "ON CONFLICT (id) DO UPDATE SET " +
                  "nick_name=EXCLUDED.nick_name, hp=EXCLUDED.hp, max_hp=EXCLUDED.max_hp, luck=EXCLUDED.luck, " +
                  "money=EXCLUDED.money, reputation=EXCLUDED.reputation, armor=EXCLUDED.armor, strength=EXCLUDED.strength, " +
                  "location=EXCLUDED.location, level=EXCLUDED.level, player_exp=EXCLUDED.player_exp, exp_to_next=EXCLUDED.exp_to_next, " +
                  "inventory=EXCLUDED.inventory, answer=EXCLUDED.answer, active_event=EXCLUDED.active_event, " +
                  "daily_time=EXCLUDED.daily_time, clan_name=EXCLUDED.clan_name, daily_streak=EXCLUDED.daily_streak, " +
-                 "player_class=EXCLUDED.player_class, achievements=EXCLUDED.achievements, active_buffs=EXCLUDED.active_buffs")) {
+                 "player_class=EXCLUDED.player_class, achievements=EXCLUDED.achievements, active_buffs=EXCLUDED.active_buffs, " +
+                 "location_history=EXCLUDED.location_history, last_explore_time=EXCLUDED.last_explore_time, " +
+                 "bank_inventory=EXCLUDED.bank_inventory, completed_quests=EXCLUDED.completed_quests, " +
+                 "debt=EXCLUDED.debt, pvp_wins=EXCLUDED.pvp_wins, mob_kills=EXCLUDED.mob_kills, " +
+                 "prestige=EXCLUDED.prestige, last_horse_race=EXCLUDED.last_horse_race")) {
             ps.setString(1, id);
             ps.setString(2, player.getNickName());
             ps.setInt(3, player.getHp());
@@ -100,6 +106,15 @@ public class PlayerRepository {
             ps.setString(20, player.getPlayerClass() != null ? player.getPlayerClass() : "");
             ps.setString(21, JsonUtil.toJson(player.getAchievements() != null ? player.getAchievements() : new ArrayList<>()));
             ps.setString(22, JsonUtil.toJson(player.getActiveBuffs() != null ? player.getActiveBuffs() : new HashMap<>()));
+            ps.setString(23, JsonUtil.toJson(player.getLocationHistory() != null ? player.getLocationHistory() : new ArrayList<>()));
+            ps.setLong(24, player.getLastExploreTime());
+            ps.setString(25, JsonUtil.toJson(player.getBankInventory() != null ? player.getBankInventory() : new HashMap<>()));
+            ps.setString(26, JsonUtil.toJson(player.getCompletedQuests() != null ? player.getCompletedQuests() : new ArrayList<>()));
+            ps.setInt(27, player.getDebt());
+            ps.setInt(28, player.getPvpWins());
+            ps.setInt(29, player.getMobKills());
+            ps.setInt(30, player.getPrestige());
+            ps.setLong(31, player.getLastHorseRaceTime());
             ps.executeUpdate();
         } catch (Exception e) {
             log.error("Ошибка put({}): {}", id, e.getMessage());
@@ -139,6 +154,15 @@ public class PlayerRepository {
         p.setAchievements(JsonUtil.fromJsonToListString(rs.getString("achievements")));
         p.setInventory(JsonUtil.fromJsonToMapStringInt(rs.getString("inventory")));
         p.setActiveBuffs(JsonUtil.fromJsonToMapStringLong(rs.getString("active_buffs")));
+        try { p.setLocationHistory(JsonUtil.fromJsonToListString(rs.getString("location_history"))); } catch (Exception e) { p.setLocationHistory(new ArrayList<>()); }
+        try { p.setLastExploreTime(rs.getLong("last_explore_time")); } catch (Exception e) { p.setLastExploreTime(0); }
+        try { p.setBankInventory(JsonUtil.fromJsonToMapStringInt(rs.getString("bank_inventory"))); } catch (Exception e) { p.setBankInventory(new HashMap<>()); }
+        try { p.setCompletedQuests(JsonUtil.fromJsonToListString(rs.getString("completed_quests"))); } catch (Exception e) { p.setCompletedQuests(new ArrayList<>()); }
+        try { p.setDebt(rs.getInt("debt")); } catch (Exception e) { p.setDebt(0); }
+        try { p.setPvpWins(rs.getInt("pvp_wins")); } catch (Exception e) { p.setPvpWins(0); }
+        try { p.setMobKills(rs.getInt("mob_kills")); } catch (Exception e) { p.setMobKills(0); }
+        try { p.setPrestige(rs.getInt("prestige")); } catch (Exception e) { p.setPrestige(0); }
+        try { p.setLastHorseRaceTime(rs.getLong("last_horse_race")); } catch (Exception e) { p.setLastHorseRaceTime(0); }
 
         String eventJson = rs.getString("active_event");
         if (eventJson != null && !eventJson.isBlank() && !eventJson.equals("null")) {

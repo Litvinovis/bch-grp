@@ -7,6 +7,8 @@ import ru.chebe.litvinov.util.JsonUtil;
 
 import javax.sql.DataSource;
 import java.sql.*;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 
 public class ClanRepository {
@@ -19,7 +21,7 @@ public class ClanRepository {
     public Clan get(String name) {
         try (Connection conn = dataSource.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                 "SELECT name, leader_id, members, appliers FROM clans WHERE name = ?")) {
+                 "SELECT name, leader_id, members, appliers, clan_bank, clan_upgrades, clan_base, clan_roles FROM clans WHERE name = ?")) {
             ps.setString(1, name);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) return mapRow(rs);
@@ -40,12 +42,19 @@ public class ClanRepository {
     public void put(String name, Clan clan) {
         try (Connection conn = dataSource.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                 "INSERT INTO clans (name, leader_id, members, appliers) VALUES (?,?,?,?) " +
+                 "INSERT INTO clans (name, leader_id, members, appliers, clan_bank, clan_upgrades, clan_base, clan_roles) VALUES (?,?,?,?,?,?,?,?) " +
                  "ON CONFLICT (name) DO UPDATE SET leader_id=EXCLUDED.leader_id, " +
-                 "members=EXCLUDED.members, appliers=EXCLUDED.appliers")) {
-            ps.setString(1, name); ps.setString(2, clan.getLeaderId());
+                 "members=EXCLUDED.members, appliers=EXCLUDED.appliers, " +
+                 "clan_bank=EXCLUDED.clan_bank, clan_upgrades=EXCLUDED.clan_upgrades, " +
+                 "clan_base=EXCLUDED.clan_base, clan_roles=EXCLUDED.clan_roles")) {
+            ps.setString(1, name);
+            ps.setString(2, clan.getLeaderId());
             ps.setString(3, JsonUtil.toJson(clan.getMembers()));
             ps.setString(4, JsonUtil.toJson(clan.getAppliers()));
+            ps.setString(5, JsonUtil.toJson(clan.getClanBank() != null ? clan.getClanBank() : new HashMap<>()));
+            ps.setString(6, JsonUtil.toJson(clan.getClanUpgrades() != null ? clan.getClanUpgrades() : new ArrayList<>()));
+            ps.setString(7, clan.getClanBase() != null ? clan.getClanBase() : "респаун");
+            ps.setString(8, JsonUtil.toJson(clan.getClanRoles() != null ? clan.getClanRoles() : new HashMap<>()));
             ps.executeUpdate();
         } catch (Exception e) { log.error("Ошибка put({}): {}", name, e.getMessage()); }
     }
@@ -58,6 +67,17 @@ public class ClanRepository {
         } catch (Exception e) { log.error("Ошибка remove({}): {}", name, e.getMessage()); }
     }
 
+    public List<Clan> getAll() {
+        List<Clan> result = new ArrayList<>();
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement ps = conn.prepareStatement(
+                 "SELECT name, leader_id, members, appliers, clan_bank, clan_upgrades, clan_base, clan_roles FROM clans");
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) result.add(mapRow(rs));
+        } catch (Exception e) { log.warn("Ошибка getAll(): {}", e.getMessage()); }
+        return result;
+    }
+
     private Clan mapRow(ResultSet rs) throws SQLException {
         String name = rs.getString("name");
         String leaderId = rs.getString("leader_id");
@@ -68,6 +88,22 @@ public class ClanRepository {
         clan.getMembers().addAll(members);
         clan.getAppliers().clear();
         clan.getAppliers().addAll(appliers);
+        try {
+            String bankJson = rs.getString("clan_bank");
+            clan.setClanBank(bankJson != null ? JsonUtil.fromJsonToMapStringInt(bankJson) : new HashMap<>());
+        } catch (Exception e) { clan.setClanBank(new HashMap<>()); }
+        try {
+            String upgradesJson = rs.getString("clan_upgrades");
+            clan.setClanUpgrades(upgradesJson != null ? JsonUtil.fromJsonToListString(upgradesJson) : new ArrayList<>());
+        } catch (Exception e) { clan.setClanUpgrades(new ArrayList<>()); }
+        try {
+            String base = rs.getString("clan_base");
+            clan.setClanBase(base != null ? base : "респаун");
+        } catch (Exception e) { clan.setClanBase("респаун"); }
+        try {
+            String rolesJson = rs.getString("clan_roles");
+            clan.setClanRoles(rolesJson != null ? JsonUtil.fromJsonToMapStringString(rolesJson) : new HashMap<>());
+        } catch (Exception e) { clan.setClanRoles(new HashMap<>()); }
         return clan;
     }
 }

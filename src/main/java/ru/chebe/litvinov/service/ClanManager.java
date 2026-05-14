@@ -7,6 +7,7 @@ import ru.chebe.litvinov.repository.PlayerRepository;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import static ru.chebe.litvinov.Constants.MAX_CLAN_SIZE;
 
@@ -193,5 +194,135 @@ public class ClanManager {
 		} else {
 			return clan.getMembers();
 		}
+	}
+
+	public Clan getClan(String clanName) {
+		return clanCache.get(clanName);
+	}
+
+	public void saveClan(Clan clan) {
+		clanCache.put(clan.getName(), clan);
+	}
+
+	public String clanBankDeposit(String clanName, String playerId, int amount, Player player) {
+		var clan = clanCache.get(clanName);
+		if (clan == null) return "Клан не найден";
+		if (player.getMoney() < amount) return "Недостаточно монет";
+		player.setMoney(player.getMoney() - amount);
+		playerCache.put(playerId, player);
+		if (clan.getClanBank() == null) clan.setClanBank(new java.util.HashMap<>());
+		clan.getClanBank().merge("монеты", amount, Integer::sum);
+		clanCache.put(clanName, clan);
+		return "";
+	}
+
+	public String clanBankWithdraw(String clanName, String playerId, int amount, Player player) {
+		var clan = clanCache.get(clanName);
+		if (clan == null) return "Клан не найден";
+		if (!clan.getLeaderId().equals(playerId)) return "Только лидер может снимать монеты";
+		if (clan.getClanBank() == null) return "Клановый банк пуст";
+		int balance = clan.getClanBank().getOrDefault("монеты", 0);
+		if (balance < amount) return "В клановом банке недостаточно монет (есть: " + balance + ")";
+		clan.getClanBank().put("монеты", balance - amount);
+		clanCache.put(clanName, clan);
+		player.setMoney(player.getMoney() + amount);
+		playerCache.put(playerId, player);
+		return "";
+	}
+
+	public String getClanBankInfo(String clanName) {
+		var clan = clanCache.get(clanName);
+		if (clan == null) return "Клан не найден";
+		int balance = clan.getClanBank() != null ? clan.getClanBank().getOrDefault("монеты", 0) : 0;
+		return "🏦 Клановый банк **" + clanName + "**: **" + balance + "** монет";
+	}
+
+	public String purchaseClanUpgrade(String clanName, String playerId, String upgrade) {
+		var clan = clanCache.get(clanName);
+		if (clan == null) return "Клан не найден";
+		if (!clan.getLeaderId().equals(playerId)) return "Только лидер может покупать улучшения";
+		if (clan.getClanUpgrades() == null) clan.setClanUpgrades(new ArrayList<>());
+		if (clan.getClanUpgrades().contains(upgrade)) return "Улучшение **" + upgrade + "** уже куплено";
+		int cost = switch (upgrade) {
+			case "дроп" -> 500;
+			case "опыт" -> 750;
+			case "броня" -> 1000;
+			default -> -1;
+		};
+		if (cost < 0) return "Неизвестное улучшение. Доступны: дроп, опыт, броня";
+		int balance = clan.getClanBank() != null ? clan.getClanBank().getOrDefault("монеты", 0) : 0;
+		if (balance < cost) return "Недостаточно монет в клановом банке (нужно: " + cost + ", есть: " + balance + ")";
+		clan.getClanBank().put("монеты", balance - cost);
+		clan.getClanUpgrades().add(upgrade);
+		clanCache.put(clanName, clan);
+		return "";
+	}
+
+	public String getClanUpgradesInfo(String clanName) {
+		var clan = clanCache.get(clanName);
+		if (clan == null) return "Клан не найден";
+		var sb = new StringBuilder("🏰 Улучшения клана **" + clanName + "**:\n");
+		sb.append("• дроп (+5% шанс дропа) — 500 монет");
+		if (clan.getClanUpgrades() != null && clan.getClanUpgrades().contains("дроп")) sb.append(" ✅");
+		sb.append("\n• опыт (+10% XP) — 750 монет");
+		if (clan.getClanUpgrades() != null && clan.getClanUpgrades().contains("опыт")) sb.append(" ✅");
+		sb.append("\n• броня (+2 броня в рейдах) — 1000 монет");
+		if (clan.getClanUpgrades() != null && clan.getClanUpgrades().contains("броня")) sb.append(" ✅");
+		return sb.toString();
+	}
+
+	public String setClanBase(String clanName, String playerId, String location) {
+		var clan = clanCache.get(clanName);
+		if (clan == null) return "Клан не найден";
+		if (!clan.getLeaderId().equals(playerId)) return "Только лидер может устанавливать базу";
+		clan.setClanBase(location);
+		clanCache.put(clanName, clan);
+		return "";
+	}
+
+	public String getClanBase(String clanName) {
+		var clan = clanCache.get(clanName);
+		if (clan == null) return "респаун";
+		String base = clan.getClanBase();
+		return (base != null && !base.isBlank()) ? base : "респаун";
+	}
+
+	public String promoteMember(String clanName, String leaderId, String targetId) {
+		var clan = clanCache.get(clanName);
+		if (clan == null) return "Клан не найден";
+		if (!clan.getLeaderId().equals(leaderId)) return "Только лидер может повышать участников";
+		if (!clan.getMembers().contains(targetId)) return "Игрок не является членом клана";
+		if (clan.getClanRoles() == null) clan.setClanRoles(new java.util.HashMap<>());
+		String currentRole = clan.getClanRoles().getOrDefault(targetId, "рядовой");
+		String newRole = switch (currentRole) {
+			case "рядовой" -> "ветеран";
+			case "ветеран" -> "офицер";
+			default -> "офицер";
+		};
+		clan.getClanRoles().put(targetId, newRole);
+		clanCache.put(clanName, clan);
+		Player target = playerCache.get(targetId);
+		return "Игрок **" + (target != null ? target.getNickName() : targetId) + "** повышен до **" + newRole + "**";
+	}
+
+	public String kickMember(String clanName, String leaderId, String targetId) {
+		var clan = clanCache.get(clanName);
+		if (clan == null) return "Клан не найден";
+		if (!clan.getLeaderId().equals(leaderId)) return "Только лидер может исключать участников";
+		if (leaderId.equals(targetId)) return "Лидер не может исключить себя. Используй +покинуть клан";
+		if (!clan.getMembers().contains(targetId)) return "Игрок не является членом клана";
+		clan.getMembers().remove(targetId);
+		if (clan.getClanRoles() != null) clan.getClanRoles().remove(targetId);
+		clanCache.put(clanName, clan);
+		Player target = playerCache.get(targetId);
+		if (target != null) {
+			target.setClanName("");
+			playerCache.put(targetId, target);
+		}
+		return "";
+	}
+
+	public List<Clan> getAllClans() {
+		return clanCache.getAll();
 	}
 }

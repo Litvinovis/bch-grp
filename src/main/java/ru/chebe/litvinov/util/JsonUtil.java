@@ -77,4 +77,13 @@ public final class JsonUtil {
             return new ArrayList<>();
         }
     }
+
+    public static Map<String, String> fromJsonToMapStringString(String json) {
+        if (json == null || json.isBlank()) return new HashMap<>();
+        try {
+            return MAPPER.readValue(json, new TypeReference<Map<String, String>>() {});
+        } catch (IOException e) {
+            return new HashMap<>();
+        }
+    }
 }

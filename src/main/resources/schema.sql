@@ -23,8 +23,17 @@ CREATE TABLE IF NOT EXISTS players (
     clan_name     TEXT NOT NULL DEFAULT '',
     daily_streak  INTEGER NOT NULL DEFAULT 0,
     player_class  TEXT NOT NULL DEFAULT '',
-    achievements  TEXT NOT NULL DEFAULT '[]',
-    active_buffs  TEXT NOT NULL DEFAULT '{}'
+    achievements       TEXT NOT NULL DEFAULT '[]',
+    active_buffs       TEXT NOT NULL DEFAULT '{}',
+    location_history   TEXT NOT NULL DEFAULT '[]',
+    last_explore_time  BIGINT NOT NULL DEFAULT 0,
+    bank_inventory     TEXT NOT NULL DEFAULT '{}',
+    completed_quests   TEXT NOT NULL DEFAULT '[]',
+    debt               INTEGER NOT NULL DEFAULT 0,
+    pvp_wins           INTEGER NOT NULL DEFAULT 0,
+    mob_kills          INTEGER NOT NULL DEFAULT 0,
+    prestige           INTEGER NOT NULL DEFAULT 0,
+    last_horse_race    BIGINT NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS locations (
@@ -72,11 +81,30 @@ CREATE TABLE IF NOT EXISTS ideas (
 );
 
 CREATE TABLE IF NOT EXISTS clans (
-    name      TEXT PRIMARY KEY,
-    leader_id TEXT NOT NULL,
-    members   TEXT NOT NULL DEFAULT '[]',
-    appliers  TEXT NOT NULL DEFAULT '[]'
+    name         TEXT PRIMARY KEY,
+    leader_id    TEXT NOT NULL,
+    members      TEXT NOT NULL DEFAULT '[]',
+    appliers     TEXT NOT NULL DEFAULT '[]',
+    clan_bank    TEXT NOT NULL DEFAULT '{}',
+    clan_upgrades TEXT NOT NULL DEFAULT '[]',
+    clan_base    TEXT NOT NULL DEFAULT 'респаун',
+    clan_roles   TEXT NOT NULL DEFAULT '{}'
 );
+
+ALTER TABLE clans ADD COLUMN IF NOT EXISTS clan_bank     TEXT NOT NULL DEFAULT '{}';
+ALTER TABLE clans ADD COLUMN IF NOT EXISTS clan_upgrades TEXT NOT NULL DEFAULT '[]';
+ALTER TABLE clans ADD COLUMN IF NOT EXISTS clan_base     TEXT NOT NULL DEFAULT 'респаун';
+ALTER TABLE clans ADD COLUMN IF NOT EXISTS clan_roles    TEXT NOT NULL DEFAULT '{}';
+
+ALTER TABLE players ADD COLUMN IF NOT EXISTS location_history  TEXT NOT NULL DEFAULT '[]';
+ALTER TABLE players ADD COLUMN IF NOT EXISTS last_explore_time BIGINT NOT NULL DEFAULT 0;
+ALTER TABLE players ADD COLUMN IF NOT EXISTS bank_inventory    TEXT NOT NULL DEFAULT '{}';
+ALTER TABLE players ADD COLUMN IF NOT EXISTS completed_quests  TEXT NOT NULL DEFAULT '[]';
+ALTER TABLE players ADD COLUMN IF NOT EXISTS debt              INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE players ADD COLUMN IF NOT EXISTS pvp_wins          INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE players ADD COLUMN IF NOT EXISTS mob_kills         INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE players ADD COLUMN IF NOT EXISTS prestige          INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE players ADD COLUMN IF NOT EXISTS last_horse_race   BIGINT NOT NULL DEFAULT 0;
 
 CREATE TABLE IF NOT EXISTS daily_quests (
     user_id          TEXT NOT NULL,
