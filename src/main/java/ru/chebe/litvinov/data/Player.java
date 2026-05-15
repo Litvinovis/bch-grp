@@ -67,6 +67,9 @@ private int exp;
 	// Items 145-150: Arena
 	private int arenaRating;
 
+	// Teleport cooldown (last_teleport_time)
+	private long lastTeleportTime;
+
 	private static final Map<String, String> ITEM_ICONS = Map.ofEntries(
 		// consumables
 		Map.entry("кружка цикория",      "☕"),
@@ -157,6 +160,7 @@ private int exp;
 		this.diary = new ArrayList<>();
 		this.lastMonthlyBonus = 0;
 		this.arenaRating = 1000;
+		this.lastTeleportTime = 0;
 	}
 
 	private Map<String, Integer> startInventory() {

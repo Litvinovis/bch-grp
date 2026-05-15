@@ -294,6 +294,11 @@ public class RaidManager {
             if (battleHp > 0) {
                 playersManager.changeMoney(playerId, moneyReward, true);
                 playersManager.changeXp(playerId, xpReward);
+                // 2% chance of LEGENDARY pet from raid boss kill
+                if (new Random().nextInt(100) < 2 && player.getPet() == null) {
+                    playersManager.grantPetIfNone(playerId, "LEGENDARY");
+                    result.append("🥚 **Легендарный дроп!** **").append(player.getNickName()).append("** получил **ЛЕГЕНДАРНОГО** питомца!\n");
+                }
                 result.append("✅ **").append(player.getNickName())
                         .append("**: ⚔️ урон **").append(dmg)
                         .append("** (").append(String.format("%.0f", share * 100)).append("%) → ")

@@ -843,6 +843,7 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 			changeXp(playerId, bot.getXpReward());
 			questProgress(playerId, "KILL_NPC", 1);
 			questProgress(playerId, "EARN_GOLD", bot.getMoneyReward());
+			if (factionManager != null) factionManager.addRep(playerId, "ВОИНЫ", 1);
 			npcManager.respawnBot(bot);
 		} else {
 			int level = player.getLevel();
@@ -886,6 +887,7 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 			changeMoney(playerId, activeEvent.getMoneyReward(), true);
 			changeXp(playerId, activeEvent.getXpReward());
 			questProgress(playerId, "EARN_GOLD", activeEvent.getMoneyReward());
+			if (factionManager != null) factionManager.addRep(playerId, "МАГИ", 2);
 			StringBuilder reward = new StringBuilder("Ты успешно завершил свой квест! Опыт: ")
 					.append(activeEvent.getXpReward()).append(", монеты: ").append(activeEvent.getMoneyReward());
 			String itemReward = activeEvent.getItemReward();
@@ -917,8 +919,11 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 			} else if (player.getMoney() < item.getPrice()) {
 				event.getChannel().sendMessage("У вас недостаточно денег для покупки этого предмета").submit();
 			} else {
-				changeMoney(player.getId(), item.getPrice(), false);
+				int price = item.getPrice();
+				changeMoney(player.getId(), price, false);
 				addNewItem(player.getId(), item.getName());
+				if (territoryManager != null) territoryManager.collectTax(player, price);
+				if (factionManager != null) factionManager.addRep(player.getId(), "ТОРГОВЦЫ", 1);
 				event.getChannel().sendMessage("Вы купили " + item.getName() + " у вас осталось " + player.getMoney() + " денег").submit();
 			}
 		} else {
@@ -979,6 +984,14 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 						unlockAchievement(winPlayer, "победитель_рейда");
 						checkRichAchievement(winPlayer);
 						checkCollectorAchievement(winPlayer);
+						// 2% chance of pet egg from boss kill
+						if (new Random().nextInt(100) < 2 && winPlayer.getPet() == null) {
+							String[] petTypes = {"WOLF", "FOX", "CAT", "RAVEN"};
+							String petType = petTypes[new Random().nextInt(petTypes.length)];
+							ru.chebe.litvinov.data.Pet newPet = new ru.chebe.litvinov.data.Pet(petType);
+							winPlayer.setPet(newPet);
+							event.getChannel().sendMessage("🥚 **Редкий дроп!** Ты нашёл яйцо питомца! Появился **" + petType + "**! Используй **+питомец** для информации.").submit();
+						}
 						playerCache.put(winnerId, winPlayer);
 					}
 				} else {
@@ -1045,6 +1058,17 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		List<Person> battleResult = battleManager.playerBattle(attackers, defenders, event.getChannel());
 
 		// Обработка результатов
+		// Find winner id and loser id for bounty claim
+		String pvpWinnerId = null;
+		String pvpLoserId = null;
+		for (Person p : battleResult) {
+			Player pObj = (Player) p;
+			if (p.getHp() > 0 && attackers.contains(p)) pvpWinnerId = pObj.getId();
+			if (p.getHp() <= 0 && defenders.contains(p)) pvpLoserId = pObj.getId();
+		}
+		final String finalWinnerId = pvpWinnerId;
+		final String finalLoserId = pvpLoserId;
+
 		battleResult.forEach(p -> {
 			Player pObj = (Player) p;
 			if (p.getHp() > 0) {
@@ -1063,6 +1087,14 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 						}
 					} finally {
 						pvpLock.unlock();
+					}
+					// Bounty hook
+					if (bountyManager != null && finalWinnerId != null && finalLoserId != null && pObj.getId().equals(finalWinnerId)) {
+						int bountyReward = bountyManager.claimBounty(finalWinnerId, finalLoserId);
+						if (bountyReward > 0) {
+							Player loserPlayer = playerCache.get(finalLoserId);
+							event.getChannel().sendMessage("🎯 **" + pObj.getNickName() + "** получил бонт **" + bountyReward + "** монет за голову **" + (loserPlayer != null ? loserPlayer.getNickName() : finalLoserId) + "**!").queue();
+						}
 					}
 					event.getChannel().sendMessage(pObj.getNickName() + " получает награду!").queue();
 				}
@@ -2480,6 +2512,20 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 	}
 
 	// ---- Items 101-108: Pet system ----
+	/** Grants a pet of the given type to the player if they have no pet. */
+	@Override
+	public void grantPetIfNone(String playerId, String petType) {
+		ReentrantLock lock = getPlayerLock(playerId);
+		lock.lock();
+		try {
+			Player p = playerCache.get(playerId);
+			if (p != null && p.getPet() == null) {
+				p.setPet(new ru.chebe.litvinov.data.Pet(petType));
+				playerCache.put(playerId, p);
+			}
+		} finally { lock.unlock(); }
+	}
+
 	/** +питомец — информация о питомце */
 	public void petCommand(MessageReceivedEvent event) {
 		if (petManager != null) petManager.getPetInfo(event);
@@ -2506,18 +2552,46 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		String id = event.getAuthor().getId();
 		Player player = playerCache.get(id);
 		if (!player.isHasMount()) {
-			event.getChannel().sendMessage("Для участия в гонке нужен маунт! Добудь **маунт ветра** из редкого дропа.").submit();
+			event.getChannel().sendMessage("Для участия нужен маунт. Добудь **маунт ветра** из редкого дропа.").submit();
 			return;
 		}
-		String[] path = {"респаун", "дом", "мейн", "деградач", "таверна"};
-		event.getChannel().sendMessage("🏇 Гонка началась! Твой маунт мчится по маршруту: " + String.join(" → ", path) + "\n" +
-			"🏆 Ты финишировал первым! +100 монет!").submit();
-		ReentrantLock lock = getPlayerLock(id);
-		lock.lock();
-		try {
-			Player p = playerCache.get(id);
-			if (p != null) { p.setMoney(p.getMoney() + 100); playerCache.put(id, p); }
-		} finally { lock.unlock(); }
+		String[] path = {"респаун", "мейн", "деградач", "кушетка", "олимп"};
+		int totalSteps = path.length - 1; // 4 steps to finish
+
+		int playerPos = 0;
+		int[] npcPos = {0, 0, 0};
+		int[] npcSpeeds = {1, 2, 1};
+		String[] npcNames = {"Быстрец", "Гончий", "Летун"};
+
+		var sb = new StringBuilder("🏇 **Гонка маунтов** началась! Маршрут: " + String.join(" → ", path) + "\n\n");
+		int round = 0;
+		String winner = null;
+
+		while (winner == null && round < 20) {
+			round++;
+			playerPos = Math.min(totalSteps, playerPos + 2);
+			for (int i = 0; i < npcPos.length; i++) {
+				npcPos[i] = Math.min(totalSteps, npcPos[i] + npcSpeeds[i]);
+			}
+			if (playerPos >= totalSteps) { winner = player.getNickName(); break; }
+			for (int i = 0; i < npcPos.length; i++) {
+				if (npcPos[i] >= totalSteps) { winner = npcNames[i]; break; }
+			}
+		}
+
+		if (player.getNickName().equals(winner)) {
+			sb.append("🏆 **").append(player.getNickName()).append("** выиграл гонку! +200 монет!\n");
+			ReentrantLock lock = getPlayerLock(id);
+			lock.lock();
+			try {
+				Player p = playerCache.get(id);
+				if (p != null) { p.setMoney(p.getMoney() + 200); playerCache.put(id, p); }
+			} finally { lock.unlock(); }
+		} else {
+			sb.append("💨 **").append(winner).append("** пересёк финиш первым. Ты занял не первое место!");
+		}
+		sb.append("\nТвоя позиция: ").append(path[Math.min(playerPos, totalSteps)]);
+		event.getChannel().sendMessage(sb.toString()).submit();
 	}
 
 	// ---- Items 109-116: Professions ----
@@ -2687,7 +2761,31 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 					event.getChannel().sendMessage("Умение **телепорт** доступно только МАГам со скиллом.").submit();
 					return;
 				}
-				event.getChannel().sendMessage("🌀 Телепорт использован (механика в разработке). Перемещайся через **+идти**!").submit();
+				// Check cooldown: 1 per day
+				long now = System.currentTimeMillis();
+				long todayStart = now - (now % (24 * 60 * 60 * 1000));
+				ReentrantLock lock = getPlayerLock(id);
+				lock.lock();
+				try {
+					Player p = playerCache.get(id);
+					if (p.getLastTeleportTime() != 0 && p.getLastTeleportTime() > todayStart) {
+						event.getChannel().sendMessage("🌀 Телепорт уже использован сегодня!").submit();
+						return;
+					}
+					// Get adjacent locations
+					ru.chebe.litvinov.data.Location loc = locationManager.getLocation(p.getLocation());
+					if (loc == null || loc.getPaths().isEmpty()) {
+						event.getChannel().sendMessage("Нет доступных локаций для телепорта.").submit();
+						return;
+					}
+					// Teleport to first adjacent location
+					String dest = loc.getPaths().get(0);
+					locationManager.movePlayerInPopulation(p, dest);
+					p.setLocation(dest);
+					p.setLastTeleportTime(now);
+					playerCache.put(id, p);
+					event.getChannel().sendMessage("🌀 **Телепорт!** Ты перемещён в **" + dest + "**!").submit();
+				} finally { lock.unlock(); }
 			}
 			case "исцеление" -> {
 				if (!"ПАЛАДИН".equals(playerClass)) {
@@ -2809,12 +2907,17 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 	}
 
 	// Карта скрытых квестов
-	private static final Map<String, String> HIDDEN_QUESTS = Map.of(
-		"открою тайну", "Ты нашёл тайную тропу! +50 XP",
-		"чего это за дверь", "Скрытая комната! +100 монет",
-		"что здесь происходит", "Странное место... +30 XP",
-		"найди меня", "Кто-то тебя ждал! +50 монет",
-		"секрет сервера", "Ты раскрыл секрет! +75 XP"
+	private static final Map<String, String> HIDDEN_QUESTS = Map.ofEntries(
+		Map.entry("открою тайну", "Ты нашёл тайную тропу! +50 XP"),
+		Map.entry("чего это за дверь", "Скрытая комната! +100 монет"),
+		Map.entry("что здесь происходит", "Странное место... +30 XP"),
+		Map.entry("найди меня", "Кто-то тебя ждал! +50 монет"),
+		Map.entry("секрет сервера", "Ты раскрыл секрет! +75 XP"),
+		Map.entry("цикорий навсегда", "Ты один из настоящих! +60 XP + кружка цикория"),
+		Map.entry("ровер лучший", "Лесть работает. +80 монет"),
+		Map.entry("хочу чебурек", "В это место не завезли еду. +40 XP"),
+		Map.entry("где тут касса", "Касса закрыта навсегда. +50 монет"),
+		Map.entry("что посоветуешь", "Посоветую бросить это всё. +100 XP")
 	);
 
 	/** Проверяет скрытые квесты по тексту сообщения */
@@ -2824,11 +2927,31 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 			if (content.contains(entry.getKey())) {
 				String id = event.getAuthor().getId();
 				event.getChannel().sendMessage("🔮 " + entry.getValue()).submit();
-				// Выдаём небольшую награду
-				if (entry.getValue().contains("XP")) {
-					changeXp(id, 50);
-				} else if (entry.getValue().contains("монет")) {
-					changeMoney(id, 100, true);
+				String reward = entry.getValue();
+				// Parse XP amount
+				if (reward.contains("XP")) {
+					int xpAmount = 50;
+					try {
+						// Extract number before " XP"
+						int xpIdx = reward.indexOf("XP");
+						String part = reward.substring(0, xpIdx).trim();
+						String[] words = part.split("\\s+");
+						xpAmount = Integer.parseInt(words[words.length - 1].replace("+", ""));
+					} catch (Exception ignored) {}
+					changeXp(id, xpAmount);
+				}
+				if (reward.contains("монет")) {
+					int moneyAmount = 50;
+					try {
+						int moneyIdx = reward.indexOf("монет");
+						String part = reward.substring(0, moneyIdx).trim();
+						String[] words = part.split("\\s+");
+						moneyAmount = Integer.parseInt(words[words.length - 1].replace("+", ""));
+					} catch (Exception ignored) {}
+					changeMoney(id, moneyAmount, true);
+				}
+				if (reward.contains("кружка цикория")) {
+					addNewItem(id, "кружка цикория");
 				}
 				return true;
 			}
@@ -2853,6 +2976,24 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		}
 		if (visited.size() >= 10) {
 			sb.append("**Фрагмент 4 — Исследователь:**\n_Посетивший десять мест знает: границы этого мира определяются числом каналов в Discord._\n\n");
+		}
+		if (visited.contains("загадка")) {
+			sb.append("**Фрагмент 5 — Загадка:**\n_В этом месте слова теряют смысл. Говорят, что Циник построил особняк именно здесь, чтобы никто не мог задать правильный вопрос._\n\n");
+		}
+		if (visited.contains("болото")) {
+			sb.append("**Фрагмент 6 — Болото:**\n_Болото появилось не само по себе. Арктулз превратил целую локацию в топь, когда понял, что её не читает никто кроме него._\n\n");
+		}
+		if (player.getLevel() >= 20) {
+			sb.append("**Фрагмент 7 — Ветеран:**\n_На двадцатом уровне приходит понимание: игра — это не прогрессия, это бесконечный разговор между людьми, которым просто нечем заняться._\n\n");
+		}
+		if (player.getMobKills() >= 50) {
+			sb.append("**Фрагмент 8 — Охотник:**\n_После пятидесяти убийств ни один моб не кажется страшным. Страшным кажется тот, кто их всех победил._\n\n");
+		}
+		if (player.getPrestige() > 0) {
+			sb.append("**Фрагмент 9 — Престиж:**\n_Те, кто вернулся с нуля, видят мир иначе. Они знают: максимальный уровень — не конец, а начало настоящего испытания._\n\n");
+		}
+		if (visited.contains("олимп") && visited.contains("загадка") && visited.contains("модерская")) {
+			sb.append("**Фрагмент 10 — Финал:**\n_Прошедший три великих локации достигает понимания. Мир БЧ-ГРП — это зеркало. В нём каждый видит то, что хочет увидеть._\n\n");
 		}
 		sb.append("_Посещай новые локации, чтобы открывать новые фрагменты лора!_");
 		event.getChannel().sendMessage(sb.toString()).submit();
