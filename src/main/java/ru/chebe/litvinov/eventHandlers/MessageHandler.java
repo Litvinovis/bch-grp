@@ -14,6 +14,7 @@ import ru.chebe.litvinov.repository.*;
 import ru.chebe.litvinov.raid.RaidManager;
 import ru.chebe.litvinov.repository.DailyQuestRepository;
 import ru.chebe.litvinov.service.*;
+import ru.chebe.litvinov.util.MetricsService;
 
 import java.util.Optional;
 import java.util.Set;
@@ -68,6 +69,30 @@ public class MessageHandler extends ListenerAdapter {
 		DailyQuestRepository dailyQuestRepository = new DailyQuestRepository(dataSource);
 		DailyQuestService dailyQuestService = new DailyQuestService(dailyQuestRepository, this.playersManager);
 		this.playersManager.setDailyQuestService(dailyQuestService);
+
+		// New managers (items 85-150)
+		PetManager petManager = new PetManager(playerRepository);
+		ProfessionManager professionManager = new ProfessionManager(playerRepository);
+		TerritoryRepository territoryRepository = new TerritoryRepository(dataSource);
+		TerritoryManager territoryManager = new TerritoryManager(territoryRepository, playerRepository, clanManager, locationManager);
+		WorldEventManager worldEventManager = new WorldEventManager(playerRepository);
+		worldEventManager.setAllowedChannelIds(this.allowedChannelIds);
+		FactionManager factionManager = new FactionManager(playerRepository);
+		BountyRepository bountyRepository = new BountyRepository(dataSource);
+		BountyManager bountyManager = new BountyManager(bountyRepository, playerRepository);
+		ArenaManager arenaManager = new ArenaManager(playerRepository, battleManager);
+		TournamentRepository tournamentRepository = new TournamentRepository(dataSource);
+		TournamentManager tournamentManager = new TournamentManager(tournamentRepository, playerRepository, battleManager);
+
+		this.playersManager.setPetManager(petManager);
+		this.playersManager.setProfessionManager(professionManager);
+		this.playersManager.setTerritoryManager(territoryManager);
+		this.playersManager.setWorldEventManager(worldEventManager);
+		this.playersManager.setFactionManager(factionManager);
+		this.playersManager.setBountyManager(bountyManager);
+		this.playersManager.setArenaManager(arenaManager);
+		this.playersManager.setTournamentManager(tournamentManager);
+		this.playersManager.setAllowedChannelIds(this.allowedChannelIds);
 
 		this.raidManager = new RaidManager(battleManager, playersManager, this.allowedChannelIds);
 
@@ -261,6 +286,68 @@ public class MessageHandler extends ListenerAdapter {
 						+принять заявки - принять все заявки в клан
 						+отклонить заявки - отклонить все заявки в клан
 						+клан инфо (название клана) - информация о клане
+
+						Питомцы и маунты:
+						+питомец - информация о питомце (первый раз — получить кота)
+						+кормить (предмет) - покормить питомца
+						+гонки маунтов - информация о маунтах
+						+гонки маунтов старт - участвовать в гонке маунтов
+
+						Профессии:
+						+профессия инфо - просмотр профессий
+						+профессия выбрать (кузнец/алхимик/повар/ювелир) - выбрать профессию
+						+добыть - добыть ресурс в текущей локации (кд 30 мин)
+						+создать (рецепт) - создать предмет по рецепту
+						+рецепты - список рецептов профессии
+						+биржа ресурсов - цены на ресурсы
+						+продать ресурс (ресурс) (кол-во) - продать ресурс
+
+						Территории и кланы+:
+						+захватить (локация) - захватить территорию (нужно 3+ членов клана)
+						+осада (клан) - начать осаду клана
+						+осада статус - статус осад клана
+						+крепость строить - построить крепость клана (1000 монет)
+						+крепость улучшить (кузня/таверна/башня) - улучшить крепость
+						+карта кланов - карта захваченных территорий
+						+альянс (клан) - заключить альянс с другим кланом
+
+						Мировые события:
+						+мировой босс - атаковать мирового босса
+						+нашествие - статус нашествия
+						+кризис статус - статус экономического кризиса
+						+сезон - текущий сезонный предмет
+
+						Навыки и классы+:
+						+скиллы - показать навыки персонажа
+						+вложить (навык) - вложить очко в навык
+						+умение (название) - использовать активное умение
+						+второй класс (класс) - выбрать второй класс с 50 уровня (паладин/некромант/следопыт)
+
+						Фракции и дневник:
+						+фракции - репутация у фракций (ТОРГОВЦЫ/МАГИ/ВОИНЫ)
+						+дневник - записи дневника приключений
+						+топ активности - топ-10 самых активных игроков
+
+						Охота и награды:
+						+бонт @игрок (сумма) - поставить награду за голову
+						+бонты - список активных наград за голову
+						+лор (страница) - страницы лора мира
+
+						Арена и турниры:
+						+арена - бой на арене с ELO-рейтингом
+						+арена топ - топ-10 по ELO
+						+арена 3v3 - командный бой 3 на 3
+						+выживание - режим выживания
+						+чемпион - дневной чемпион арены
+						+вызвать чемпиона - вызвать чемпиона на бой
+						+лига - показать свою лигу (бронза/серебро/золото/платина)
+						+турнир - зарегистрироваться в турнире (старт при 8 игроках)
+						+турнир статус - статус текущего турнира
+						+турнир сервера - информация о серверном турнире
+
+						Онлайн и достижения:
+						+онлайн - кто был активен за последние 24 часа
+						+еженедельные - еженедельная доска активности
 
 						Вспомогательные:
 						+идея (текст) - добавить идею/предложение/багрепорт

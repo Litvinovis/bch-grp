@@ -25,6 +25,10 @@ public class Clan {
 	private List<String> clanUpgrades;
 	private String clanBase;
 	private Map<String, String> clanRoles;
+	// Items 117-123: Territories & alliances
+	private List<String> alliances;
+	private List<String> fortressUpgrades;
+	private Map<String, Long> activeSieges;
 
 	/**
 	 * Создаёт новый клан с указанным именем и лидером.
@@ -44,5 +48,8 @@ public class Clan {
 		this.clanBase = "респаун";
 		this.clanRoles = new HashMap<>();
 		this.clanRoles.put(leader, "лидер");
+		this.alliances = new ArrayList<>();
+		this.fortressUpgrades = new ArrayList<>();
+		this.activeSieges = new HashMap<>();
 	}
 }

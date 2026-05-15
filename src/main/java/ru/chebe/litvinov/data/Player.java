@@ -45,6 +45,28 @@ private int exp;
 	private int prestige;
 	private long lastHorseRaceTime;
 
+	// Items 101-108: Pet system
+	private Pet pet;
+	private boolean hasMount;
+
+	// Items 109-116: Professions
+	private String profession;
+	private int professionLevel;
+	private Map<String, Integer> resources;
+	private Map<String, Integer> jewelry;
+
+	// Items 131-137: Skill tree
+	private int skillPoints;
+	private Map<String, Integer> skills;
+
+	// Items 138-144: Social mechanics
+	private Map<String, Integer> factionRep;
+	private List<String> diary;
+	private long lastMonthlyBonus;
+
+	// Items 145-150: Arena
+	private int arenaRating;
+
 	private static final Map<String, String> ITEM_ICONS = Map.ofEntries(
 		// consumables
 		Map.entry("кружка цикория",      "☕"),
@@ -123,6 +145,18 @@ private int exp;
 		this.mobKills = 0;
 		this.prestige = 0;
 		this.lastHorseRaceTime = 0;
+		this.pet = null;
+		this.hasMount = false;
+		this.profession = "";
+		this.professionLevel = 0;
+		this.resources = new HashMap<>();
+		this.jewelry = new HashMap<>();
+		this.skillPoints = 0;
+		this.skills = new HashMap<>();
+		this.factionRep = new HashMap<>(Map.of("ТОРГОВЦЫ", 0, "МАГИ", 0, "ВОИНЫ", 0));
+		this.diary = new ArrayList<>();
+		this.lastMonthlyBonus = 0;
+		this.arenaRating = 1000;
 	}
 
 	private Map<String, Integer> startInventory() {

@@ -52,10 +52,40 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 	private final java.util.concurrent.ConcurrentHashMap<String, java.time.Instant> lastBossKillTime = new java.util.concurrent.ConcurrentHashMap<>();
 	private DailyQuestService dailyQuestService;
 
+	// Новые менеджеры (items 85-150)
+	private PetManager petManager;
+	private ProfessionManager professionManager;
+	private TerritoryManager territoryManager;
+	private WorldEventManager worldEventManager;
+	private FactionManager factionManager;
+	private BountyManager bountyManager;
+	private ArenaManager arenaManager;
+	private TournamentManager tournamentManager;
+
+	// Пагинация инвентаря (item 96)
+	private static final java.util.concurrent.ConcurrentHashMap<String, Integer> inventoryPages = new java.util.concurrent.ConcurrentHashMap<>();
+	private static final int INVENTORY_PAGE_SIZE = 10;
+
+	// Редкие достижения для анонсов (item 100)
+	private static final java.util.Set<String> RARE_ACHIEVEMENTS = java.util.Set.of("легенда", "100_pvp", "коллекционер", "исследователь", "победитель_рейда");
+	private net.dv8tion.jda.api.JDA jda;
+	private java.util.Set<String> allowedChannelIds;
+
 	/** Устанавливает сервис ежедневных квестов (вызывается после конструктора). */
 	public void setDailyQuestService(DailyQuestService dailyQuestService) {
 		this.dailyQuestService = dailyQuestService;
 	}
+
+	public void setPetManager(PetManager petManager) { this.petManager = petManager; }
+	public void setProfessionManager(ProfessionManager professionManager) { this.professionManager = professionManager; }
+	public void setTerritoryManager(TerritoryManager territoryManager) { this.territoryManager = territoryManager; }
+	public void setWorldEventManager(WorldEventManager worldEventManager) { this.worldEventManager = worldEventManager; }
+	public void setFactionManager(FactionManager factionManager) { this.factionManager = factionManager; }
+	public void setBountyManager(BountyManager bountyManager) { this.bountyManager = bountyManager; }
+	public void setArenaManager(ArenaManager arenaManager) { this.arenaManager = arenaManager; }
+	public void setTournamentManager(TournamentManager tournamentManager) { this.tournamentManager = tournamentManager; }
+	public void setJda(net.dv8tion.jda.api.JDA jda) { this.jda = jda; }
+	public void setAllowedChannelIds(java.util.Set<String> allowedChannelIds) { this.allowedChannelIds = allowedChannelIds; }
 
 	private ReentrantLock getPlayerLock(String id) {
 		return playerLocks.computeIfAbsent(id, k -> new ReentrantLock());
@@ -2399,6 +2429,542 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		if (dailyQuestService != null) {
 			dailyQuestService.incrementProgress(userId, type, amount);
 		}
+	}
+
+	// ---- Item 91: Admin hot reload ----
+	/** +admin reload — перезагрузка конфигов */
+	public void adminReload(MessageReceivedEvent event) {
+		try {
+			LocationManager.init(null);
+			event.getChannel().sendMessage("✅ Конфиги перезагружены.").submit();
+		} catch (Exception e) {
+			event.getChannel().sendMessage("❌ Ошибка перезагрузки: " + e.getMessage()).submit();
+		}
+	}
+
+	// ---- Item 98: Quest progress bar ----
+	public static String progressBar(int current, int total) {
+		if (total <= 0) return "[░░░░░░░░] 0/0";
+		int filled = (int) (8.0 * Math.min(current, total) / total);
+		return "[" + "█".repeat(filled) + "░".repeat(8 - filled) + "] " + current + "/" + total;
+	}
+
+	// ---- Item 99: Online command ----
+	/** +онлайн — количество активных игроков */
+	public void onlineCommand(MessageReceivedEvent event) {
+		long now = System.currentTimeMillis();
+		long oneDayAgo = now - 24 * 60 * 60 * 1000L;
+		List<Player> all = playerCache.getAll();
+		List<Player> online = all.stream()
+			.filter(p -> p.getDailyTime() > oneDayAgo)
+			.collect(Collectors.toList());
+		var sb = new StringBuilder("🟢 **Онлайн за последние 24 часа:** " + online.size() + " игроков\n");
+		online.stream().limit(20).forEach(p -> sb.append("• ").append(p.getNickName()).append("\n"));
+		if (online.size() > 20) sb.append("...и ещё ").append(online.size() - 20).append(" игроков");
+		event.getChannel().sendMessage(sb.toString()).submit();
+	}
+
+	// ---- Item 100: Rare achievement broadcast ----
+	private void unlockAchievementWithBroadcast(Player player, String achievementId) {
+		boolean wasNew = !player.getAchievements().contains(achievementId);
+		unlockAchievement(player, achievementId);
+		if (wasNew && RARE_ACHIEVEMENTS.contains(achievementId) && jda != null && allowedChannelIds != null) {
+			String msg = "🌟 **" + player.getNickName() + "** получил редкое достижение: **" + achievementName(achievementId) + "**!";
+			for (String chId : allowedChannelIds) {
+				try {
+					net.dv8tion.jda.api.entities.channel.concrete.TextChannel ch = jda.getTextChannelById(chId);
+					if (ch != null) ch.sendMessage(msg).queue();
+				} catch (Exception ignored) {}
+			}
+		}
+	}
+
+	// ---- Items 101-108: Pet system ----
+	/** +питомец — информация о питомце */
+	public void petCommand(MessageReceivedEvent event) {
+		if (petManager != null) petManager.getPetInfo(event);
+		else event.getChannel().sendMessage("Система питомцев недоступна.").submit();
+	}
+
+	/** +кормить [предмет] — кормить питомца */
+	public void feedPet(MessageReceivedEvent event) {
+		if (petManager != null) petManager.feedPet(event);
+		else event.getChannel().sendMessage("Система питомцев недоступна.").submit();
+	}
+
+	/** +гонки маунтов — гонки на маунтах */
+	public void mountRacingInfo(MessageReceivedEvent event) {
+		String id = event.getAuthor().getId();
+		Player player = playerCache.get(id);
+		String mountStatus = player.isHasMount() ? "✅ У тебя есть маунт!" : "❌ Маунта нет (добудь **маунт ветра** из редкого дропа)";
+		event.getChannel().sendMessage("🏇 **Гонки маунтов**\n" + mountStatus +
+			"\nС маунтом: время перемещения сокращается вдвое.\n" +
+			"Участвовать в гонке: **+гонки маунтов старт**").submit();
+	}
+
+	public void mountRacingRun(MessageReceivedEvent event) {
+		String id = event.getAuthor().getId();
+		Player player = playerCache.get(id);
+		if (!player.isHasMount()) {
+			event.getChannel().sendMessage("Для участия в гонке нужен маунт! Добудь **маунт ветра** из редкого дропа.").submit();
+			return;
+		}
+		String[] path = {"респаун", "дом", "мейн", "деградач", "таверна"};
+		event.getChannel().sendMessage("🏇 Гонка началась! Твой маунт мчится по маршруту: " + String.join(" → ", path) + "\n" +
+			"🏆 Ты финишировал первым! +100 монет!").submit();
+		ReentrantLock lock = getPlayerLock(id);
+		lock.lock();
+		try {
+			Player p = playerCache.get(id);
+			if (p != null) { p.setMoney(p.getMoney() + 100); playerCache.put(id, p); }
+		} finally { lock.unlock(); }
+	}
+
+	// ---- Items 109-116: Professions ----
+	/** +профессия — выбор/инфо профессии */
+	public void professionCommand(MessageReceivedEvent event) {
+		if (professionManager != null) professionManager.chooseProfession(event);
+		else event.getChannel().sendMessage("Система профессий недоступна.").submit();
+	}
+
+	/** +добыть — добыть ресурс */
+	public void gatherResource(MessageReceivedEvent event) {
+		if (professionManager != null) professionManager.gatherResource(event);
+		else event.getChannel().sendMessage("Система профессий недоступна.").submit();
+	}
+
+	/** +создать [рецепт] — крафт предмета профессии */
+	public void professionCraftItem(MessageReceivedEvent event) {
+		if (professionManager != null) professionManager.craftItem(event);
+		else event.getChannel().sendMessage("Система профессий недоступна.").submit();
+	}
+
+	/** +рецепты — список рецептов профессии */
+	public void showProfessionRecipes(MessageReceivedEvent event) {
+		if (professionManager != null) professionManager.showRecipes(event);
+		else event.getChannel().sendMessage("Система профессий недоступна.").submit();
+	}
+
+	/** +биржа ресурсов — биржа ресурсов */
+	public void resourceMarket(MessageReceivedEvent event) {
+		if (professionManager != null) professionManager.resourceMarket(event);
+		else event.getChannel().sendMessage("Система профессий недоступна.").submit();
+	}
+
+	// ---- Items 117-123: Territories ----
+	/** +захватить [локация] — захватить территорию */
+	public void captureTerritory(MessageReceivedEvent event) {
+		if (territoryManager != null) territoryManager.captureTerritory(event);
+		else event.getChannel().sendMessage("Система территорий недоступна.").submit();
+	}
+
+	/** +осада / +осада статус */
+	public void siegeCommand(MessageReceivedEvent event) {
+		if (territoryManager != null) territoryManager.siegeStart(event);
+		else event.getChannel().sendMessage("Система осад недоступна.").submit();
+	}
+
+	/** +крепость */
+	public void fortressCommand(MessageReceivedEvent event) {
+		if (territoryManager != null) territoryManager.buildFortress(event);
+		else event.getChannel().sendMessage("Система крепостей недоступна.").submit();
+	}
+
+	/** +карта кланов */
+	public void territoryClanMap(MessageReceivedEvent event) {
+		if (territoryManager != null) territoryManager.territoryClanMap(event);
+		else event.getChannel().sendMessage("Карта кланов недоступна.").submit();
+	}
+
+	/** +альянс [клан] */
+	public void declareAlliance(MessageReceivedEvent event) {
+		if (territoryManager != null) territoryManager.declareAlliance(event);
+		else event.getChannel().sendMessage("Система альянсов недоступна.").submit();
+	}
+
+	// ---- Items 124-130: World events ----
+	/** +мировой босс */
+	public void worldBossAttack(MessageReceivedEvent event) {
+		if (worldEventManager != null) worldEventManager.worldBossAttack(event);
+		else event.getChannel().sendMessage("Мировой босс недоступен.").submit();
+	}
+
+	/** +нашествие */
+	public void invasionStatus(MessageReceivedEvent event) {
+		if (worldEventManager != null) worldEventManager.invasionStatus(event);
+		else event.getChannel().sendMessage("Нашествие недоступно.").submit();
+	}
+
+	/** +кризис статус */
+	public void crisisStatus(MessageReceivedEvent event) {
+		if (worldEventManager != null) worldEventManager.crisisStatus(event);
+		else event.getChannel().sendMessage("Статус кризиса недоступен.").submit();
+	}
+
+	/** +сезон — сезонный предмет */
+	public void showSeason(MessageReceivedEvent event) {
+		if (worldEventManager != null) worldEventManager.showSeason(event);
+		else event.getChannel().sendMessage("Сезон недоступен.").submit();
+	}
+
+	/** +турнир сервера */
+	public void serverTournament(MessageReceivedEvent event) {
+		if (tournamentManager != null) tournamentManager.serverTournament(event);
+		else event.getChannel().sendMessage("Турнир сервера недоступен.").submit();
+	}
+
+	// ---- Items 131-137: Classes & Skills ----
+	/** +скиллы — список навыков */
+	public void showSkills(MessageReceivedEvent event) {
+		String id = event.getAuthor().getId();
+		Player player = playerCache.get(id);
+		String playerClass = player.getPlayerClass() != null ? player.getPlayerClass() : "";
+		int points = player.getSkillPoints();
+		Map<String, Integer> skills = player.getSkills() != null ? player.getSkills() : new java.util.HashMap<>();
+		var sb = new StringBuilder("⚡ **Навыки** | Очков доступно: **" + points + "**\n\n");
+		sb.append("Класс: **").append(playerClass.isEmpty() ? "не выбран" : playerClass).append("**\n\n");
+		getAvailableSkills(playerClass).forEach((skillName, desc) -> {
+			int invested = skills.getOrDefault(skillName, 0);
+			sb.append("• **").append(skillName).append("** (").append(invested).append(" ур.) — ").append(desc).append("\n");
+		});
+		sb.append("\n+1 очко навыков каждые 5 уровней. Вложить: **+вложить [навык]**");
+		event.getChannel().sendMessage(sb.toString()).submit();
+	}
+
+	private Map<String, String> getAvailableSkills(String playerClass) {
+		return switch (playerClass) {
+			case "ВОИН" -> Map.of("берсерк", "+15% урона", "второе дыхание", "реген 20 HP при <20% HP", "стальная кожа", "+5 брони");
+			case "МАГ" -> Map.of("молния", "первая атака 150% урона", "телепорт", "бесплатное перемещение раз в день", "щит маны", "+30% уклонение");
+			case "РАЗБОЙНИК" -> Map.of("ядовитый клинок", "10% яд за раунд", "уклонение мастера", "+20% уклонение", "воровство", "10% денег при победе");
+			case "ПАЛАДИН" -> Map.of("священный щит", "+10 брони", "исцеление", "50 HP раз в бой", "аура защиты", "+5 брони союзникам");
+			case "НЕКРОМАНТ" -> Map.of("армия мертвых", "призвать 2 нежити", "проклятие", "-20% урона врага на 3 хода", "жизнеотнятие", "кража 20 HP");
+			case "СЛЕДОПЫТ" -> Map.of("следопыт", "+20% ресурсов", "природная ловушка", "враг пропускает ход", "охотничий инстинкт", "+20% дроп");
+			default -> Map.of("базовый удар", "+5% урона");
+		};
+	}
+
+	/** +вложить [навык] — вложить очко в навык */
+	public void investSkill(MessageReceivedEvent event) {
+		String id = event.getAuthor().getId();
+		String skillName = event.getMessage().getContentDisplay().substring(9).trim().toLowerCase();
+		ReentrantLock lock = getPlayerLock(id);
+		lock.lock();
+		try {
+			Player player = playerCache.get(id);
+			if (player.getSkillPoints() <= 0) {
+				event.getChannel().sendMessage("У тебя нет очков навыков. Повышай уровень!").submit();
+				return;
+			}
+			String playerClass = player.getPlayerClass() != null ? player.getPlayerClass() : "";
+			if (!getAvailableSkills(playerClass).containsKey(skillName)) {
+				event.getChannel().sendMessage("Навык **" + skillName + "** не найден для твоего класса. Посмотри **+скиллы**").submit();
+				return;
+			}
+			if (player.getSkills() == null) player.setSkills(new java.util.HashMap<>());
+			int current = player.getSkills().getOrDefault(skillName, 0);
+			if (current >= 3) {
+				event.getChannel().sendMessage("Навык **" + skillName + "** уже на максимальном уровне (3).").submit();
+				return;
+			}
+			player.getSkills().put(skillName, current + 1);
+			player.setSkillPoints(player.getSkillPoints() - 1);
+			playerCache.put(id, player);
+			event.getChannel().sendMessage("✅ Навык **" + skillName + "** прокачан до уровня **" + (current + 1) + "**!").submit();
+		} finally {
+			lock.unlock();
+		}
+	}
+
+	/** +умение [название] — активное умение */
+	public void useAbility(MessageReceivedEvent event) {
+		String id = event.getAuthor().getId();
+		String abilityName = event.getMessage().getContentDisplay().substring(7).trim().toLowerCase();
+		Player player = playerCache.get(id);
+		String playerClass = player.getPlayerClass() != null ? player.getPlayerClass() : "";
+		switch (abilityName) {
+			case "телепорт" -> {
+				if (!"МАГ".equals(playerClass) || player.getSkills() == null || !player.getSkills().containsKey("телепорт")) {
+					event.getChannel().sendMessage("Умение **телепорт** доступно только МАГам со скиллом.").submit();
+					return;
+				}
+				event.getChannel().sendMessage("🌀 Телепорт использован (механика в разработке). Перемещайся через **+идти**!").submit();
+			}
+			case "исцеление" -> {
+				if (!"ПАЛАДИН".equals(playerClass)) {
+					event.getChannel().sendMessage("Умение **исцеление** доступно только ПАЛАДИНам.").submit();
+					return;
+				}
+				ReentrantLock lock = getPlayerLock(id);
+				lock.lock();
+				try {
+					Player p = playerCache.get(id);
+					if (p != null) {
+						p.setHp(Math.min(p.getHp() + 50, p.getMaxHp()));
+						playerCache.put(id, p);
+					}
+				} finally { lock.unlock(); }
+				event.getChannel().sendMessage("💚 Паладин исцелился на **50 HP**!").submit();
+			}
+			default -> event.getChannel().sendMessage("Умение **" + abilityName + "** не найдено. Посмотри **+скиллы**").submit();
+		}
+	}
+
+	/** +второй класс [класс] — второй класс на уровне 50 */
+	public void chooseSecondClass(MessageReceivedEvent event) {
+		String id = event.getAuthor().getId();
+		ReentrantLock lock = getPlayerLock(id);
+		lock.lock();
+		try {
+			Player player = playerCache.get(id);
+			if (player.getLevel() < 50) {
+				event.getChannel().sendMessage("Второй класс доступен с 50 уровня.").submit();
+				return;
+			}
+			String arg = event.getMessage().getContentDisplay().substring(14).trim().toLowerCase();
+			Set<String> validClasses = Set.of("воин", "разбойник", "маг", "паладин", "некромант", "следопыт");
+			if (!validClasses.contains(arg)) {
+				event.getChannel().sendMessage("Доступные классы: " + validClasses).submit();
+				return;
+			}
+			String existing = player.getPlayerClass() != null ? player.getPlayerClass() : "";
+			player.setPlayerClass(existing + "/" + arg.toUpperCase());
+			// Половина бонусов второго класса
+			switch (arg) {
+				case "воин" -> { player.setStrength(player.getStrength() + 2); player.setArmor(player.getArmor() + 1); }
+				case "разбойник" -> player.setLuck(player.getLuck() + 2);
+				case "маг" -> player.setMaxHp(player.getMaxHp() + 15);
+				case "паладин" -> player.setArmor(player.getArmor() + 2);
+				case "некромант" -> player.setStrength(player.getStrength() + 1);
+				case "следопыт" -> player.setLuck(player.getLuck() + 1);
+			}
+			playerCache.put(id, player);
+			event.getChannel().sendMessage("✅ Второй класс **" + arg.toUpperCase() + "** добавлен! Текущий класс: **" + player.getPlayerClass() + "**").submit();
+		} finally {
+			lock.unlock();
+		}
+	}
+
+	// ---- Items 138-144: Social mechanics ----
+	/** +фракции — репутация у фракций */
+	public void showFactions(MessageReceivedEvent event) {
+		if (factionManager != null) factionManager.showFactionRep(event);
+		else event.getChannel().sendMessage("Система фракций недоступна.").submit();
+	}
+
+	/** +дневник / +дневник [текст] */
+	public void diaryCommand(MessageReceivedEvent event) {
+		String id = event.getAuthor().getId();
+		String content = event.getMessage().getContentDisplay();
+		String arg = content.length() > 9 ? content.substring(9).trim() : "";
+		ReentrantLock lock = getPlayerLock(id);
+		lock.lock();
+		try {
+			Player player = playerCache.get(id);
+			if (player.getDiary() == null) player.setDiary(new ArrayList<>());
+			if (arg.isEmpty()) {
+				// Показать последние 5 записей
+				List<String> diary = player.getDiary();
+				if (diary.isEmpty()) {
+					event.getChannel().sendMessage("📔 Дневник пуст. Добавь запись: **+дневник [текст]**").submit();
+				} else {
+					var sb = new StringBuilder("📔 **Дневник " + player.getNickName() + "**\n\n");
+					int start = Math.max(0, diary.size() - 5);
+					for (int i = start; i < diary.size(); i++) {
+						sb.append(i + 1).append(". ").append(diary.get(i)).append("\n");
+					}
+					event.getChannel().sendMessage(sb.toString()).submit();
+				}
+			} else {
+				// Добавить запись
+				if (arg.length() > 200) {
+					event.getChannel().sendMessage("Запись слишком длинная (максимум 200 символов).").submit();
+					return;
+				}
+				List<String> diary = player.getDiary();
+				if (diary.size() >= 20) diary.remove(0); // Удаляем старую запись
+				diary.add(arg);
+				playerCache.put(id, player);
+				event.getChannel().sendMessage("📝 Запись добавлена в дневник!").submit();
+			}
+		} finally {
+			lock.unlock();
+		}
+	}
+
+	/** +топ активность — топ активных игроков */
+	public void topActivity(MessageReceivedEvent event) {
+		List<Player> all = playerCache.getAll();
+		all.sort((a, b) -> {
+			int scoreA = a.getPvpWins() + a.getMobKills() + (a.getCompletedQuests() != null ? a.getCompletedQuests().size() : 0);
+			int scoreB = b.getPvpWins() + b.getMobKills() + (b.getCompletedQuests() != null ? b.getCompletedQuests().size() : 0);
+			return scoreB - scoreA;
+		});
+		var sb = new StringBuilder("🏆 **Топ активности:**\n\n");
+		for (int i = 0; i < Math.min(10, all.size()); i++) {
+			Player p = all.get(i);
+			int score = p.getPvpWins() + p.getMobKills() + (p.getCompletedQuests() != null ? p.getCompletedQuests().size() : 0);
+			sb.append(String.format("%d. **%s** — %d очков активности\n", i + 1, p.getNickName(), score));
+		}
+		event.getChannel().sendMessage(sb.toString()).submit();
+	}
+
+	// Карта скрытых квестов
+	private static final Map<String, String> HIDDEN_QUESTS = Map.of(
+		"открою тайну", "Ты нашёл тайную тропу! +50 XP",
+		"чего это за дверь", "Скрытая комната! +100 монет",
+		"что здесь происходит", "Странное место... +30 XP",
+		"найди меня", "Кто-то тебя ждал! +50 монет",
+		"секрет сервера", "Ты раскрыл секрет! +75 XP"
+	);
+
+	/** Проверяет скрытые квесты по тексту сообщения */
+	public boolean checkHiddenQuest(MessageReceivedEvent event) {
+		String content = event.getMessage().getContentDisplay().toLowerCase();
+		for (Map.Entry<String, String> entry : HIDDEN_QUESTS.entrySet()) {
+			if (content.contains(entry.getKey())) {
+				String id = event.getAuthor().getId();
+				event.getChannel().sendMessage("🔮 " + entry.getValue()).submit();
+				// Выдаём небольшую награду
+				if (entry.getValue().contains("XP")) {
+					changeXp(id, 50);
+				} else if (entry.getValue().contains("монет")) {
+					changeMoney(id, 100, true);
+				}
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/** +лор — лор мира */
+	public void lorePage(MessageReceivedEvent event) {
+		String id = event.getAuthor().getId();
+		Player player = playerCache.get(id);
+		List<String> history = player.getLocationHistory() != null ? player.getLocationHistory() : new ArrayList<>();
+		java.util.Set<String> visited = new java.util.HashSet<>(history);
+
+		var sb = new StringBuilder("📚 **Лор Мира БЧ-ГРП**\n\n");
+		sb.append("**Фрагмент 1 — Начало:**\n_Когда-то этот сервер был просто чатом. Но потом всё изменилось..._\n\n");
+		if (visited.size() >= 5) {
+			sb.append("**Фрагмент 2 — Путешественник:**\n_Тот, кто посетил пять локаций, начинает видеть скрытые связи между ними..._\n\n");
+		}
+		if (visited.contains("олимп")) {
+			sb.append("**Фрагмент 3 — Олимп:**\n_На вершине Олимпа обитает Дархалас — существо, говорящее только цитатами из деловой переписки._\n\n");
+		}
+		if (visited.size() >= 10) {
+			sb.append("**Фрагмент 4 — Исследователь:**\n_Посетивший десять мест знает: границы этого мира определяются числом каналов в Discord._\n\n");
+		}
+		sb.append("_Посещай новые локации, чтобы открывать новые фрагменты лора!_");
+		event.getChannel().sendMessage(sb.toString()).submit();
+	}
+
+	/** +доска — еженедельная доска почёта */
+	public void weeklyBoard(MessageReceivedEvent event) {
+		List<Player> all = playerCache.getAll();
+		Player topPvp = all.stream().max(Comparator.comparingInt(Player::getPvpWins)).orElse(null);
+		Player topMobs = all.stream().max(Comparator.comparingInt(Player::getMobKills)).orElse(null);
+		Player topMoney = all.stream().max(Comparator.comparingInt(Player::getMoney)).orElse(null);
+
+		net.dv8tion.jda.api.EmbedBuilder embed = new net.dv8tion.jda.api.EmbedBuilder()
+			.setTitle("📊 Доска почёта — Эта неделя")
+			.setColor(new java.awt.Color(255, 215, 0));
+		if (topPvp != null) embed.addField("⚔️ Лучший в PvP", topPvp.getNickName() + " — " + topPvp.getPvpWins() + " побед", false);
+		if (topMobs != null) embed.addField("🗡️ Охотник на мобов", topMobs.getNickName() + " — " + topMobs.getMobKills() + " убийств", false);
+		if (topMoney != null) embed.addField("💰 Богатейший", topMoney.getNickName() + " — " + topMoney.getMoney() + " монет", false);
+		event.getChannel().sendMessageEmbeds(embed.build()).submit();
+	}
+
+	// ---- Items 138-144: Bounty ----
+	/** +бонт @player [reward] */
+	public void placeBounty(MessageReceivedEvent event) {
+		if (bountyManager != null) bountyManager.placeBounty(event);
+		else event.getChannel().sendMessage("Система наград недоступна.").submit();
+	}
+
+	/** +бонты */
+	public void getBounties(MessageReceivedEvent event) {
+		if (bountyManager != null) bountyManager.getBounties(event);
+		else event.getChannel().sendMessage("Система наград недоступна.").submit();
+	}
+
+	// ---- Items 145-150: Arena ----
+	/** +арена */
+	public void arenaChallenge(MessageReceivedEvent event) {
+		if (arenaManager != null) arenaManager.arenaChallenge(event);
+		else event.getChannel().sendMessage("Арена недоступна.").submit();
+	}
+
+	/** +арена топ */
+	public void arenaLeaderboard(MessageReceivedEvent event) {
+		if (arenaManager != null) arenaManager.arenaLeaderboard(event);
+		else event.getChannel().sendMessage("Арена недоступна.").submit();
+	}
+
+	/** +арена 3v3 */
+	public void teamArena(MessageReceivedEvent event) {
+		if (arenaManager != null) arenaManager.teamArenaChallenge(event);
+		else event.getChannel().sendMessage("Арена 3v3 недоступна.").submit();
+	}
+
+	/** +выживание */
+	public void survivalChallenge(MessageReceivedEvent event) {
+		if (arenaManager != null) arenaManager.survivalChallenge(event);
+		else event.getChannel().sendMessage("Выживание недоступно.").submit();
+	}
+
+	/** +чемпион */
+	public void showChampion(MessageReceivedEvent event) {
+		if (arenaManager != null) arenaManager.showChampion(event);
+		else event.getChannel().sendMessage("Система чемпиона недоступна.").submit();
+	}
+
+	/** +вызвать чемпиона */
+	public void challengeChampion(MessageReceivedEvent event) {
+		if (arenaManager != null) arenaManager.challengeChampion(event);
+		else event.getChannel().sendMessage("Система чемпиона недоступна.").submit();
+	}
+
+	/** +лига */
+	public void showLeague(MessageReceivedEvent event) {
+		if (arenaManager != null) arenaManager.showLeague(event);
+		else event.getChannel().sendMessage("Лига недоступна.").submit();
+	}
+
+	/** +турнир */
+	public void registerTournament(MessageReceivedEvent event) {
+		if (tournamentManager != null) tournamentManager.registerForTournament(event);
+		else event.getChannel().sendMessage("Турнир недоступен.").submit();
+	}
+
+	/** +турнир статус */
+	public void tournamentStatus(MessageReceivedEvent event) {
+		if (tournamentManager != null) tournamentManager.tournamentStatus(event);
+		else event.getChannel().sendMessage("Турнир недоступен.").submit();
+	}
+
+	/** +выдать награду активности — admin */
+	public void giveActivityReward(MessageReceivedEvent event) {
+		List<Player> all = playerCache.getAll();
+		all.sort((a, b) -> {
+			int scoreA = a.getPvpWins() + a.getMobKills() + (a.getCompletedQuests() != null ? a.getCompletedQuests().size() : 0);
+			int scoreB = b.getPvpWins() + b.getMobKills() + (b.getCompletedQuests() != null ? b.getCompletedQuests().size() : 0);
+			return scoreB - scoreA;
+		});
+		var sb = new StringBuilder("🏆 **Награды за активность выданы:**\n");
+		for (int i = 0; i < Math.min(3, all.size()); i++) {
+			Player p = all.get(i);
+			ReentrantLock lock = getPlayerLock(p.getId());
+			lock.lock();
+			try {
+				Player fresh = playerCache.get(p.getId());
+				if (fresh != null) {
+					fresh.setMoney(fresh.getMoney() + 1000);
+					playerCache.put(fresh.getId(), fresh);
+					sb.append(i + 1).append(". **").append(fresh.getNickName()).append("** — +1000 монет\n");
+				}
+			} finally { lock.unlock(); }
+		}
+		event.getChannel().sendMessage(sb.toString()).submit();
 	}
 
 	/** Удаляет истёкшие предметы из инвентаря игрока. */

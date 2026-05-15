@@ -27,7 +27,8 @@ public class PlayerRepository {
     private static final String SELECT_COLS =
         "id, nick_name, hp, max_hp, luck, money, reputation, armor, strength, location, level, " +
         "player_exp, exp_to_next, inventory, answer, active_event, daily_time, clan_name, daily_streak, player_class, achievements, active_buffs, " +
-        "location_history, last_explore_time, bank_inventory, completed_quests, debt, pvp_wins, mob_kills, prestige, last_horse_race";
+        "location_history, last_explore_time, bank_inventory, completed_quests, debt, pvp_wins, mob_kills, prestige, last_horse_race, " +
+        "pet, has_mount, profession, profession_level, resources, jewelry, skill_points, skills, faction_rep, diary, last_monthly_bonus, arena_rating";
 
     public List<Player> getAll() {
         List<Player> result = new ArrayList<>();
@@ -67,12 +68,14 @@ public class PlayerRepository {
 
     public void put(String id, Player player) {
         String eventJson = serializeEvent(player);
+        String petJson = player.getPet() != null ? JsonUtil.toJson(player.getPet()) : null;
         try (Connection conn = dataSource.getConnection();
              PreparedStatement ps = conn.prepareStatement(
                  "INSERT INTO players (id, nick_name, hp, max_hp, luck, money, reputation, armor, strength, location, level, " +
                  "player_exp, exp_to_next, inventory, answer, active_event, daily_time, clan_name, daily_streak, player_class, achievements, active_buffs, " +
-                 "location_history, last_explore_time, bank_inventory, completed_quests, debt, pvp_wins, mob_kills, prestige, last_horse_race) " +
-                 "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) " +
+                 "location_history, last_explore_time, bank_inventory, completed_quests, debt, pvp_wins, mob_kills, prestige, last_horse_race, " +
+                 "pet, has_mount, profession, profession_level, resources, jewelry, skill_points, skills, faction_rep, diary, last_monthly_bonus, arena_rating) " +
+                 "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) " +
                  "ON CONFLICT (id) DO UPDATE SET " +
                  "nick_name=EXCLUDED.nick_name, hp=EXCLUDED.hp, max_hp=EXCLUDED.max_hp, luck=EXCLUDED.luck, " +
                  "money=EXCLUDED.money, reputation=EXCLUDED.reputation, armor=EXCLUDED.armor, strength=EXCLUDED.strength, " +
@@ -83,7 +86,11 @@ public class PlayerRepository {
                  "location_history=EXCLUDED.location_history, last_explore_time=EXCLUDED.last_explore_time, " +
                  "bank_inventory=EXCLUDED.bank_inventory, completed_quests=EXCLUDED.completed_quests, " +
                  "debt=EXCLUDED.debt, pvp_wins=EXCLUDED.pvp_wins, mob_kills=EXCLUDED.mob_kills, " +
-                 "prestige=EXCLUDED.prestige, last_horse_race=EXCLUDED.last_horse_race")) {
+                 "prestige=EXCLUDED.prestige, last_horse_race=EXCLUDED.last_horse_race, " +
+                 "pet=EXCLUDED.pet, has_mount=EXCLUDED.has_mount, profession=EXCLUDED.profession, " +
+                 "profession_level=EXCLUDED.profession_level, resources=EXCLUDED.resources, jewelry=EXCLUDED.jewelry, " +
+                 "skill_points=EXCLUDED.skill_points, skills=EXCLUDED.skills, faction_rep=EXCLUDED.faction_rep, " +
+                 "diary=EXCLUDED.diary, last_monthly_bonus=EXCLUDED.last_monthly_bonus, arena_rating=EXCLUDED.arena_rating")) {
             ps.setString(1, id);
             ps.setString(2, player.getNickName());
             ps.setInt(3, player.getHp());
@@ -115,6 +122,18 @@ public class PlayerRepository {
             ps.setInt(29, player.getMobKills());
             ps.setInt(30, player.getPrestige());
             ps.setLong(31, player.getLastHorseRaceTime());
+            ps.setString(32, petJson);
+            ps.setBoolean(33, player.isHasMount());
+            ps.setString(34, player.getProfession() != null ? player.getProfession() : "");
+            ps.setInt(35, player.getProfessionLevel());
+            ps.setString(36, JsonUtil.toJson(player.getResources() != null ? player.getResources() : new HashMap<>()));
+            ps.setString(37, JsonUtil.toJson(player.getJewelry() != null ? player.getJewelry() : new HashMap<>()));
+            ps.setInt(38, player.getSkillPoints());
+            ps.setString(39, JsonUtil.toJson(player.getSkills() != null ? player.getSkills() : new HashMap<>()));
+            ps.setString(40, JsonUtil.toJson(player.getFactionRep() != null ? player.getFactionRep() : new HashMap<>()));
+            ps.setString(41, JsonUtil.toJson(player.getDiary() != null ? player.getDiary() : new ArrayList<>()));
+            ps.setLong(42, player.getLastMonthlyBonus());
+            ps.setInt(43, player.getArenaRating());
             ps.executeUpdate();
         } catch (Exception e) {
             log.error("Ошибка put({}): {}", id, e.getMessage());
@@ -163,6 +182,24 @@ public class PlayerRepository {
         try { p.setMobKills(rs.getInt("mob_kills")); } catch (Exception e) { p.setMobKills(0); }
         try { p.setPrestige(rs.getInt("prestige")); } catch (Exception e) { p.setPrestige(0); }
         try { p.setLastHorseRaceTime(rs.getLong("last_horse_race")); } catch (Exception e) { p.setLastHorseRaceTime(0); }
+        // New fields (items 85-150)
+        try {
+            String petJson = rs.getString("pet");
+            if (petJson != null && !petJson.isBlank() && !petJson.equals("null")) {
+                p.setPet(MAPPER.readValue(petJson, ru.chebe.litvinov.data.Pet.class));
+            }
+        } catch (Exception e) { p.setPet(null); }
+        try { p.setHasMount(rs.getBoolean("has_mount")); } catch (Exception e) { p.setHasMount(false); }
+        try { p.setProfession(rs.getString("profession") != null ? rs.getString("profession") : ""); } catch (Exception e) { p.setProfession(""); }
+        try { p.setProfessionLevel(rs.getInt("profession_level")); } catch (Exception e) { p.setProfessionLevel(0); }
+        try { p.setResources(JsonUtil.fromJsonToMapStringInt(rs.getString("resources"))); } catch (Exception e) { p.setResources(new HashMap<>()); }
+        try { p.setJewelry(JsonUtil.fromJsonToMapStringInt(rs.getString("jewelry"))); } catch (Exception e) { p.setJewelry(new HashMap<>()); }
+        try { p.setSkillPoints(rs.getInt("skill_points")); } catch (Exception e) { p.setSkillPoints(0); }
+        try { p.setSkills(JsonUtil.fromJsonToMapStringInt(rs.getString("skills"))); } catch (Exception e) { p.setSkills(new HashMap<>()); }
+        try { p.setFactionRep(JsonUtil.fromJsonToMapStringInt(rs.getString("faction_rep"))); } catch (Exception e) { p.setFactionRep(new HashMap<>(Map.of("ТОРГОВЦЫ", 0, "МАГИ", 0, "ВОИНЫ", 0))); }
+        try { p.setDiary(JsonUtil.fromJsonToListString(rs.getString("diary"))); } catch (Exception e) { p.setDiary(new ArrayList<>()); }
+        try { p.setLastMonthlyBonus(rs.getLong("last_monthly_bonus")); } catch (Exception e) { p.setLastMonthlyBonus(0); }
+        try { p.setArenaRating(rs.getInt("arena_rating")); } catch (Exception e) { p.setArenaRating(1000); }
 
         String eventJson = rs.getString("active_event");
         if (eventJson != null && !eventJson.isBlank() && !eventJson.equals("null")) {

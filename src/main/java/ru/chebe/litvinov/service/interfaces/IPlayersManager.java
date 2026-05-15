@@ -270,4 +270,48 @@ public interface IPlayersManager {
     void prestige(MessageReceivedEvent event);
     void playerProfile(MessageReceivedEvent event);
     void hallOfFame(MessageReceivedEvent event);
+
+    // Items 85-150
+    void adminReload(MessageReceivedEvent event);
+    void giveActivityReward(MessageReceivedEvent event);
+    void onlineCommand(MessageReceivedEvent event);
+    void petCommand(MessageReceivedEvent event);
+    void feedPet(MessageReceivedEvent event);
+    void mountRacingRun(MessageReceivedEvent event);
+    void mountRacingInfo(MessageReceivedEvent event);
+    void professionCommand(MessageReceivedEvent event);
+    void gatherResource(MessageReceivedEvent event);
+    void showProfessionRecipes(MessageReceivedEvent event);
+    void resourceMarket(MessageReceivedEvent event);
+    void captureTerritory(MessageReceivedEvent event);
+    void siegeCommand(MessageReceivedEvent event);
+    void fortressCommand(MessageReceivedEvent event);
+    void territoryClanMap(MessageReceivedEvent event);
+    void declareAlliance(MessageReceivedEvent event);
+    void worldBossAttack(MessageReceivedEvent event);
+    void invasionStatus(MessageReceivedEvent event);
+    void crisisStatus(MessageReceivedEvent event);
+    void showSeason(MessageReceivedEvent event);
+    void serverTournament(MessageReceivedEvent event);
+    void showSkills(MessageReceivedEvent event);
+    void investSkill(MessageReceivedEvent event);
+    void useAbility(MessageReceivedEvent event);
+    void chooseSecondClass(MessageReceivedEvent event);
+    void showFactions(MessageReceivedEvent event);
+    void diaryCommand(MessageReceivedEvent event);
+    void topActivity(MessageReceivedEvent event);
+    void lorePage(MessageReceivedEvent event);
+    void weeklyBoard(MessageReceivedEvent event);
+    void placeBounty(MessageReceivedEvent event);
+    void getBounties(MessageReceivedEvent event);
+    void arenaChallenge(MessageReceivedEvent event);
+    void arenaLeaderboard(MessageReceivedEvent event);
+    void teamArena(MessageReceivedEvent event);
+    void survivalChallenge(MessageReceivedEvent event);
+    void showChampion(MessageReceivedEvent event);
+    void challengeChampion(MessageReceivedEvent event);
+    void showLeague(MessageReceivedEvent event);
+    void registerTournament(MessageReceivedEvent event);
+    void tournamentStatus(MessageReceivedEvent event);
+    boolean checkHiddenQuest(MessageReceivedEvent event);
 }

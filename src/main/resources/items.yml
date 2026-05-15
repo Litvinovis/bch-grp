@@ -1,0 +1,162 @@
+items:
+  бицушка ровера:
+    armor: 0
+    price: 1000
+    luck: 0
+    health: 10
+    reputation: 0
+    strength: 2
+    xpGeneration: 0
+    action: false
+    description: "Легендарная бицушка-пушка, позволяет выкашивать своих врагов типа Ильи одной левой"
+  кисточка циника:
+    armor: 0
+    price: 1000
+    luck: 1
+    health: 0
+    reputation: 3
+    strength: 0
+    xpGeneration: 0
+    action: false
+    description: "Ты доволен? Ты рисуешь косарей под дождём, заткнись, заткнись!"
+  корона дарха:
+    armor: 2
+    price: 1000
+    luck: 0
+    health: 10
+    reputation: 1
+    strength: 0
+    xpGeneration: 0
+    action: false
+    description: "Коммуницировать целесообразно так, чтобы вас поняла любая перципиентная личность"
+  кринж стина:
+    armor: 2
+    price: 1000
+    luck: 0
+    health: 0
+    reputation: 0
+    strength: 0
+    xpGeneration: 2
+    action: false
+    description: "С ним вас боится даже кафка"
+  попка ушаса:
+    armor: 0
+    price: 1000
+    luck: 1
+    health: 0
+    reputation: 2
+    strength: 0
+    xpGeneration: 0
+    action: false
+    description: "удивительно, но вам донатят на твиче хотя вы не тян, а продавщица угощает барбарысками"
+  oko mora:
+    name: "oko mora"
+    armor: 1
+    price: 1000
+    luck: 0
+    health: 0
+    reputation: 1
+    strength: 1
+    xpGeneration: 0
+    action: false
+    description: "Вашего взора боятся, особенно если вы заговорите"
+  кружка цикория:
+    armor: 0
+    price: 10
+    luck: 0
+    health: 30
+    reputation: 0
+    strength: 0
+    xpGeneration: 0
+    action: true
+    description: "Восстанавливает 30 HP"
+  вино лаба:
+    armor: 0
+    price: 15
+    luck: 0
+    health: 50
+    reputation: 0
+    strength: 0
+    xpGeneration: 0
+    action: true
+    description: "Восстанавливает 50 HP"
+  медовуха база:
+    armor: 0
+    price: 30
+    luck: 0
+    health: 100
+    reputation: 0
+    strength: 0
+    xpGeneration: 0
+    action: true
+    description: "Восстанавливает 100 HP"
+  токен телепорта:
+    armor: 0
+    price: 2
+    luck: 0
+    health: 0
+    reputation: 0
+    strength: 0
+    xpGeneration: 0
+    action: true
+    description: "Позволяет использовать телепорты"
+  протеин ябыса:
+    armor: 0
+    price: 25
+    luck: 0
+    health: 0
+    reputation: 0
+    strength: 2
+    xpGeneration: 0
+    action: true
+    description: "+2 к силе на 30 минут. Ябыс одобряет"
+  амулет рианель:
+    armor: 0
+    price: 20
+    luck: 2
+    health: 0
+    reputation: 0
+    strength: 0
+    xpGeneration: 0
+    action: true
+    description: "+2 к удаче на 30 минут. Пахнет магией и дешёвыми духами"
+  щит чегоба:
+    armor: 3
+    price: 35
+    luck: 0
+    health: 0
+    reputation: 0
+    strength: 0
+    xpGeneration: 0
+    action: true
+    description: "+3 к броне на 30 минут. Сделан из правил пасфайндера в 5 слоёв"
+  речь ильи:
+    armor: 0
+    price: 18
+    luck: 0
+    health: 0
+    reputation: 3
+    strength: 0
+    xpGeneration: 0
+    action: true
+    description: "+3 к репутации на 30 минут. Никто не понял, но все впечатлились"
+  зелье лаба:
+    armor: 0
+    price: 50
+    luck: 1
+    health: 80
+    reputation: 0
+    strength: 1
+    xpGeneration: 0
+    action: true
+    description: "Восстанавливает 80 HP, +1 к силе и +1 к удаче на 30 минут. Состав засекречен, но явно не вода"
+  карта мира:
+    armor: 0
+    price: 100
+    luck: 0
+    health: 0
+    reputation: 0
+    strength: 0
+    xpGeneration: 0
+    action: false
+    description: "Позволяет искать кратчайший путь до локации командой +путь [локация]"
