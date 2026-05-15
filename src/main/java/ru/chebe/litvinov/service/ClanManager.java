@@ -204,6 +204,15 @@ public class ClanManager {
 		clanCache.put(clan.getName(), clan);
 	}
 
+	/** Добавляет монеты в клановый банк (налоги от территорий и т.п.) */
+	public void addToClanBank(String clanName, String itemName, int amount) {
+		var clan = clanCache.get(clanName);
+		if (clan == null) return;
+		if (clan.getClanBank() == null) clan.setClanBank(new java.util.HashMap<>());
+		clan.getClanBank().merge("монеты", amount, Integer::sum);
+		clanCache.put(clanName, clan);
+	}
+
 	public String clanBankDeposit(String clanName, String playerId, int amount, Player player) {
 		var clan = clanCache.get(clanName);
 		if (clan == null) return "Клан не найден";

@@ -1,0 +1,175 @@
+locations:
+  загадка:
+    pvp: true
+    dangerous: 70
+    boss: "cynic mansion"
+    bossItem: "кисточка циника"
+    teleport: false
+    paths: ["кушетка"]
+  олимп:
+    pvp: true
+    dangerous: 80
+    boss: "Darhalas"
+    bossItem: "корона дарха"
+    teleport: false
+    paths: ["модерская"]
+  магазин:
+    pvp: false
+    dangerous: 0
+    teleport: false
+    paths: ["рекламный"]
+  таверна:
+    pvp: false
+    dangerous: 10
+    teleport: false
+    paths: ["деградач"]
+  кушетка:
+    pvp: true
+    dangerous: 50
+    boss: "Ctin"
+    bossItem: "кринж стина"
+    teleport: false
+    paths: ["загадка", "модерская", "хуй-тек"]
+  модерская:
+    pvp: true
+    dangerous: 50
+    boss: "Ushas"
+    bossItem: "попка ушаса"
+    teleport: true
+    paths: ["олимп", "кушетка", "старборд"]
+  рекламный:
+    pvp: true
+    dangerous: 35
+    boss: "Morgott"
+    bossItem: "око мора"
+    teleport: false
+    paths: ["кринжборд", "магазин"]
+  хуй-тек:
+    pvp: true
+    dangerous: 35
+    boss: "Usual_god"
+    bossItem: "очко бога"
+    teleport: false
+    paths: ["кушетка", "старборд"]
+  старборд:
+    pvp: true
+    dangerous: 25
+    boss: "Red"
+    bossItem: "сиськи ред"
+    teleport: false
+    paths: ["хуй-тек", "кринжборд", "дом", "модерская"]
+  кринжборд:
+    pvp: true
+    dangerous: 35
+    boss: "Рианель"
+    bossItem: "удача рианель"
+    teleport: true
+    paths: ["рекламный", "старборд"]
+  респаун:
+    pvp: false
+    dangerous: 0
+    teleport: false
+    paths: ["дом"]
+  дом:
+    pvp: false
+    dangerous: 0
+    teleport: false
+    paths: ["старборд", "мейн", "дорогой-дневник"]
+  мейн:
+    pvp: true
+    dangerous: 10
+    boss: "Labynkyr"
+    bossItem: "шарики лаба"
+    teleport: true
+    paths: ["деградач", "для-ботов", "дом"]
+  деградач:
+    pvp: true
+    dangerous: 25
+    boss: "Arktulz"
+    bossItem: "вонь арктулза"
+    teleport: false
+    paths: ["мейн", "таверна"]
+  качалочка:
+    pvp: true
+    dangerous: 25
+    boss: "Ябыс"
+    bossItem: "скейт ябыса"
+    teleport: false
+    paths: ["дорогой-дневник", "девочковое"]
+  дорогой-дневник:
+    pvp: true
+    dangerous: 10
+    boss: "Orson"
+    bossItem: "форточка орсона"
+    teleport: false
+    paths: ["качалочка", "дом", "чебеграм"]
+  для-ботов:
+    pvp: true
+    dangerous: 25
+    boss: "Gordon"
+    bossItem: "месть гордона"
+    teleport: false
+    paths: ["мейн", "для-флуда", "english"]
+  для-флуда:
+    pvp: true
+    dangerous: 25
+    boss: "Buzzz"
+    bossItem: "хатка база"
+    teleport: false
+    paths: ["политота", "для-ботов"]
+  девочковое:
+    pvp: true
+    dangerous: 10
+    boss: "la_brioche"
+    bossItem: "игла бувки"
+    teleport: false
+    paths: ["чебеграм", "качалочка"]
+  чебеграм:
+    pvp: true
+    dangerous: 35
+    boss: "Stalker"
+    bossItem: "калькулятор сталкера"
+    teleport: true
+    paths: ["девочковое", "дорогой-дневник", "nsfw"]
+  english:
+    pvp: true
+    dangerous: 35
+    boss: "Crown"
+    bossItem: "язык вороны"
+    teleport: false
+    paths: ["nsfw-gay", "для-ботов"]
+  политота:
+    pvp: true
+    dangerous: 50
+    boss: "Илья"
+    bossItem: "диплом ильи"
+    teleport: true
+    paths: ["для-флуда", "клоунская-братва"]
+  nsfw2d:
+    pvp: true
+    dangerous: 70
+    boss: "Chegobnk"
+    bossItem: "кресло чегоба"
+    teleport: false
+    paths: ["nsfw"]
+  nsfw:
+    pvp: true
+    dangerous: 50
+    boss: "Вуъщт"
+    bossItem: "хуй вущъта"
+    teleport: false
+    paths: ["nsfw2d", "nsfw-gay", "чебеграм"]
+  nsfw-gay:
+    pvp: true
+    dangerous: 50
+    boss: "Eduard"
+    bossItem: "банка эдика"
+    teleport: false
+    paths: ["english", "клоунская-братва", "nsfw"]
+  клоунская-братва:
+    pvp: true
+    dangerous: 70
+    boss: "Rover"
+    bossItem: "бицушка ровера"
+    teleport: false
+    paths: ["политота", "nsfw-gay"]

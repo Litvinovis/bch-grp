@@ -8,6 +8,7 @@ import net.dv8tion.jda.api.requests.GatewayIntent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.chebe.litvinov.eventHandlers.MessageHandler;
+import ru.chebe.litvinov.util.MetricsService;
 
 import javax.sql.DataSource;
 import java.util.Optional;
@@ -23,6 +24,7 @@ public class App {
 
     public static void main(String[] args) {
         logger.info("Запуск приложения bchgrp");
+        MetricsService.start();
 
         BotConfig botConfig;
         try {

@@ -1,0 +1,89 @@
+bosses:
+  Labynkyr:
+    hp: 300
+    strength: 6
+    bossItem: "шарики лаба"
+  Arktulz:
+    hp: 280
+    strength: 5
+    bossItem: "вонь арктулза"
+  Red:
+    hp: 320
+    strength: 7
+    bossItem: "сиськи ред"
+  Gordon:
+    hp: 290
+    strength: 6
+    bossItem: "месть гордона"
+  Buzzz:
+    hp: 280
+    strength: 5
+    bossItem: "хатка база"
+  Ябыс:
+    hp: 340
+    strength: 7
+    bossItem: "скейт ябыса"
+  Orson:
+    hp: 285
+    strength: 5
+    bossItem: "форточка орсона"
+  la_brioche:
+    hp: 290
+    strength: 6
+    bossItem: "игла бувки"
+  Morgott:
+    hp: 600
+    strength: 10
+    bossItem: "oko mora"
+  Usual_god:
+    hp: 580
+    strength: 9
+    bossItem: "очко бога"
+  Рианель:
+    hp: 620
+    strength: 11
+    bossItem: "удача рианель"
+  Stalker:
+    hp: 640
+    strength: 11
+    bossItem: "калькулятор сталкера"
+  Crown:
+    hp: 590
+    strength: 9
+    bossItem: "язык вороны"
+  Ctin:
+    hp: 880
+    strength: 13
+    bossItem: "кринж стина"
+  Ushas:
+    hp: 900
+    strength: 14
+    bossItem: "попка ушаса"
+  Илья:
+    hp: 920
+    strength: 14
+    bossItem: "диплом ильи"
+  Вуъщт:
+    hp: 940
+    strength: 15
+    bossItem: "хуй вущъта"
+  Eduard:
+    hp: 890
+    strength: 13
+    bossItem: "банка эдика"
+  cynic mansion:
+    hp: 1400
+    strength: 20
+    bossItem: "кисточка циника"
+  Rover:
+    hp: 1300
+    strength: 18
+    bossItem: "бицушка ровера"
+  Chegobnk:
+    hp: 1350
+    strength: 19
+    bossItem: "кресло чегоба"
+  Darhalas:
+    hp: 1600
+    strength: 22
+    bossItem: "корона дарха"

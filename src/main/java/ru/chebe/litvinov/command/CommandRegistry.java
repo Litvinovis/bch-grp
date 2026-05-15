@@ -210,6 +210,62 @@ public class CommandRegistry {
         registry.registerAdmin("+новыеидеи", ideasManager::getNewIdeas);
         registry.registerAdmin("+идеяномер", ideasManager::getIdea);
         registry.registerAdmin("+идеястатус", ideasManager::changeIdeaStatus);
+        registry.registerAdmin("+admin reload", playersManager::adminReload);
+        registry.registerAdmin("+выдать награду активности", playersManager::giveActivityReward);
+
+        // --- Онлайн ---
+        registry.register("+онлайн", playersManager::onlineCommand);
+
+        // --- Питомцы (item 101-108) ---
+        registry.register("+питомец", playersManager::petCommand);
+        registry.register("+кормить", playersManager::feedPet);
+        registry.register("+гонки маунтов старт", playersManager::mountRacingRun);
+        registry.register("+гонки маунтов", playersManager::mountRacingInfo);
+
+        // --- Профессии (item 109-116) ---
+        registry.register("+профессия", playersManager::professionCommand);
+        registry.register("+добыть", playersManager::gatherResource);
+        registry.register("+рецепты", playersManager::showProfessionRecipes);
+        registry.register("+биржа ресурсов", playersManager::resourceMarket);
+
+        // --- Территории (item 117-123) ---
+        registry.register("+захватить", playersManager::captureTerritory);
+        registry.register("+осада", playersManager::siegeCommand);
+        registry.register("+крепость", playersManager::fortressCommand);
+        registry.register("+карта кланов", playersManager::territoryClanMap);
+        registry.register("+альянс", playersManager::declareAlliance);
+
+        // --- Мировые события (item 124-130) ---
+        registry.register("+мировой босс", playersManager::worldBossAttack);
+        registry.register("+нашествие", playersManager::invasionStatus);
+        registry.register("+кризис статус", playersManager::crisisStatus);
+        registry.register("+турнир сервера", playersManager::serverTournament);
+
+        // --- Классы и навыки (item 131-137) ---
+        registry.register("+скиллы", playersManager::showSkills);
+        registry.register("+вложить", playersManager::investSkill);
+        registry.register("+умение", playersManager::useAbility);
+        registry.register("+второй класс", playersManager::chooseSecondClass);
+
+        // --- Социальные механики (item 138-144) ---
+        registry.register("+фракции", playersManager::showFactions);
+        registry.register("+дневник", playersManager::diaryCommand);
+        registry.register("+топ активность", playersManager::topActivity);
+        registry.register("+лор", playersManager::lorePage);
+        registry.register("+доска", playersManager::weeklyBoard);
+        registry.register("+бонт", playersManager::placeBounty);
+        registry.register("+бонты", playersManager::getBounties);
+
+        // --- Арена и соревнования (item 145-150) ---
+        registry.register("+арена 3v3", playersManager::teamArena);
+        registry.register("+арена топ", playersManager::arenaLeaderboard);
+        registry.register("+арена", playersManager::arenaChallenge);
+        registry.register("+турнир статус", playersManager::tournamentStatus);
+        registry.register("+турнир", playersManager::registerTournament);
+        registry.register("+выживание", playersManager::survivalChallenge);
+        registry.register("+вызвать чемпиона", playersManager::challengeChampion);
+        registry.register("+чемпион", playersManager::showChampion);
+        registry.register("+лига", playersManager::showLeague);
 
         return registry;
     }

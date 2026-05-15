@@ -106,6 +106,71 @@ ALTER TABLE players ADD COLUMN IF NOT EXISTS mob_kills         INTEGER NOT NULL 
 ALTER TABLE players ADD COLUMN IF NOT EXISTS prestige          INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE players ADD COLUMN IF NOT EXISTS last_horse_race   BIGINT NOT NULL DEFAULT 0;
 
+-- Items 85-150: new columns for existing tables
+ALTER TABLE players ADD COLUMN IF NOT EXISTS pet              TEXT DEFAULT NULL;
+ALTER TABLE players ADD COLUMN IF NOT EXISTS has_mount        BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE players ADD COLUMN IF NOT EXISTS profession       TEXT NOT NULL DEFAULT '';
+ALTER TABLE players ADD COLUMN IF NOT EXISTS profession_level INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE players ADD COLUMN IF NOT EXISTS resources        TEXT NOT NULL DEFAULT '{}';
+ALTER TABLE players ADD COLUMN IF NOT EXISTS jewelry          TEXT NOT NULL DEFAULT '{}';
+ALTER TABLE players ADD COLUMN IF NOT EXISTS skill_points     INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE players ADD COLUMN IF NOT EXISTS skills           TEXT NOT NULL DEFAULT '{}';
+ALTER TABLE players ADD COLUMN IF NOT EXISTS faction_rep      TEXT NOT NULL DEFAULT '{}';
+ALTER TABLE players ADD COLUMN IF NOT EXISTS diary            TEXT NOT NULL DEFAULT '[]';
+ALTER TABLE players ADD COLUMN IF NOT EXISTS last_monthly_bonus BIGINT NOT NULL DEFAULT 0;
+ALTER TABLE players ADD COLUMN IF NOT EXISTS arena_rating     INTEGER NOT NULL DEFAULT 1000;
+
+ALTER TABLE clans ADD COLUMN IF NOT EXISTS alliances         TEXT NOT NULL DEFAULT '[]';
+ALTER TABLE clans ADD COLUMN IF NOT EXISTS fortress_upgrades TEXT NOT NULL DEFAULT '[]';
+ALTER TABLE clans ADD COLUMN IF NOT EXISTS active_sieges     TEXT NOT NULL DEFAULT '{}';
+
+-- Item 90: Game event log
+CREATE TABLE IF NOT EXISTS game_event_log (
+    id         SERIAL PRIMARY KEY,
+    event_type TEXT NOT NULL,
+    player_id  TEXT NOT NULL,
+    details    TEXT,
+    created_at BIGINT NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW())::BIGINT * 1000
+);
+
+-- Item 117-123: Territories
+CREATE TABLE IF NOT EXISTS territories (
+    location_name TEXT PRIMARY KEY,
+    clan_name     TEXT NOT NULL DEFAULT '',
+    captured_at   BIGINT NOT NULL DEFAULT 0,
+    tax_rate      INTEGER NOT NULL DEFAULT 5
+);
+
+-- Items 124-130: World events
+CREATE TABLE IF NOT EXISTS world_events (
+    id         SERIAL PRIMARY KEY,
+    event_type TEXT NOT NULL,
+    data       TEXT NOT NULL DEFAULT '{}',
+    started_at BIGINT NOT NULL,
+    ends_at    BIGINT NOT NULL,
+    active     BOOLEAN NOT NULL DEFAULT TRUE
+);
+
+-- Items 138-144: Bounties
+CREATE TABLE IF NOT EXISTS bounties (
+    id         SERIAL PRIMARY KEY,
+    target_id  TEXT NOT NULL,
+    placer_id  TEXT NOT NULL,
+    reward     INTEGER NOT NULL,
+    active     BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at BIGINT NOT NULL
+);
+
+-- Items 145-150: Tournaments
+CREATE TABLE IF NOT EXISTS tournaments (
+    id           SERIAL PRIMARY KEY,
+    type         TEXT NOT NULL,
+    participants TEXT NOT NULL DEFAULT '[]',
+    bracket      TEXT NOT NULL DEFAULT '{}',
+    status       TEXT NOT NULL DEFAULT 'open',
+    season       INTEGER NOT NULL DEFAULT 1
+);
+
 CREATE TABLE IF NOT EXISTS daily_quests (
     user_id          TEXT NOT NULL,
     quest_date       DATE NOT NULL DEFAULT CURRENT_DATE,
