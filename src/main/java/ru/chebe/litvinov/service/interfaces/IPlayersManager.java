@@ -314,4 +314,7 @@ public interface IPlayersManager {
     void registerTournament(MessageReceivedEvent event);
     void tournamentStatus(MessageReceivedEvent event);
     boolean checkHiddenQuest(MessageReceivedEvent event);
+
+    /** Grants a pet of the given type to the player if they have no pet. */
+    void grantPetIfNone(String playerId, String petType);
 }

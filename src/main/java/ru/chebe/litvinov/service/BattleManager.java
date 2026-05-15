@@ -8,6 +8,7 @@ import ru.chebe.litvinov.repository.BossRepository;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.Map;
 
 /**
  * Менеджер боевой системы.
@@ -19,6 +20,7 @@ public class BattleManager {
 	private final Random rand = new Random();
 	private final Map<String, Boss> localBossMap = new HashMap<>();
 	private final Map<String, String> lastBattleLog = new ConcurrentHashMap<>();
+	private PetManager petManager;
 
 	/**
 	 * Создаёт менеджер боёв и инициализирует репозиторий боссов начальными данными.
@@ -72,6 +74,8 @@ public class BattleManager {
 			});
 		}
 	}
+
+	public void setPetManager(PetManager pm) { this.petManager = pm; }
 
 	/** Возвращает босса по имени (для тестов и инспекции). */
 	public Boss getBoss(String name) {
@@ -244,15 +248,53 @@ public class BattleManager {
 						&& "МАГ".equals(((Player) attacker).getPlayerClass())
 						&& round == 1;
 
+				// Pet bonus to strength (item 9)
+				int attackerStrength = attacker.getStrength();
+				if (attacker instanceof Player playerAttacker && playerAttacker.getPet() != null
+						&& playerAttacker.getPet().getHunger() > 0) {
+					int petStrBonus = petManager != null ? petManager.getPetBattleBonus(playerAttacker, "str") : 0;
+					attackerStrength += petStrBonus;
+					if (petStrBonus > 0) {
+						String petMsg = "🐾 Питомец добавляет **+" + petStrBonus + "** к силе!\n";
+						sb.append(petMsg);
+						fullLog.append(petMsg);
+					}
+				}
+
+				// Следопыт: природная ловушка — 20% шанс враг пропускает ход
+				if (attacker instanceof Player trapPl && trapPl.getSkills() != null
+						&& trapPl.getSkills().getOrDefault("природная ловушка", 0) > 0
+						&& rand.nextInt(100) < 20) {
+					String trapMsg = "🌿 **Природная ловушка!** **" + defender.getNickName() + "** пропускает ход!\n";
+					sb.append(trapMsg);
+					fullLog.append(trapMsg);
+					continue;
+				}
+
 				// Рассчитываем шанс крита: базовый 10%, у игрока +luck/2
 				int critChance = 10;
 				if (attacker instanceof Player) {
 					critChance = 10 + ((Player) attacker).getLuck() / 2;
 				}
 				boolean crit = isCriticalHit(critChance);
-				int damage = randomizeDamage(attacker.getStrength());
+				int damage = randomizeDamage(attackerStrength);
 				if (crit) {
 					damage *= 2;
+				}
+
+				// Skill bonuses for attacker (item 10)
+				if (attacker instanceof Player pl) {
+					Map<String, Integer> skills = pl.getSkills();
+					if (skills != null) {
+						// берсерк: +15% damage
+						if (skills.getOrDefault("берсерк", 0) > 0) {
+							damage = (int)(damage * 1.15);
+						}
+						// молния: first attack 150%
+						if (round == 1 && skills.getOrDefault("молния", 0) > 0) {
+							damage = (int)(damage * 1.5);
+						}
+					}
 				}
 
 				// Блок защитника (16)
@@ -269,6 +311,11 @@ public class BattleManager {
 				// Уклонение защитника (15)
 				int defenderLuck = defender instanceof Player ? ((Player) defender).getLuck() : 0;
 				int dodgeChance = 5 + defenderLuck * 2;
+				// Skill dodge bonuses (item 10)
+				if (defender instanceof Player defPl && defPl.getSkills() != null) {
+					if (defPl.getSkills().getOrDefault("щит маны", 0) > 0) dodgeChance += 30;
+					if (defPl.getSkills().getOrDefault("уклонение мастера", 0) > 0) dodgeChance += 20;
+				}
 				boolean dodged = rand.nextInt(100) < dodgeChance;
 
 				if (dodged) {
@@ -287,14 +334,48 @@ public class BattleManager {
 						fullLog.append(counterMsg);
 					}
 				} else {
+					// Яд (ядовитый клинок): 10% chance per round for extra 5 damage
+					if (attacker instanceof Player poisonPl && poisonPl.getSkills() != null
+							&& poisonPl.getSkills().getOrDefault("ядовитый клинок", 0) > 0
+							&& rand.nextInt(100) < 10) {
+						damage += 5;
+						String poisonMsg = "☠️ **Яд!** +5 к урону!\n";
+						sb.append(poisonMsg);
+						fullLog.append(poisonMsg);
+					}
+
 					int defenderHpBefore = defender.getHp();
 					defender.setHp(defender.getHp() - damage);
+
+					// второе дыхание: if hp drops below 20%, add 20 HP
+					if (defender instanceof Player defPl && defPl.getSkills() != null
+							&& defPl.getSkills().getOrDefault("второе дыхание", 0) > 0
+							&& defPl.getHp() > 0 && defPl.getHp() < defPl.getMaxHp() * 0.2
+							&& defenderHpBefore >= defPl.getMaxHp() * 0.2) {
+						defPl.setHp(defPl.getHp() + 20);
+						String breathMsg = "💪 **Второе дыхание!** **" + defPl.getNickName() + "** восстанавливает 20 HP!\n";
+						sb.append(breathMsg);
+						fullLog.append(breathMsg);
+					}
+
 					String hitPrefix = crit ? "💥 КРИТ! **" : "⚔️ **";
 					String attackMsg = hitPrefix + attacker.getNickName() + "** наносит **" + damage
 							+ "** 🩸 → **" + defender.getNickName()
 							+ "** (❤️ **" + Math.max(0, defender.getHp()) + "** HP)\n";
 					sb.append(attackMsg);
 					fullLog.append(attackMsg);
+
+					// Pet special attack after round 3
+					if (round > 3 && attacker instanceof Player petAttacker && petAttacker.getPet() != null
+							&& petAttacker.getPet().getHunger() > 0 && petManager != null) {
+						int petDmg = petManager.getPetBattleBonus(petAttacker, "str");
+						if (petDmg > 0) {
+							defender.setHp(defender.getHp() - petDmg);
+							String petAtkMsg = "🐾 **Питомец атакует** " + defender.getNickName() + " на **" + petDmg + "** HP!\n";
+							sb.append(petAtkMsg);
+							fullLog.append(petAtkMsg);
+						}
+					}
 
 					if (defender.getHp() <= 0) {
 						String defeatMsg = "💀 **" + defender.getNickName() + "** повержен!\n";

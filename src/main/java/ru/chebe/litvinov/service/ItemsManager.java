@@ -4,6 +4,7 @@ import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import ru.chebe.litvinov.data.Item;
 import ru.chebe.litvinov.repository.ItemRepository;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -101,6 +102,11 @@ public class ItemsManager {
 		map.put("карта мира", Item.builder().name("карта мира").armor(0).price(100).luck(0).health(0).reputation(0).strength(0).xpGeneration(0).action(false)
 						.description("Позволяет искать кратчайший путь до локации командой +путь [локация]").build());
 
+		// Seasonal items (rotate by month)
+		map.put("зимний плащ",     Item.builder().name("зимний плащ").description("Сезонный плащ").price(300).armor(2).action(true).build());
+		map.put("весенний амулет", Item.builder().name("весенний амулет").description("Сезонный амулет").price(300).luck(2).action(true).build());
+		map.put("летний щит",      Item.builder().name("летний щит").description("Сезонный щит").price(300).armor(2).action(true).build());
+		map.put("тыквенный топор", Item.builder().name("тыквенный топор").description("Хэллоуинский топор").price(300).strength(3).action(true).build());
 
 		if (itemsCache != null) {
 			map.forEach(itemsCache::put);
@@ -153,19 +159,13 @@ public class ItemsManager {
 		return itemsForSale.get(new Random().nextInt(itemsForSale.size()));
 	}
 
-	private static String seasonalDiscountItem = null;
-	private static long lastDiscountTime = 0;
-	private static final long DISCOUNT_INTERVAL_MS = 7L * 24 * 60 * 60 * 1000;
-
 	public String getSeasonalDiscountItem() {
-		long now = System.currentTimeMillis();
-		if (seasonalDiscountItem == null || now - lastDiscountTime >= DISCOUNT_INTERVAL_MS) {
-			if (!itemsForSale.isEmpty()) {
-				seasonalDiscountItem = itemsForSale.get(new Random().nextInt(itemsForSale.size()));
-				lastDiscountTime = now;
-			}
-		}
-		return seasonalDiscountItem;
+		int month = LocalDate.now().getMonthValue();
+		// Dec-Feb: winter, Mar-May: spring, Jun-Aug: summer, Sep-Nov: autumn (pumpkin)
+		if (month == 12 || month <= 2) return "зимний плащ";
+		if (month <= 5) return "весенний амулет";
+		if (month <= 8) return "летний щит";
+		return "тыквенный топор";
 	}
 
 	public List<String> getMerchantItems(String location) {

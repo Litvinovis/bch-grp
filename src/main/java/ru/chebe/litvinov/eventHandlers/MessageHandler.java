@@ -84,6 +84,7 @@ public class MessageHandler extends ListenerAdapter {
 		TournamentRepository tournamentRepository = new TournamentRepository(dataSource);
 		TournamentManager tournamentManager = new TournamentManager(tournamentRepository, playerRepository, battleManager);
 
+		battleManager.setPetManager(petManager);
 		this.playersManager.setPetManager(petManager);
 		this.playersManager.setProfessionManager(professionManager);
 		this.playersManager.setTerritoryManager(territoryManager);
@@ -112,9 +113,18 @@ public class MessageHandler extends ListenerAdapter {
 
 	private void chooseAction(MessageReceivedEvent event) {
 		try {
-			if (!isBotAsking(event)) return;
-
 			String content = event.getMessage().getContentDisplay();
+
+			// Check hidden quests for any non-bot message in allowed channel (no + prefix required)
+			if (!event.getAuthor().isBot() && (content == null || !content.startsWith("+"))) {
+				if (event.isFromGuild() && allowedChannelIds.contains(event.getChannel().getId())) {
+					Player hqPlayer = playerRepository.get(event.getAuthor().getId());
+					if (hqPlayer != null) playersManager.checkHiddenQuest(event);
+				}
+				return;
+			}
+
+			if (!isBotAsking(event)) return;
 
 			// OpenClaw Rover логируем отдельно
 			if (OPENCLAW_ROVER_BOT_ID.equals(event.getAuthor().getId())) {

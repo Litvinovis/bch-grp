@@ -170,7 +170,49 @@ public class ArenaManager {
 
     /** +выживание — бой последний выживший */
     public void survivalChallenge(MessageReceivedEvent event) {
-        event.getChannel().sendMessage("⚔️ **Выживание** — скоро! Система в разработке. Участвуй в **+арена** пока что.").submit();
+        String id = event.getAuthor().getId();
+        Player player = playerRepository.get(id);
+        List<Player> pvpPlayers = playerRepository.getAll().stream()
+            .filter(p -> !p.getId().equals(id) && p.getLocation().equals(player.getLocation()))
+            .collect(Collectors.toList());
+
+        if (pvpPlayers.isEmpty()) {
+            event.getChannel().sendMessage("⚔️ **Выживание**: в твоей локации нет других игроков. Перейди в PvP-зону с другими игроками.").submit();
+            return;
+        }
+
+        int totalPot = 50;
+        event.getChannel().sendMessage("⚔️ **ВЫЖИВАНИЕ** начинается в **" + player.getLocation() + "**!\nУчастников: " + (pvpPlayers.size() + 1) + " | Пул: " + totalPot + " монет").submit();
+
+        List<Player> alive = new ArrayList<>(pvpPlayers);
+        Player lastStanding = player;
+        boolean playerAlive = true;
+
+        for (Player opp : alive) {
+            if (!playerAlive) break;
+            battleManager.playerBattle(List.of(player), List.of(opp), event.getChannel());
+            playerAlive = player.getHp() > 0;
+            if (playerAlive) {
+                player.setHp(Math.max(1, player.getHp()));
+            } else {
+                lastStanding = opp;
+            }
+        }
+
+        Player winner = playerAlive ? player : lastStanding;
+        int finalPot = totalPot + pvpPlayers.size() * 50;
+
+        ReentrantLock lock = getLock(winner.getId());
+        lock.lock();
+        try {
+            Player w = playerRepository.get(winner.getId());
+            if (w != null) {
+                w.setMoney(w.getMoney() + finalPot);
+                playerRepository.put(winner.getId(), w);
+            }
+        } finally { lock.unlock(); }
+
+        event.getChannel().sendMessage("🏆 **Победитель выживания: " + winner.getNickName() + "!** +" + finalPot + " монет!").submit();
     }
 
     /** +чемпион — назначить/показать дневного чемпиона */
