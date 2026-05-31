@@ -11,7 +11,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * Простой Prometheus-совместимый HTTP-сервер метрик на порту 9090.
+ * Простой Prometheus-совместимый HTTP-сервер метрик на порту 9091.
  * Запускается один раз при старте бота.
  */
 public final class MetricsService {
@@ -45,7 +45,7 @@ public final class MetricsService {
      */
     public static void start() {
         try {
-            HttpServer server = HttpServer.create(new InetSocketAddress(9090), 0);
+            HttpServer server = HttpServer.create(new InetSocketAddress(9091), 0);
             server.createContext("/metrics", exchange -> {
                 String body = buildMetrics();
                 byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
@@ -57,7 +57,7 @@ public final class MetricsService {
             });
             server.setExecutor(null);
             server.start();
-            log.info("Prometheus metrics server started on :9090/metrics");
+            log.info("Prometheus metrics server started on :9091/metrics");
         } catch (IOException e) {
             log.warn("Cannot start metrics server: {}", e.getMessage());
         }

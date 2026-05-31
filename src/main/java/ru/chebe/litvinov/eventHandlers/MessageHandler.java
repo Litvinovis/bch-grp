@@ -189,7 +189,7 @@ public class MessageHandler extends ListenerAdapter {
 			}
 
 		} catch (Exception e) {
-			logger.error(Constants.MESSAGE_PROCESS_FAILED, e.getMessage());
+			logger.error(Constants.MESSAGE_PROCESS_FAILED, e.toString(), e);
 		}
 	}
 
