@@ -21,7 +21,7 @@
     <jda.version>6.4.1</jda.version>
     <lombok.version>1.18.46</lombok.version>
     <snakeyaml.version>2.6</snakeyaml.version>
-    <jackson.version>2.21.3</jackson.version>
+    <jackson.version>2.22.0</jackson.version>
     <logback.version>1.5.32</logback.version>
     <slf4j.version>2.0.18</slf4j.version>
 
