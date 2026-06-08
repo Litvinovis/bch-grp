@@ -18,7 +18,7 @@
     <!-- Dependency versions -->
     <junit.version>4.13.2</junit.version>
     <mockito.version>5.23.0</mockito.version>
-    <jda.version>6.4.1</jda.version>
+    <jda.version>6.4.2</jda.version>
     <lombok.version>1.18.46</lombok.version>
     <snakeyaml.version>2.6</snakeyaml.version>
     <jackson.version>2.21.3</jackson.version>
