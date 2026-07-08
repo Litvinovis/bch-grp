@@ -18,11 +18,11 @@
     <!-- Dependency versions -->
     <junit.version>4.13.2</junit.version>
     <mockito.version>5.23.0</mockito.version>
-    <jda.version>6.4.2</jda.version>
+    <jda.version>6.5.0</jda.version>
     <lombok.version>1.18.46</lombok.version>
     <snakeyaml.version>2.6</snakeyaml.version>
     <jackson.version>2.22.0</jackson.version>
-    <logback.version>1.5.32</logback.version>
+    <logback.version>1.5.37</logback.version>
     <slf4j.version>2.0.18</slf4j.version>
 
     <!-- Plugin versions -->
