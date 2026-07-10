@@ -45,14 +45,14 @@ public class ClanManagerNewFeaturesTest {
 
         Player leader = new Player("LeaderNick", "leader1");
         leader.setMoney(100);
+        when(clanRepository.bankTransfer("Alpha", "leader1", 40)).thenReturn(true);
 
         String result = clanManager.clanBankDeposit("Alpha", "leader1", 40, leader);
 
         assertEquals("", result);
         assertEquals(60, leader.getMoney());
         assertEquals(40, (int) clan.getClanBank().getOrDefault("монеты", 0));
-        verify(playerRepository).put("leader1", leader);
-        verify(clanRepository).put("Alpha", clan);
+        verify(clanRepository).bankTransfer("Alpha", "leader1", 40);
     }
 
     @Test
@@ -90,13 +90,14 @@ public class ClanManagerNewFeaturesTest {
 
         Player leader = new Player("LeaderNick", "leader3");
         leader.setMoney(0);
+        when(clanRepository.bankTransfer("Gamma", "leader3", -80)).thenReturn(true);
 
         String result = clanManager.clanBankWithdraw("Gamma", "leader3", 80, leader);
 
         assertEquals("", result);
         assertEquals(80, leader.getMoney());
         assertEquals(120, (int) clan.getClanBank().get("монеты"));
-        verify(playerRepository).put("leader3", leader);
+        verify(clanRepository).bankTransfer("Gamma", "leader3", -80);
     }
 
     @Test

@@ -13,7 +13,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class Tavern {
 	private final Random random;
 	private static final AtomicInteger jackpot = new AtomicInteger(0);
-	private static long lastJackpotTime = 0;
+	private static volatile long lastJackpotTime = 0;
 	private static final long JACKPOT_INTERVAL_MS = 7L * 24 * 60 * 60 * 1000;
 
 	public static final String[] HORSES = {"Буря", "Молния", "Гром", "Ветер", "Огонь"};
@@ -44,14 +44,14 @@ public class Tavern {
 			int playerDice, tavernDice;
 			event.getChannel().sendMessage("По рукам, давай кидать, я первый").submit();
 			Thread.sleep(500);
-			die1 = random.nextInt(7);
-			die2 = random.nextInt(7);
+			die1 = random.nextInt(6) + 1;
+			die2 = random.nextInt(6) + 1;
 			tavernDice = die2 + die1;
 			event.getChannel().sendMessage("*Трактирщик выкидывает два кубика *\n Выпало- ".concat(Integer.toString(die1)).concat(" и ").concat(Integer.toString(die2))).submit();
 			event.getChannel().sendMessage("Теперь твоя очередь\n*Вы кидаете два кубика*").submit();
 			Thread.sleep(500);
-			die1 = random.nextInt(7);
-			die2 = random.nextInt(7);
+			die1 = random.nextInt(6) + 1;
+			die2 = random.nextInt(6) + 1;
 			event.getChannel().sendMessage("Выпало - ".concat(Integer.toString(die2)).concat(" и ").concat(Integer.toString(die1))).submit();
 			if (player.getLuck() > 5) {
 				if (die1 < 6) {
@@ -83,7 +83,7 @@ public class Tavern {
 
 	/**
 	 * Проводит игру в рулетку.
-	 * Ставка на цвет (красный/чёрный) даёт выигрыш x2, ставка на число — x35.
+	 * Ставка на цвет (красный/чёрный) платит 1:1, ставка на число — 35:1.
 	 *
 	 * @param event  событие Discord-сообщения
 	 * @param player объект игрока
@@ -92,6 +92,11 @@ public class Tavern {
 	 * @return обновлённый объект игрока с изменённым количеством денег
 	 */
 	public Player playRoulette(MessageReceivedEvent event, Player player, int bid, String bet) {
+		// Отрицательная ставка при проигрыше УВЕЛИЧИВАЛА деньги игрока — эксплойт
+		if (bid <= 0) {
+			event.getChannel().sendMessage("Ставка должна быть больше нуля!").queue();
+			return player;
+		}
 		if (player.getMoney() < bid) {
 			event.getChannel().sendMessage("У вас недостаточно денег для этой ставки!").queue();
 			return player;
@@ -101,19 +106,15 @@ public class Tavern {
 		String color = (winNumber == 0) ? "зеленый" : (winNumber % 2 == 0) ? "красный" : "черный";
 
 		boolean isWin = bet.equalsIgnoreCase(color) || bet.equals(String.valueOf(winNumber));
-		int payout = 1;
 
 		int jackpotContrib = Math.max(1, bid * 5 / 100);
 		jackpot.addAndGet(jackpotContrib);
 
 		if (isWin) {
-			if (bet.equalsIgnoreCase("красный") || bet.equalsIgnoreCase("черный")) {
-				payout = 2;
-			} else if (bet.equals(String.valueOf(winNumber))) {
-				payout = 35;
-			}
-			player.setMoney(player.getMoney() + bid * payout);
-			event.getChannel().sendMessage("Выигрыш! Выпало: " + winNumber + " (" + color + "). Вы получаете " + (bid * payout) + " (Джекпот: " + jackpot.get() + ")").queue();
+			// Цвет платит 1:1, число — 35:1 (раньше цвет давал +2 ставки и матожидание было в пользу игрока)
+			int profit = (bet.equalsIgnoreCase("красный") || bet.equalsIgnoreCase("черный")) ? bid : bid * 35;
+			player.setMoney(player.getMoney() + profit);
+			event.getChannel().sendMessage("Выигрыш! Выпало: " + winNumber + " (" + color + "). Вы получаете " + profit + " (Джекпот: " + jackpot.get() + ")").queue();
 		} else {
 			player.setMoney(player.getMoney() - bid);
 			event.getChannel().sendMessage("Проигрыш. Выпало: " + winNumber + " (" + color + "). Джекпот: " + jackpot.get()).queue();
@@ -122,12 +123,15 @@ public class Tavern {
 	}
 
 	public int tryClaimJackpot(String playerId) {
-		long now = System.currentTimeMillis();
-		if (now - lastJackpotTime >= JACKPOT_INTERVAL_MS && jackpot.get() > 0) {
-			lastJackpotTime = now;
-			return jackpot.getAndSet(0);
+		// Синхронизация исключает двойную выдачу джекпота при одновременных клеймах
+		synchronized (Tavern.class) {
+			long now = System.currentTimeMillis();
+			if (now - lastJackpotTime >= JACKPOT_INTERVAL_MS && jackpot.get() > 0) {
+				lastJackpotTime = now;
+				return jackpot.getAndSet(0);
+			}
+			return 0;
 		}
-		return 0;
 	}
 
 	public Player playPoker(MessageReceivedEvent event, Player challenger, Player opponent, int bet) {
@@ -190,6 +194,10 @@ public class Tavern {
 	 * @return обновлённый объект игрока с изменённым количеством денег
 	 */
 	public Player rockPaperScissors(MessageReceivedEvent event, Player player, int bid, String choice) {
+		if (bid <= 0) {
+			event.getChannel().sendMessage("Ставка должна быть больше нуля!").queue();
+			return player;
+		}
 		if (player.getMoney() < bid) {
 			event.getChannel().sendMessage("У вас недостаточно денег для этой ставки!").queue();
 			return player;
@@ -223,6 +231,12 @@ public class Tavern {
 	 * @return обновлённый объект игрока с изменённым количеством денег
 	 */
 	public Player guessTheNumber(MessageReceivedEvent event, Player player, int bid, int guess) {
+		if (bid <= 0) {
+			if (event != null) {
+				event.getChannel().sendMessage("Ставка должна быть больше нуля!").queue();
+			}
+			return player;
+		}
 		if (player.getMoney() < bid) {
 			if (event != null) {
 				event.getChannel().sendMessage("У вас недостаточно денег для этой ставки!").queue();

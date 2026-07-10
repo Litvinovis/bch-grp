@@ -146,12 +146,6 @@ public class MessageHandler extends ListenerAdapter {
 				return;
 			}
 
-			// Проверка доступности Ignite
-			if (playerRepository == null) {
-				event.getChannel().sendMessage("Сервис базы данных временно недоступен, попробуйте через минуту.").submit();
-				return;
-			}
-
 			// Проверка регистрации
 			Player player = playerRepository.get(event.getMessage().getAuthor().getId());
 			if (player == null) {
@@ -336,7 +330,7 @@ public class MessageHandler extends ListenerAdapter {
 						Фракции и дневник:
 						+фракции - репутация у фракций (ТОРГОВЦЫ/МАГИ/ВОИНЫ)
 						+дневник - записи дневника приключений
-						+топ активности - топ-10 самых активных игроков
+						+топ активность - топ-10 самых активных игроков
 
 						Охота и награды:
 						+бонт @игрок (сумма) - поставить награду за голову

@@ -59,6 +59,59 @@ public class ClanRepository {
         } catch (Exception e) { log.error("Ошибка put({}): {}", name, e.getMessage()); }
     }
 
+    /**
+     * Атомарно переводит монеты между игроком и банком клана в одной транзакции.
+     * amount > 0 — взнос игрока в банк, amount < 0 — выдача из банка игроку.
+     * Строка клана блокируется (FOR UPDATE), списание с игрока — условное,
+     * поэтому ни сбой между обновлениями, ни гонка не создают и не теряют деньги.
+     *
+     * @return true, если перевод выполнен; false — недостаточно средств или ошибка
+     */
+    public boolean bankTransfer(String clanName, String playerId, int amount) {
+        try (Connection conn = dataSource.getConnection()) {
+            conn.setAutoCommit(false);
+            try {
+                String bankJson;
+                try (PreparedStatement ps = conn.prepareStatement(
+                        "SELECT clan_bank FROM clans WHERE name = ? FOR UPDATE")) {
+                    ps.setString(1, clanName);
+                    try (ResultSet rs = ps.executeQuery()) {
+                        if (!rs.next()) { conn.rollback(); return false; }
+                        bankJson = rs.getString(1);
+                    }
+                }
+                HashMap<String, Integer> bank = bankJson != null && !bankJson.isBlank()
+                        ? new HashMap<>(JsonUtil.fromJsonToMapStringInt(bankJson)) : new HashMap<>();
+                int newBalance = bank.getOrDefault("монеты", 0) + amount;
+                if (newBalance < 0) { conn.rollback(); return false; }
+                bank.put("монеты", newBalance);
+
+                try (PreparedStatement ps = conn.prepareStatement(
+                        "UPDATE players SET money = money - ? WHERE id = ? AND money - ? >= 0")) {
+                    ps.setInt(1, amount);
+                    ps.setString(2, playerId);
+                    ps.setInt(3, amount);
+                    if (ps.executeUpdate() == 0) { conn.rollback(); return false; }
+                }
+                try (PreparedStatement ps = conn.prepareStatement(
+                        "UPDATE clans SET clan_bank = ? WHERE name = ?")) {
+                    ps.setString(1, JsonUtil.toJson(bank));
+                    ps.setString(2, clanName);
+                    ps.executeUpdate();
+                }
+                conn.commit();
+                return true;
+            } catch (Exception e) {
+                try { conn.rollback(); } catch (SQLException ignored) { }
+                log.error("Ошибка bankTransfer({}, {}, {}): {}", clanName, playerId, amount, e.getMessage());
+                return false;
+            }
+        } catch (Exception e) {
+            log.error("Ошибка bankTransfer({}, {}, {}): {}", clanName, playerId, amount, e.getMessage());
+            return false;
+        }
+    }
+
     public void remove(String name) {
         try (Connection conn = dataSource.getConnection();
              PreparedStatement ps = conn.prepareStatement("DELETE FROM clans WHERE name = ?")) {

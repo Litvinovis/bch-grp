@@ -134,6 +134,7 @@ public class CommandRegistry {
 
         // --- Таблица лидеров (длинные префиксы раньше) ---
         registry.register("+топ кланы", playersManager::clanLeaderboard);
+        registry.register("+топ активность", playersManager::topActivity);
         registry.register("+топ", playersManager::topLeaderboard);
 
         // --- Классы персонажей ---
@@ -145,8 +146,9 @@ public class CommandRegistry {
         // --- Торговля (длинный префикс перед +принять) ---
         registry.register("+передать", playersManager::tradeItem);
 
-        // --- Дуэли (+принять и +отказать до более коротких совпадений) ---
+        // --- Дуэли ("+принять заявки" длиннее и обязан идти раньше "+принять") ---
         registry.register("+вызов", playersManager::challengeDuel);
+        registry.register("+принять заявки", playersManager::acceptApply);
         registry.register("+принять", playersManager::acceptDuel);
         registry.register("+отказать", playersManager::declineDuel);
 
@@ -154,7 +156,6 @@ public class CommandRegistry {
         registry.register("+новый клан", playersManager::clanRegister);
         registry.register("+покинуть клан", playersManager::clanLeave);
         registry.register("+вступить в клан", playersManager::clanJoin);
-        registry.register("+принять заявки", playersManager::acceptApply);
         registry.register("+отклонить заявки", playersManager::rejectApply);
         registry.register("+клан инфо", playersManager::clanInfo);
         registry.register("+клан банк", playersManager::clanBankCommand);
@@ -193,6 +194,7 @@ public class CommandRegistry {
         registry.register("+покер", playersManager::playPoker);
         registry.register("+скачки", playersManager::horseRacingInfo);
         registry.register("+поставить", playersManager::betOnHorse);
+        registry.register("+биржа ресурсов", playersManager::resourceMarket);
         registry.register("+биржа", playersManager::exchangeInfo);
 
         // --- Прогрессия ---
@@ -226,7 +228,6 @@ public class CommandRegistry {
         registry.register("+профессия", playersManager::professionCommand);
         registry.register("+добыть", playersManager::gatherResource);
         registry.register("+рецепты", playersManager::showProfessionRecipes);
-        registry.register("+биржа ресурсов", playersManager::resourceMarket);
 
         // --- Территории (item 117-123) ---
         registry.register("+захватить", playersManager::captureTerritory);
@@ -250,11 +251,10 @@ public class CommandRegistry {
         // --- Социальные механики (item 138-144) ---
         registry.register("+фракции", playersManager::showFactions);
         registry.register("+дневник", playersManager::diaryCommand);
-        registry.register("+топ активность", playersManager::topActivity);
         registry.register("+лор", playersManager::lorePage);
         registry.register("+доска", playersManager::weeklyBoard);
-        registry.register("+бонт", playersManager::placeBounty);
         registry.register("+бонты", playersManager::getBounties);
+        registry.register("+бонт", playersManager::placeBounty);
 
         // --- Арена и соревнования (item 145-150) ---
         registry.register("+арена 3v3", playersManager::teamArena);
