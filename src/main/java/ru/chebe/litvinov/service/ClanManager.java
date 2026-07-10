@@ -219,11 +219,14 @@ public class ClanManager {
 		// Отрицательный взнос увеличивал деньги игрока за счёт банка клана — эксплойт
 		if (amount <= 0) return "Сумма должна быть больше нуля";
 		if (player.getMoney() < amount) return "Недостаточно монет";
+		// Списание с игрока и зачисление в банк — одной транзакцией в БД
+		if (!clanCache.bankTransfer(clanName, playerId, amount)) {
+			return "Не удалось выполнить перевод, попробуйте позже";
+		}
+		// Синхронизируем объекты в памяти для сообщений вызывающего кода
 		player.setMoney(player.getMoney() - amount);
-		playerCache.put(playerId, player);
 		if (clan.getClanBank() == null) clan.setClanBank(new java.util.HashMap<>());
 		clan.getClanBank().merge("монеты", amount, Integer::sum);
-		clanCache.put(clanName, clan);
 		return "";
 	}
 
@@ -235,10 +238,12 @@ public class ClanManager {
 		if (clan.getClanBank() == null) return "Клановый банк пуст";
 		int balance = clan.getClanBank().getOrDefault("монеты", 0);
 		if (balance < amount) return "В клановом банке недостаточно монет (есть: " + balance + ")";
+		// Выдача из банка и зачисление игроку — одной транзакцией в БД
+		if (!clanCache.bankTransfer(clanName, playerId, -amount)) {
+			return "Не удалось выполнить перевод, попробуйте позже";
+		}
 		clan.getClanBank().put("монеты", balance - amount);
-		clanCache.put(clanName, clan);
 		player.setMoney(player.getMoney() + amount);
-		playerCache.put(playerId, player);
 		return "";
 	}
 

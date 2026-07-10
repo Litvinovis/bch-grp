@@ -146,12 +146,6 @@ public class MessageHandler extends ListenerAdapter {
 				return;
 			}
 
-			// Проверка доступности Ignite
-			if (playerRepository == null) {
-				event.getChannel().sendMessage("Сервис базы данных временно недоступен, попробуйте через минуту.").submit();
-				return;
-			}
-
 			// Проверка регистрации
 			Player player = playerRepository.get(event.getMessage().getAuthor().getId());
 			if (player == null) {

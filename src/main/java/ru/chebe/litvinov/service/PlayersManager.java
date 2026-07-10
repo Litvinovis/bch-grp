@@ -593,15 +593,21 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 	 * @param event событие Discord-сообщения с названием продаваемого предмета
 	 */
 	public void sellItem(MessageReceivedEvent event) {
-		var player = playerCache.get(event.getAuthor().getId());
-		String message = event.getMessage().getContentDisplay().substring(8).trim().toLowerCase();
-		if (player.getInventory().containsKey(message.toLowerCase())) {
-			Item item = itemsManager.getItem(message);
-			int money = changeMoney(player.getId(), item.getPrice() / (2 - player.getReputation() / 10), true);
-			deleteItem(player.getId(), item.getName());
-			event.getChannel().sendMessage("Теперь у тебя " + money + " денег").submit();
-		} else {
-			event.getChannel().sendMessage("Такого предмета нет в твоём инвентаре").submit();
+		ReentrantLock lock = getPlayerLock(event.getAuthor().getId());
+		lock.lock();
+		try {
+			var player = playerCache.get(event.getAuthor().getId());
+			String message = event.getMessage().getContentDisplay().substring(8).trim().toLowerCase();
+			if (player.getInventory().containsKey(message.toLowerCase())) {
+				Item item = itemsManager.getItem(message);
+				int money = changeMoney(player.getId(), item.getPrice() / (2 - player.getReputation() / 10), true);
+				deleteItem(player.getId(), item.getName());
+				event.getChannel().sendMessage("Теперь у тебя " + money + " денег").submit();
+			} else {
+				event.getChannel().sendMessage("Такого предмета нет в твоём инвентаре").submit();
+			}
+		} finally {
+			lock.unlock();
 		}
 	}
 
@@ -611,6 +617,9 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 	 * @param event событие Discord-сообщения со ставкой
 	 */
 	public void dieCast(MessageReceivedEvent event) {
+		ReentrantLock dieLock = getPlayerLock(event.getAuthor().getId());
+		dieLock.lock();
+		try {
 		var player = playerCache.get(event.getAuthor().getId());
 		if (!player.getLocation().equals("таверна")) {
 			event.getChannel().sendMessage("Как ты собрался бросить кости если ты не в таверне? Метнись кабанчиком сначала туда").submit();
@@ -647,6 +656,9 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 			questProgress(player.getId(), "EARN_GOLD", player.getMoney() - moneyBeforeDice);
 		}
 		playerCache.put(player.getId(), player);
+		} finally {
+			dieLock.unlock();
+		}
 	}
 
 	/**
@@ -916,15 +928,24 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 								", набери +предмет (название) чтобы узнать его характеристики").submit();
 			} else if (!item.isAction()) {
 				event.getChannel().sendMessage("Этот предмет нельзя купить").submit();
-			} else if (player.getMoney() < item.getPrice()) {
-				event.getChannel().sendMessage("У вас недостаточно денег для покупки этого предмета").submit();
 			} else {
 				int price = item.getPrice();
-				changeMoney(player.getId(), price, false);
-				addNewItem(player.getId(), item.getName());
+				ReentrantLock lock = getPlayerLock(player.getId());
+				lock.lock();
+				try {
+					player = playerCache.get(player.getId());
+					if (player.getMoney() < price) {
+						event.getChannel().sendMessage("У вас недостаточно денег для покупки этого предмета").submit();
+						return;
+					}
+					int moneyLeft = changeMoney(player.getId(), price, false);
+					addNewItem(player.getId(), item.getName());
+					event.getChannel().sendMessage("Вы купили " + item.getName() + " у вас осталось " + moneyLeft + " денег").submit();
+				} finally {
+					lock.unlock();
+				}
 				if (territoryManager != null) territoryManager.collectTax(player, price);
 				if (factionManager != null) factionManager.addRep(player.getId(), "ТОРГОВЦЫ", 1);
-				event.getChannel().sendMessage("Вы купили " + item.getName() + " у вас осталось " + player.getMoney() + " денег").submit();
 			}
 		} else {
 			event.getChannel().sendMessage("Покупать предметы можно только в локациях Таверна и Магазин").submit();
@@ -3160,13 +3181,20 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		try {
 			int bid = Integer.parseInt(parts[1]);
 			String bet = parts[2];
-			int moneyBeforeRoulette = player.getMoney();
-			player = tavern.playRoulette(event, player, bid, bet);
-			if (player.getMoney() > moneyBeforeRoulette) {
-				questProgress(player.getId(), "WIN_TAVERN", 1);
-				questProgress(player.getId(), "EARN_GOLD", player.getMoney() - moneyBeforeRoulette);
+			ReentrantLock lock = getPlayerLock(player.getId());
+			lock.lock();
+			try {
+				player = playerCache.get(player.getId());
+				int moneyBeforeRoulette = player.getMoney();
+				player = tavern.playRoulette(event, player, bid, bet);
+				if (player.getMoney() > moneyBeforeRoulette) {
+					questProgress(player.getId(), "WIN_TAVERN", 1);
+					questProgress(player.getId(), "EARN_GOLD", player.getMoney() - moneyBeforeRoulette);
+				}
+				playerCache.put(player.getId(), player);
+			} finally {
+				lock.unlock();
 			}
-			playerCache.put(player.getId(), player);
 		} catch (NumberFormatException e) {
 			event.getChannel().sendMessage("Неверный формат ставки!").queue();
 		}
@@ -3193,13 +3221,20 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		try {
 			int bid = Integer.parseInt(parts[1]);
 			String choice = parts[2];
-			int moneyBeforeKnb = player.getMoney();
-			player = tavern.rockPaperScissors(event, player, bid, choice);
-			if (player.getMoney() > moneyBeforeKnb) {
-				questProgress(player.getId(), "WIN_TAVERN", 1);
-				questProgress(player.getId(), "EARN_GOLD", player.getMoney() - moneyBeforeKnb);
+			ReentrantLock lock = getPlayerLock(player.getId());
+			lock.lock();
+			try {
+				player = playerCache.get(player.getId());
+				int moneyBeforeKnb = player.getMoney();
+				player = tavern.rockPaperScissors(event, player, bid, choice);
+				if (player.getMoney() > moneyBeforeKnb) {
+					questProgress(player.getId(), "WIN_TAVERN", 1);
+					questProgress(player.getId(), "EARN_GOLD", player.getMoney() - moneyBeforeKnb);
+				}
+				playerCache.put(player.getId(), player);
+			} finally {
+				lock.unlock();
 			}
-			playerCache.put(player.getId(), player);
 		} catch (NumberFormatException e) {
 			event.getChannel().sendMessage("Неверный формат ставки!").queue();
 		}
@@ -3232,18 +3267,25 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 				return;
 			}
 
-			int moneyBefore = player.getMoney();
-			player = tavern.guessTheNumber(event, player, bid, guess);
-			// Квест «Везунчик»: победа зафиксирована по увеличению денег сверх ставки
-			if (player.getMoney() > moneyBefore && player.getActiveEvent() != null
-					&& "Везунчик".equals(player.getActiveEvent().getType())) {
-				player.getActiveEvent().setAttempt(1);
+			ReentrantLock lock = getPlayerLock(player.getId());
+			lock.lock();
+			try {
+				player = playerCache.get(player.getId());
+				int moneyBefore = player.getMoney();
+				player = tavern.guessTheNumber(event, player, bid, guess);
+				// Квест «Везунчик»: победа зафиксирована по увеличению денег сверх ставки
+				if (player.getMoney() > moneyBefore && player.getActiveEvent() != null
+						&& "Везунчик".equals(player.getActiveEvent().getType())) {
+					player.getActiveEvent().setAttempt(1);
+				}
+				if (player.getMoney() > moneyBefore) {
+					questProgress(player.getId(), "WIN_TAVERN", 1);
+					questProgress(player.getId(), "EARN_GOLD", player.getMoney() - moneyBefore);
+				}
+				playerCache.put(player.getId(), player);
+			} finally {
+				lock.unlock();
 			}
-			if (player.getMoney() > moneyBefore) {
-				questProgress(player.getId(), "WIN_TAVERN", 1);
-				questProgress(player.getId(), "EARN_GOLD", player.getMoney() - moneyBefore);
-			}
-			playerCache.put(player.getId(), player);
 		} catch (NumberFormatException e) {
 			event.getChannel().sendMessage("Неверный формат ставки или числа!").queue();
 		}

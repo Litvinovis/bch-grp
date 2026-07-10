@@ -72,7 +72,7 @@ public class TavernExtendedTest {
     }
 
     @Test
-    public void playRoulette_winOnEvenNumber_doublesTheBid() {
+    public void playRoulette_winOnEvenNumber_paysOneToOne() {
         // Win number = 4 → even → "красный"
         Tavern tavern = new Tavern(new FixedRandom(4));
         Player player = new Player("Player", "p1");
@@ -80,8 +80,8 @@ public class TavernExtendedTest {
 
         Player result = tavern.playRoulette(event, player, 20, "красный");
 
-        // Win: payout = 2 → +20*2 = 40 → 100+40 = 140
-        assertEquals(140, result.getMoney());
+        // Win on color pays 1:1 → +20 → 100+20 = 120
+        assertEquals(120, result.getMoney());
     }
 
     @Test
@@ -93,8 +93,8 @@ public class TavernExtendedTest {
 
         Player result = tavern.playRoulette(event, player, 10, "черный");
 
-        // Win on color payout = 2 → +10*2 = 20 → 100+20 = 120
-        assertEquals(120, result.getMoney());
+        // Win on color pays 1:1 → +10 → 100+10 = 110
+        assertEquals(110, result.getMoney());
     }
 
     @Test
