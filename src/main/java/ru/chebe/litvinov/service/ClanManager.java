@@ -216,6 +216,8 @@ public class ClanManager {
 	public String clanBankDeposit(String clanName, String playerId, int amount, Player player) {
 		var clan = clanCache.get(clanName);
 		if (clan == null) return "Клан не найден";
+		// Отрицательный взнос увеличивал деньги игрока за счёт банка клана — эксплойт
+		if (amount <= 0) return "Сумма должна быть больше нуля";
 		if (player.getMoney() < amount) return "Недостаточно монет";
 		player.setMoney(player.getMoney() - amount);
 		playerCache.put(playerId, player);
@@ -228,6 +230,7 @@ public class ClanManager {
 	public String clanBankWithdraw(String clanName, String playerId, int amount, Player player) {
 		var clan = clanCache.get(clanName);
 		if (clan == null) return "Клан не найден";
+		if (amount <= 0) return "Сумма должна быть больше нуля";
 		if (!clan.getLeaderId().equals(playerId)) return "Только лидер может снимать монеты";
 		if (clan.getClanBank() == null) return "Клановый банк пуст";
 		int balance = clan.getClanBank().getOrDefault("монеты", 0);

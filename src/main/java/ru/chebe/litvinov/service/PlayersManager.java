@@ -1985,6 +1985,10 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 			event.getChannel().sendMessage("Укажите корректную сумму ставки.").submit();
 			return;
 		}
+		if (bet <= 0) {
+			event.getChannel().sendMessage("Ставка должна быть больше нуля.").submit();
+			return;
+		}
 		int horseIndex = -1;
 		for (int i = 0; i < Tavern.HORSES.length; i++) {
 			if (Tavern.HORSES[i].equalsIgnoreCase(horseName)) { horseIndex = i; break; }
@@ -2057,6 +2061,10 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 			qty = Integer.parseInt(parts[parts.length - 1]);
 		} catch (NumberFormatException e) {
 			event.getChannel().sendMessage("Укажите количество.").submit();
+			return;
+		}
+		if (qty <= 0) {
+			event.getChannel().sendMessage("Количество должно быть больше нуля.").submit();
 			return;
 		}
 		String itemName = raw.substring(0, raw.lastIndexOf(parts[parts.length - 1])).trim();

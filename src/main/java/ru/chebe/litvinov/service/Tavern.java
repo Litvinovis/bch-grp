@@ -92,6 +92,11 @@ public class Tavern {
 	 * @return обновлённый объект игрока с изменённым количеством денег
 	 */
 	public Player playRoulette(MessageReceivedEvent event, Player player, int bid, String bet) {
+		// Отрицательная ставка при проигрыше УВЕЛИЧИВАЛА деньги игрока — эксплойт
+		if (bid <= 0) {
+			event.getChannel().sendMessage("Ставка должна быть больше нуля!").queue();
+			return player;
+		}
 		if (player.getMoney() < bid) {
 			event.getChannel().sendMessage("У вас недостаточно денег для этой ставки!").queue();
 			return player;
@@ -190,6 +195,10 @@ public class Tavern {
 	 * @return обновлённый объект игрока с изменённым количеством денег
 	 */
 	public Player rockPaperScissors(MessageReceivedEvent event, Player player, int bid, String choice) {
+		if (bid <= 0) {
+			event.getChannel().sendMessage("Ставка должна быть больше нуля!").queue();
+			return player;
+		}
 		if (player.getMoney() < bid) {
 			event.getChannel().sendMessage("У вас недостаточно денег для этой ставки!").queue();
 			return player;
@@ -223,6 +232,12 @@ public class Tavern {
 	 * @return обновлённый объект игрока с изменённым количеством денег
 	 */
 	public Player guessTheNumber(MessageReceivedEvent event, Player player, int bid, int guess) {
+		if (bid <= 0) {
+			if (event != null) {
+				event.getChannel().sendMessage("Ставка должна быть больше нуля!").queue();
+			}
+			return player;
+		}
 		if (player.getMoney() < bid) {
 			if (event != null) {
 				event.getChannel().sendMessage("У вас недостаточно денег для этой ставки!").queue();
