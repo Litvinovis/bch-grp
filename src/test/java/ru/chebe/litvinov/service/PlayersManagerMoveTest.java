@@ -5,8 +5,8 @@ import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.entities.channel.unions.MessageChannelUnion;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.requests.restaction.MessageCreateAction;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import ru.chebe.litvinov.data.Event;
@@ -18,7 +18,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
@@ -51,7 +51,7 @@ public class PlayersManagerMoveTest {
     /** "+идти лес" - target location "лес" */
     private static final String MOVE_CMD = "+идти лес";
 
-    @Before
+    @BeforeEach
     public void setUp() {
         MockitoAnnotations.initMocks(this);
         playersManager = new PlayersManager(
@@ -146,8 +146,8 @@ public class PlayersManagerMoveTest {
 
         playersManager.move(event);
 
-        assertEquals("XP +10 after mob kill", 10, player.getExp());
-        assertEquals("Money +10 after mob kill", 60, player.getMoney());
+        assertEquals(10, player.getExp(), "XP +10 after mob kill");
+        assertEquals(60, player.getMoney(), "Money +10 after mob kill");
     }
 
     @Test
@@ -165,7 +165,7 @@ public class PlayersManagerMoveTest {
         playersManager.move(event);
 
         // hpLost=50, recovery=75%, hpToRestore=37, setHp(87)
-        assertEquals("HP should be partially restored after win", 87, player.getHp());
+        assertEquals(87, player.getHp(), "HP should be partially restored after win");
     }
 
     @Test
@@ -181,7 +181,7 @@ public class PlayersManagerMoveTest {
 
         playersManager.move(event);
 
-        assertEquals("Hunt quest attempt must increment on mob kill", 1, player.getActiveEvent().getAttempt());
+        assertEquals(1, player.getActiveEvent().getAttempt(), "Hunt quest attempt must increment on mob kill");
     }
 
     // ---- move + mob battle loss ---------------------------------------------
@@ -198,7 +198,7 @@ public class PlayersManagerMoveTest {
 
         playersManager.move(event);
 
-        assertEquals("5% money penalty for level-1 player on mob death", 95, player.getMoney());
+        assertEquals(95, player.getMoney(), "5% money penalty for level-1 player on mob death");
     }
 
     @Test
@@ -212,8 +212,8 @@ public class PlayersManagerMoveTest {
 
         playersManager.move(event);
 
-        assertEquals("Dead player must go to respawn", "респаун", player.getLocation());
-        assertEquals("HP must be restored to maxHp on death", 100, player.getHp());
+        assertEquals("респаун", player.getLocation(), "Dead player must go to respawn");
+        assertEquals(100, player.getHp(), "HP must be restored to maxHp on death");
     }
 
     // ---- helpers -----------------------------------------------------------

@@ -1,12 +1,12 @@
 package ru.chebe.litvinov.service;
 
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import ru.chebe.litvinov.data.NpcBot;
 
 import java.util.*;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class NpcManagerTest {
 
@@ -40,7 +40,7 @@ public class NpcManagerTest {
         LOCATION_BOSS_PREFIX.put("олимп",           "Дарх");
     }
 
-    @Before
+    @BeforeEach
     public void setUp() {
         npcManager = new NpcManager();
     }
@@ -51,14 +51,11 @@ public class NpcManagerTest {
             String location = entry.getKey();
             String bossPrefix = entry.getValue().toLowerCase();
             List<NpcBot> bots = npcManager.getBotsInLocation(location);
-            assertFalse("No NPC found in location: " + location, bots.isEmpty());
+            assertFalse(bots.isEmpty(), "No NPC found in location: " + location);
             for (NpcBot bot : bots) {
                 String npcName = bot.getNickName().toLowerCase();
-                assertFalse(
-                    "NPC '" + bot.getNickName() + "' in location '" + location
-                        + "' matches boss prefix '" + bossPrefix + "'",
-                    npcName.startsWith(bossPrefix)
-                );
+                assertFalse(npcName.startsWith(bossPrefix), "NPC '" + bot.getNickName() + "' in location '" + location
+                        + "' matches boss prefix '" + bossPrefix + "'");
             }
         }
     }
@@ -107,7 +104,7 @@ public class NpcManagerTest {
         NpcBot tier4 = npcManager.getRandomBot("олимп");
         assertNotNull(tier1);
         assertNotNull(tier4);
-        assertTrue("Tier4 HP should exceed Tier1 HP", tier4.getHp() > tier1.getHp());
-        assertTrue("Tier4 strength should exceed Tier1 strength", tier4.getStrength() > tier1.getStrength());
+        assertTrue(tier4.getHp() > tier1.getHp(), "Tier4 HP should exceed Tier1 HP");
+        assertTrue(tier4.getStrength() > tier1.getStrength(), "Tier4 strength should exceed Tier1 strength");
     }
 }

@@ -1,13 +1,13 @@
 package ru.chebe.litvinov.service;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import ru.chebe.litvinov.util.InputValidator;
 import ru.chebe.litvinov.util.MetricsService;
 
 import java.io.InputStream;
 import java.util.Map;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Smoke tests for items 85-93:
@@ -26,29 +26,29 @@ public class Items85to93Test {
         assertEquals(150, result);
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test
     public void testValidateAmount_null_throws() {
-        InputValidator.validateAmount(null, 1, 100);
+        assertThrows(IllegalArgumentException.class, () -> InputValidator.validateAmount(null, 1, 100));
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test
     public void testValidateAmount_blank_throws() {
-        InputValidator.validateAmount("  ", 1, 100);
+        assertThrows(IllegalArgumentException.class, () -> InputValidator.validateAmount("  ", 1, 100));
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test
     public void testValidateAmount_nonNumeric_throws() {
-        InputValidator.validateAmount("abc", 1, 100);
+        assertThrows(IllegalArgumentException.class, () -> InputValidator.validateAmount("abc", 1, 100));
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test
     public void testValidateAmount_belowMin_throws() {
-        InputValidator.validateAmount("0", 1, 100);
+        assertThrows(IllegalArgumentException.class, () -> InputValidator.validateAmount("0", 1, 100));
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test
     public void testValidateAmount_aboveMax_throws() {
-        InputValidator.validateAmount("101", 1, 100);
+        assertThrows(IllegalArgumentException.class, () -> InputValidator.validateAmount("101", 1, 100));
     }
 
     @Test
@@ -63,19 +63,19 @@ public class Items85to93Test {
         assertEquals("Alice", result);
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test
     public void testValidateName_null_throws() {
-        InputValidator.validateName(null, 20);
+        assertThrows(IllegalArgumentException.class, () -> InputValidator.validateName(null, 20));
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test
     public void testValidateName_blank_throws() {
-        InputValidator.validateName("   ", 20);
+        assertThrows(IllegalArgumentException.class, () -> InputValidator.validateName("   ", 20));
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test
     public void testValidateName_tooLong_throws() {
-        InputValidator.validateName("A".repeat(21), 20);
+        assertThrows(IllegalArgumentException.class, () -> InputValidator.validateName("A".repeat(21), 20));
     }
 
     @Test
@@ -115,18 +115,18 @@ public class Items85to93Test {
     @Test
     public void testLocationsYaml_existsOnClasspath() {
         InputStream is = getClass().getClassLoader().getResourceAsStream("locations.yml");
-        assertNotNull("locations.yml should be on classpath", is);
+        assertNotNull(is, "locations.yml should be on classpath");
     }
 
     @Test
     public void testItemsYaml_existsOnClasspath() {
         InputStream is = getClass().getClassLoader().getResourceAsStream("items.yml");
-        assertNotNull("items.yml should be on classpath", is);
+        assertNotNull(is, "items.yml should be on classpath");
     }
 
     @Test
     public void testBossesYaml_existsOnClasspath() {
         InputStream is = getClass().getClassLoader().getResourceAsStream("bosses.yml");
-        assertNotNull("bosses.yml should be on classpath", is);
+        assertNotNull(is, "bosses.yml should be on classpath");
     }
 }

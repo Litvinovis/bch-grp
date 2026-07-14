@@ -1,16 +1,17 @@
 package ru.chebe.litvinov.service;
 
-import junit.framework.TestCase;
 import ru.chebe.litvinov.data.Player;
 import ru.chebe.litvinov.repository.PlayerRepository;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.*;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 import static org.mockito.Mockito.*;
 
-public class PlayersManagerTest extends TestCase {
+public class PlayersManagerTest {
 
     @Mock
     private PlayerRepository playerRepository;
@@ -35,7 +36,7 @@ public class PlayersManagerTest extends TestCase {
 
     private PlayersManager playersManager;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         MockitoAnnotations.initMocks(this);
         playersManager = new PlayersManager(playerRepository, locationManager, itemsManager, battleManager, eventsManager, clanManager, tavern, new NpcManager());

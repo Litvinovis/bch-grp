@@ -1,14 +1,14 @@
 package ru.chebe.litvinov.service;
 
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import ru.chebe.litvinov.data.Location;
 import ru.chebe.litvinov.repository.LocationRepository;
 
 import java.util.HashMap;
 import java.util.Map;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class LocationManagerBfsTest {
 
@@ -27,7 +27,7 @@ public class LocationManagerBfsTest {
 
     private LocationManager locationManager;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         locationManager = new LocationManager(new StubLocationRepository());
     }
@@ -50,11 +50,10 @@ public class LocationManagerBfsTest {
         // мейн → кушетка: мейн→дом→старборд→хуй-тек→кушетка (или через модерскую)
         // первый шаг должен быть один из соседей мейна на пути к кушетке
         String next = locationManager.findNextStep("мейн", "кушетка");
-        assertNotNull("Path from мейн to кушетка should exist", next);
+        assertNotNull(next, "Path from мейн to кушетка should exist");
         // Следующий шаг должен быть соседом мейна
         Location мейн = locationManager.getLocation("мейн");
-        assertTrue("Next step must be a neighbor of мейн",
-                мейн.getPaths().contains(next));
+        assertTrue(мейн.getPaths().contains(next), "Next step must be a neighbor of мейн");
     }
 
     @Test

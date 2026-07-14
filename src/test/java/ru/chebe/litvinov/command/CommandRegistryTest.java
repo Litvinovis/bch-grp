@@ -1,11 +1,11 @@
 package ru.chebe.litvinov.command;
 
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
@@ -14,7 +14,7 @@ public class CommandRegistryTest {
 
     private CommandRegistry registry;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         registry = new CommandRegistry();
     }

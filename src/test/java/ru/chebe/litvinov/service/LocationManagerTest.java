@@ -1,7 +1,7 @@
 package ru.chebe.litvinov.service;
 
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import ru.chebe.litvinov.data.Location;
@@ -11,7 +11,7 @@ import ru.chebe.litvinov.repository.LocationRepository;
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 /**
@@ -25,7 +25,7 @@ public class LocationManagerTest {
 
     private LocationManager locationManager;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         MockitoAnnotations.initMocks(this);
         locationManager = new LocationManager(locationRepository);
@@ -41,10 +41,10 @@ public class LocationManagerTest {
     @Test
     public void locationList_containsExpectedCoreLocations() {
         List<String> list = LocationManager.locationList;
-        assertTrue("Expected 'респаун'", list.contains("респаун"));
-        assertTrue("Expected 'таверна'", list.contains("таверна"));
-        assertTrue("Expected 'магазин'", list.contains("магазин"));
-        assertTrue("Expected 'мейн'", list.contains("мейн"));
+        assertTrue(list.contains("респаун"), "Expected 'респаун'");
+        assertTrue(list.contains("таверна"), "Expected 'таверна'");
+        assertTrue(list.contains("магазин"), "Expected 'магазин'");
+        assertTrue(list.contains("мейн"), "Expected 'мейн'");
     }
 
     @Test
@@ -54,7 +54,7 @@ public class LocationManagerTest {
         // location count (26), which means every init adds unique names only once.
         List<String> list = LocationManager.locationList;
         long uniqueCount = list.stream().distinct().count();
-        assertEquals("Location list must have exactly 26 unique locations", 26, uniqueCount);
+        assertEquals(26, uniqueCount, "Location list must have exactly 26 unique locations");
     }
 
     // ---- init repository population -------------------------------------------------
@@ -74,7 +74,7 @@ public class LocationManagerTest {
 
         // Return true for contains("мейн"); Mockito returns false by default for unstubbed calls
         when(locationRepository.contains(eq("мейн"))).thenReturn(true);
-        // Reset invocation history from @Before so previous put() calls don't interfere
+        // Reset invocation history from @BeforeEach so previous put() calls don't interfere
         clearInvocations(locationRepository);
 
         LocationManager.init(locationRepository);
@@ -114,8 +114,7 @@ public class LocationManagerTest {
         List<String> list = locationManager.getLocationList();
         assertNotNull(list);
         assertFalse(list.isEmpty());
-        assertSame("Should return the static locationList reference",
-                LocationManager.locationList, list);
+        assertSame(LocationManager.locationList, list, "Should return the static locationList reference");
     }
 
     // ---- movePlayerInPopulation ------------------------------------------------

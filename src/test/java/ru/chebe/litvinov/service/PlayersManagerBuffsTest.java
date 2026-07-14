@@ -5,8 +5,8 @@ import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.entities.channel.unions.MessageChannelUnion;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.requests.restaction.MessageCreateAction;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import ru.chebe.litvinov.data.Item;
@@ -16,7 +16,7 @@ import ru.chebe.litvinov.repository.PlayerRepository;
 import java.util.HashMap;
 import java.util.concurrent.CompletableFuture;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
@@ -46,7 +46,7 @@ public class PlayersManagerBuffsTest {
 
     private PlayersManager playersManager;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         MockitoAnnotations.initMocks(this);
         playersManager = new PlayersManager(
@@ -106,7 +106,7 @@ public class PlayersManagerBuffsTest {
 
         playersManager.useItem(event);
 
-        assertEquals("HP must increase by item health value", 90, player.getHp());
+        assertEquals(90, player.getHp(), "HP must increase by item health value");
     }
 
     @Test
@@ -122,8 +122,7 @@ public class PlayersManagerBuffsTest {
 
         playersManager.useItem(event);
 
-        assertFalse("Consumable must be removed from inventory after use",
-                player.getInventory().containsKey("зелье"));
+        assertFalse(player.getInventory().containsKey("зелье"), "Consumable must be removed from inventory after use");
     }
 
     // ---- useItem: buff item -------------------------------------------------
@@ -139,7 +138,7 @@ public class PlayersManagerBuffsTest {
 
         playersManager.useItem(event);
 
-        assertEquals("Armor must increase by item armor value", 8, player.getArmor());
+        assertEquals(8, player.getArmor(), "Armor must increase by item armor value");
     }
 
     @Test
@@ -156,10 +155,9 @@ public class PlayersManagerBuffsTest {
         playersManager.useItem(event);
         long after = System.currentTimeMillis();
 
-        assertTrue("Active buff must be registered", player.getActiveBuffs().containsKey("щит"));
+        assertTrue(player.getActiveBuffs().containsKey("щит"), "Active buff must be registered");
         long expiry = player.getActiveBuffs().get("щит");
-        assertTrue("Buff expiry must be ~30 min in future",
-                expiry >= before + 29 * 60 * 1000L && expiry <= after + 31 * 60 * 1000L);
+        assertTrue(expiry >= before + 29 * 60 * 1000L && expiry <= after + 31 * 60 * 1000L, "Buff expiry must be ~30 min in future");
     }
 
     // ---- useItem: one-active-buff-per-stat-type guard -----------------------
@@ -182,10 +180,9 @@ public class PlayersManagerBuffsTest {
         playersManager.useItem(event);
 
         // Armor must NOT increase — buff was blocked
-        assertEquals("Armor must not change when same-type buff is active", 5, player.getArmor());
+        assertEquals(5, player.getArmor(), "Armor must not change when same-type buff is active");
         // Item must NOT be consumed
-        assertTrue("Item must remain in inventory when buff is blocked",
-                player.getInventory().containsKey("щит чегоба"));
+        assertTrue(player.getInventory().containsKey("щит чегоба"), "Item must remain in inventory when buff is blocked");
         // Must send rejection message
         verify(channel).sendMessage(contains("уже активен бафф"));
     }
@@ -210,7 +207,7 @@ public class PlayersManagerBuffsTest {
         playersManager.useItem(event);
 
         // Luck must increase — different stat type, no conflict
-        assertEquals("Luck must increase when no conflicting buff type is active", 5, player.getLuck());
+        assertEquals(5, player.getLuck(), "Luck must increase when no conflicting buff type is active");
     }
 
     @Test
@@ -233,7 +230,7 @@ public class PlayersManagerBuffsTest {
 
         playersManager.useItem(event);
 
-        assertEquals("Armor must increase when existing buff is expired", 10, player.getArmor());
+        assertEquals(10, player.getArmor(), "Armor must increase when existing buff is expired");
     }
 
     // ---- removeExpiredBuffs -------------------------------------------------
@@ -250,9 +247,8 @@ public class PlayersManagerBuffsTest {
 
         playersManager.removeExpiredBuffs("p1");
 
-        assertEquals("Armor must be rolled back after buff expires", 5, player.getArmor());
-        assertFalse("Expired buff must be removed from activeBuffs",
-                player.getActiveBuffs().containsKey("щит"));
+        assertEquals(5, player.getArmor(), "Armor must be rolled back after buff expires");
+        assertFalse(player.getActiveBuffs().containsKey("щит"), "Expired buff must be removed from activeBuffs");
     }
 
     @Test
@@ -265,9 +261,8 @@ public class PlayersManagerBuffsTest {
 
         playersManager.removeExpiredBuffs("p1");
 
-        assertEquals("Active buff must not change armor", 8, player.getArmor());
-        assertTrue("Active buff must remain in activeBuffs",
-                player.getActiveBuffs().containsKey("щит"));
+        assertEquals(8, player.getArmor(), "Active buff must not change armor");
+        assertTrue(player.getActiveBuffs().containsKey("щит"), "Active buff must remain in activeBuffs");
     }
 
     @Test
@@ -279,7 +274,7 @@ public class PlayersManagerBuffsTest {
         // Should not throw
         playersManager.removeExpiredBuffs("p1");
 
-        assertEquals("Stats unchanged when no buffs", 5, player.getArmor());
+        assertEquals(5, player.getArmor(), "Stats unchanged when no buffs");
     }
 
     @Test

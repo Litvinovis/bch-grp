@@ -5,8 +5,8 @@ import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.entities.channel.unions.MessageChannelUnion;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.requests.restaction.MessageCreateAction;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import ru.chebe.litvinov.data.Player;
@@ -14,7 +14,7 @@ import ru.chebe.litvinov.repository.PlayerRepository;
 
 import java.util.concurrent.CompletableFuture;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
@@ -44,7 +44,7 @@ public class PlayersManagerClassTest {
 
     private PlayersManager playersManager;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         MockitoAnnotations.initMocks(this);
         playersManager = new PlayersManager(
@@ -105,7 +105,7 @@ public class PlayersManagerClassTest {
         playersManager.chooseClass(event);
 
         verify(channel).sendMessage(contains("5 уровня"));
-        assertNull("Class must not be set", player.getPlayerClass());
+        assertNull(player.getPlayerClass(), "Class must not be set");
     }
 
     @Test
@@ -117,7 +117,7 @@ public class PlayersManagerClassTest {
         playersManager.chooseClass(event);
 
         verify(channel).sendMessage(contains("уже выбрали класс"));
-        assertEquals("Class must not change", "ВОИН", player.getPlayerClass());
+        assertEquals("ВОИН", player.getPlayerClass(), "Class must not change");
     }
 
     @Test
@@ -128,8 +128,8 @@ public class PlayersManagerClassTest {
 
         playersManager.chooseClass(event);
 
-        assertEquals("Warrior: strength +5", 15, player.getStrength());
-        assertEquals("Warrior: armor +2", 4, player.getArmor());
+        assertEquals(15, player.getStrength(), "Warrior: strength +5");
+        assertEquals(4, player.getArmor(), "Warrior: armor +2");
         assertEquals("ВОИН", player.getPlayerClass());
     }
 
@@ -142,7 +142,7 @@ public class PlayersManagerClassTest {
 
         playersManager.chooseClass(event);
 
-        assertEquals("Rogue: luck +5", 8, player.getLuck());
+        assertEquals(8, player.getLuck(), "Rogue: luck +5");
         assertEquals("РАЗБОЙНИК", player.getPlayerClass());
     }
 
@@ -156,8 +156,8 @@ public class PlayersManagerClassTest {
 
         playersManager.chooseClass(event);
 
-        assertEquals("Mage: maxHp +30", 130, player.getMaxHp());
-        assertEquals("Mage: luck +1", 2, player.getLuck());
+        assertEquals(130, player.getMaxHp(), "Mage: maxHp +30");
+        assertEquals(2, player.getLuck(), "Mage: luck +1");
         assertEquals("МАГ", player.getPlayerClass());
     }
 
@@ -171,8 +171,8 @@ public class PlayersManagerClassTest {
         playersManager.chooseClass(event);
 
         verify(channel).sendMessage(contains("Доступные классы"));
-        assertNull("Unknown class must not be set", player.getPlayerClass());
-        assertEquals("Stats must not change", initialStrength, player.getStrength());
+        assertNull(player.getPlayerClass(), "Unknown class must not be set");
+        assertEquals(initialStrength, player.getStrength(), "Stats must not change");
     }
 
     // ---- dieCast ------------------------------------------------------------

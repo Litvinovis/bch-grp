@@ -3,8 +3,8 @@ package ru.chebe.litvinov.service;
 import net.dv8tion.jda.api.entities.channel.unions.MessageChannelUnion;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.requests.restaction.MessageCreateAction;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import ru.chebe.litvinov.data.Player;
@@ -14,7 +14,7 @@ import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
@@ -31,7 +31,7 @@ public class TavernNewFeaturesTest {
     @Mock
     private MessageCreateAction messageAction;
 
-    @Before
+    @BeforeEach
     public void setUp() throws Exception {
         MockitoAnnotations.initMocks(this);
         when(event.getChannel()).thenReturn(channel);
@@ -215,7 +215,7 @@ public class TavernNewFeaturesTest {
 
         assertNotNull(info);
         for (String horse : Tavern.HORSES) {
-            assertTrue("Info should contain horse name: " + horse, info.contains(horse));
+            assertTrue(info.contains(horse), "Info should contain horse name: " + horse);
         }
     }
 
@@ -225,7 +225,7 @@ public class TavernNewFeaturesTest {
         String info = tavern.getHorseRacingInfo();
 
         for (int odds : Tavern.HORSE_ODDS) {
-            assertTrue("Info should contain odds: " + odds, info.contains(String.valueOf(odds)));
+            assertTrue(info.contains(String.valueOf(odds)), "Info should contain odds: " + odds);
         }
     }
 
@@ -236,7 +236,7 @@ public class TavernNewFeaturesTest {
         Tavern tavern = new Tavern();
         for (int i = 0; i < 50; i++) {
             int idx = tavern.runHorseRace();
-            assertTrue("Horse index must be 0-4, got: " + idx, idx >= 0 && idx < Tavern.HORSES.length);
+            assertTrue(idx >= 0 && idx < Tavern.HORSES.length, "Horse index must be 0-4, got: " + idx);
         }
     }
 

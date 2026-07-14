@@ -1,8 +1,8 @@
 package ru.chebe.litvinov.data;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Tests for new Player fields introduced in feature/items-13-84:
@@ -14,22 +14,22 @@ public class PlayerNewFieldsTest {
     @Test
     public void locationHistory_initializedAsEmptyList() {
         Player player = new Player("Nick", "id1");
-        assertNotNull("locationHistory should not be null", player.getLocationHistory());
-        assertTrue("locationHistory should be empty", player.getLocationHistory().isEmpty());
+        assertNotNull(player.getLocationHistory(), "locationHistory should not be null");
+        assertTrue(player.getLocationHistory().isEmpty(), "locationHistory should be empty");
     }
 
     @Test
     public void bankInventory_initializedAsEmptyMap() {
         Player player = new Player("Nick", "id2");
-        assertNotNull("bankInventory should not be null", player.getBankInventory());
-        assertTrue("bankInventory should be empty", player.getBankInventory().isEmpty());
+        assertNotNull(player.getBankInventory(), "bankInventory should not be null");
+        assertTrue(player.getBankInventory().isEmpty(), "bankInventory should be empty");
     }
 
     @Test
     public void completedQuests_initializedAsEmptyList() {
         Player player = new Player("Nick", "id3");
-        assertNotNull("completedQuests should not be null", player.getCompletedQuests());
-        assertTrue("completedQuests should be empty", player.getCompletedQuests().isEmpty());
+        assertNotNull(player.getCompletedQuests(), "completedQuests should not be null");
+        assertTrue(player.getCompletedQuests().isEmpty(), "completedQuests should be empty");
     }
 
     @Test

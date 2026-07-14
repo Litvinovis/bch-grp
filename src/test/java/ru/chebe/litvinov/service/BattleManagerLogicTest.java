@@ -2,8 +2,8 @@ package ru.chebe.litvinov.service;
 
 import net.dv8tion.jda.api.entities.channel.unions.MessageChannelUnion;
 import net.dv8tion.jda.api.requests.restaction.MessageCreateAction;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import ru.chebe.litvinov.data.Boss;
@@ -15,7 +15,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
@@ -36,7 +36,7 @@ public class BattleManagerLogicTest {
 
     private BattleManager battleManager;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         MockitoAnnotations.initMocks(this);
         when(channel.sendMessage(anyString())).thenReturn(messageAction);
@@ -62,7 +62,7 @@ public class BattleManagerLogicTest {
         // Run multiple times to account for randomness; result must always be >= 1
         for (int i = 0; i < 100; i++) {
             int dmg = battleManager.randomizeDamage(10);
-            assertTrue("Damage must be >= 1 for base=10, got " + dmg, dmg >= 1);
+            assertTrue(dmg >= 1, "Damage must be >= 1 for base=10, got " + dmg);
         }
     }
 
@@ -71,8 +71,8 @@ public class BattleManagerLogicTest {
         // With base=100, max possible is 125, min is 75 (but clamped to 1)
         for (int i = 0; i < 200; i++) {
             int dmg = battleManager.randomizeDamage(100);
-            assertTrue("Damage too low: " + dmg, dmg >= 75);
-            assertTrue("Damage too high: " + dmg, dmg <= 125);
+            assertTrue(dmg >= 75, "Damage too low: " + dmg);
+            assertTrue(dmg <= 125, "Damage too high: " + dmg);
         }
     }
 
@@ -225,7 +225,7 @@ public class BattleManagerLogicTest {
         // Return true for contains("Darhalas"); Mockito returns false by default for unstubbed calls
         when(bossRepository.contains(eq("Darhalas"))).thenReturn(true);
         when(bossRepository.get(eq("Darhalas"))).thenReturn(existing);
-        // Reset invocation history from @Before so previous put() calls don't interfere
+        // Reset invocation history from @BeforeEach so previous put() calls don't interfere
         clearInvocations(bossRepository);
 
         BattleManager bm = new BattleManager(bossRepository);
@@ -282,8 +282,8 @@ public class BattleManagerLogicTest {
         // defender.getHp() = 1 - damage (может быть очень отрицательным)
         int damageDealt = 1 - defender.getHp();
         // При крите urон * 2, base=10, min=7*2=14, max=13*2=26
-        assertTrue("Крит должен нанести минимум 14 урона, нанесено: " + damageDealt, damageDealt >= 14);
-        assertTrue("Крит не должен превышать 26 урона, нанесено: " + damageDealt, damageDealt <= 26);
+        assertTrue(damageDealt >= 14, "Крит должен нанести минимум 14 урона, нанесено: " + damageDealt);
+        assertTrue(damageDealt <= 26, "Крит не должен превышать 26 урона, нанесено: " + damageDealt);
     }
 
     @Test
@@ -311,8 +311,8 @@ public class BattleManagerLogicTest {
 
         int damageDealt = 1 - defender.getHp();
         // Без крита: base=10, урон от 7 до 13
-        assertTrue("Обычный удар: минимум 7, получено: " + damageDealt, damageDealt >= 7);
-        assertTrue("Обычный удар: максимум 13 (не удвоен), получено: " + damageDealt, damageDealt <= 13);
+        assertTrue(damageDealt >= 7, "Обычный удар: минимум 7, получено: " + damageDealt);
+        assertTrue(damageDealt <= 13, "Обычный удар: максимум 13 (не удвоен), получено: " + damageDealt);
     }
 
     @Test
@@ -331,7 +331,7 @@ public class BattleManagerLogicTest {
             }
         }
         // При 20% шансе за 1000 испытаний ожидается ~200 успехов, минимум допустим 100
-        assertTrue("Ожидалось > 100 крит-срабатываний из 1000 при шансе 20%, получено: " + trueCount, trueCount > 100);
+        assertTrue(trueCount > 100, "Ожидалось > 100 крит-срабатываний из 1000 при шансе 20%, получено: " + trueCount);
     }
 
     @Test
@@ -339,7 +339,7 @@ public class BattleManagerLogicTest {
         // При luckPercent=0 крит никогда не должен случиться
         BattleManager bm = new BattleManager(bossRepository);
         for (int i = 0; i < 200; i++) {
-            assertFalse("При luckPercent=0 крит невозможен", bm.isCriticalHit(0));
+            assertFalse(bm.isCriticalHit(0), "При luckPercent=0 крит невозможен");
         }
     }
 

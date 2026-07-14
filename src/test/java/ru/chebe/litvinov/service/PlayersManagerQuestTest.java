@@ -5,8 +5,8 @@ import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.entities.channel.unions.MessageChannelUnion;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.requests.restaction.MessageCreateAction;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
@@ -20,7 +20,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
@@ -46,7 +46,7 @@ public class PlayersManagerQuestTest {
 
     private PlayersManager playersManager;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         MockitoAnnotations.initMocks(this);
         playersManager = new PlayersManager(
@@ -221,7 +221,7 @@ public class PlayersManagerQuestTest {
         verify(playerRepository, atLeastOnce()).put(eq("uid1"), captor.capture());
         // money reduced by 5
         boolean moneyReduced = captor.getAllValues().stream().anyMatch(p -> p.getMoney() <= 15);
-        assertTrue("Money must be reduced by 5", moneyReduced);
+        assertTrue(moneyReduced, "Money must be reduced by 5");
     }
 
     @Test

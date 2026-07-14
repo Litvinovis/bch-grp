@@ -2,8 +2,8 @@ package ru.chebe.litvinov.service;
 
 import net.dv8tion.jda.api.entities.channel.unions.MessageChannelUnion;
 import net.dv8tion.jda.api.requests.restaction.MessageCreateAction;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import ru.chebe.litvinov.data.Player;
@@ -11,7 +11,7 @@ import ru.chebe.litvinov.repository.BossRepository;
 
 import java.util.concurrent.CompletableFuture;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
@@ -31,7 +31,7 @@ public class BattleManagerTest {
 
     private BattleManager battleManager;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         MockitoAnnotations.initMocks(this);
         when(channel.sendMessage(anyString())).thenReturn(messageAction);
@@ -45,7 +45,7 @@ public class BattleManagerTest {
     public void mobBattle_strongPlayerWins_returnsPositiveHp() {
         Player player = strongPlayer(1);
         int result = battleManager.mobBattle(player, channel);
-        assertTrue("Expected positive HP on win, got: " + result, result > 0);
+        assertTrue(result > 0, "Expected positive HP on win, got: " + result);
     }
 
     @Test
@@ -60,7 +60,7 @@ public class BattleManagerTest {
         Player player = strongPlayer(1);
         int hpBefore = player.getHp();
         battleManager.mobBattle(player, channel);
-        assertTrue("Player HP should decrease after mob fight", player.getHp() <= hpBefore);
+        assertTrue(player.getHp() <= hpBefore, "Player HP should decrease after mob fight");
     }
 
     @Test
@@ -77,7 +77,7 @@ public class BattleManagerTest {
         for (int i = 0; i < 20; i++) {
             Player player = playerWithHp(1, 1, 1);
             int result = battleManager.mobBattle(player, channel);
-            assertEquals("Player with 1 HP must always lose, attempt " + i, -1, result);
+            assertEquals(-1, result, "Player with 1 HP must always lose, attempt " + i);
         }
     }
 
@@ -96,7 +96,7 @@ public class BattleManagerTest {
         Player player = playerWithHp(500, 50, 0);
         player.setLevel(1);
         int result = battleManager.mobBattle(player, channel);
-        assertTrue("Level 1 player with str=50 must beat weak mob", result > 0);
+        assertTrue(result > 0, "Level 1 player with str=50 must beat weak mob");
     }
 
     @Test
@@ -105,7 +105,7 @@ public class BattleManagerTest {
         Player player = playerWithHp(500, 50, 0);
         player.setLevel(5);
         int result = battleManager.mobBattle(player, channel);
-        assertTrue("Level 5 player with str=50 must beat mob", result > 0);
+        assertTrue(result > 0, "Level 5 player with str=50 must beat mob");
     }
 
     @Test
@@ -116,8 +116,8 @@ public class BattleManagerTest {
         int hpBefore = player.getHp();
         int result = battleManager.mobBattle(player, channel);
         // Boss HP max 25, player deals 750–1250, always 1-shots. HP may drop by 0 (boss died before counterattack)
-        assertTrue("HP after win must be > 0", result > 0);
-        assertEquals("Should match player's actual HP", player.getHp(), result);
+        assertTrue(result > 0, "HP after win must be > 0");
+        assertEquals(player.getHp(), result, "Should match player's actual HP");
     }
 
     // ---- helpers ---------------------------------------------------------------

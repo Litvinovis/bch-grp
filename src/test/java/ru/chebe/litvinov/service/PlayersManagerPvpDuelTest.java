@@ -6,8 +6,8 @@ import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.entities.channel.unions.MessageChannelUnion;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.requests.restaction.MessageCreateAction;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import ru.chebe.litvinov.data.Location;
@@ -20,7 +20,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
@@ -48,7 +48,7 @@ public class PlayersManagerPvpDuelTest {
 
     private PlayersManager playersManager;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         MockitoAnnotations.initMocks(this);
         playersManager = new PlayersManager(
@@ -253,8 +253,7 @@ public class PlayersManagerPvpDuelTest {
         playersManager.acceptDuel(event);
 
         // Winner gets +100 money and +5 reputation; duel resolved
-        assertTrue("One player must have +5 reputation (winner)",
-                challenger.getReputation() == 5 || challenged.getReputation() == 5);
+        assertTrue(challenger.getReputation() == 5 || challenged.getReputation() == 5, "One player must have +5 reputation (winner)");
         // Total prize goes to winner; verify both were saved
         verify(playerRepository, atLeastOnce()).put(eq("chal"), any());
         verify(playerRepository, atLeastOnce()).put(eq("uid1"), any());

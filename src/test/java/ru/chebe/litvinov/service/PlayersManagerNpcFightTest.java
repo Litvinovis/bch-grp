@@ -5,8 +5,8 @@ import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.entities.channel.unions.MessageChannelUnion;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.requests.restaction.MessageCreateAction;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import ru.chebe.litvinov.data.NpcBot;
@@ -18,7 +18,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
@@ -49,7 +49,7 @@ public class PlayersManagerNpcFightTest {
 
     private PlayersManager playersManager;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         MockitoAnnotations.initMocks(this);
         playersManager = new PlayersManager(
@@ -112,7 +112,7 @@ public class PlayersManagerNpcFightTest {
         playersManager.fightNpc(event);
 
         // HP must reflect battle damage, not pre-battle value (100)
-        assertEquals("Post-battle HP must be saved to cache", 4, player.getHp());
+        assertEquals(4, player.getHp(), "Post-battle HP must be saved to cache");
     }
 
     @Test
@@ -125,7 +125,7 @@ public class PlayersManagerNpcFightTest {
 
         playersManager.fightNpc(event);
 
-        assertEquals("Money must increase by bot's reward", 80, player.getMoney());
+        assertEquals(80, player.getMoney(), "Money must increase by bot's reward");
     }
 
     @Test
@@ -140,7 +140,7 @@ public class PlayersManagerNpcFightTest {
 
         playersManager.fightNpc(event);
 
-        assertTrue("XP must increase after win", player.getExp() > 0);
+        assertTrue(player.getExp() > 0, "XP must increase after win");
     }
 
     @Test
@@ -182,7 +182,7 @@ public class PlayersManagerNpcFightTest {
 
         playersManager.fightNpc(event);
 
-        assertEquals("5% money penalty for level-1 player on death", 95, player.getMoney());
+        assertEquals(95, player.getMoney(), "5% money penalty for level-1 player on death");
     }
 
     @Test
@@ -194,8 +194,8 @@ public class PlayersManagerNpcFightTest {
 
         playersManager.fightNpc(event);
 
-        assertEquals("HP must be restored to maxHp on death", 100, player.getHp());
-        assertEquals("Player must be moved to respawn", "респаун", player.getLocation());
+        assertEquals(100, player.getHp(), "HP must be restored to maxHp on death");
+        assertEquals("респаун", player.getLocation(), "Player must be moved to respawn");
     }
 
     @Test

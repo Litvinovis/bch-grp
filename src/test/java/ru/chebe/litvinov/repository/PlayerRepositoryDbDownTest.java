@@ -1,13 +1,13 @@
 package ru.chebe.litvinov.repository;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import ru.chebe.litvinov.data.Player;
 
 import javax.sql.DataSource;
 import java.sql.SQLException;
 import java.util.List;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 public class PlayerRepositoryDbDownTest {

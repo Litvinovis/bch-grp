@@ -1,13 +1,13 @@
 package ru.chebe.litvinov.service;
 
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import ru.chebe.litvinov.data.Item;
 import ru.chebe.litvinov.repository.ItemRepository;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 /**
@@ -21,7 +21,7 @@ public class ItemsManagerTest {
 
     private ItemsManager itemsManager;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         MockitoAnnotations.initMocks(this);
         itemsManager = new ItemsManager(itemRepository);
@@ -62,20 +62,18 @@ public class ItemsManagerTest {
     public void getItemsForSale_containsKnownConsumableItems() {
         String forSale = itemsManager.getItemsForSale();
         // These are the four actionable items defined in init()
-        assertTrue("Expected 'кружка цикория' in sale list", forSale.contains("кружка цикория"));
-        assertTrue("Expected 'вино лаба' in sale list", forSale.contains("вино лаба"));
-        assertTrue("Expected 'медовуха база' in sale list", forSale.contains("медовуха база"));
-        assertTrue("Expected 'токен телепорта' in sale list", forSale.contains("токен телепорта"));
+        assertTrue(forSale.contains("кружка цикория"), "Expected 'кружка цикория' in sale list");
+        assertTrue(forSale.contains("вино лаба"), "Expected 'вино лаба' in sale list");
+        assertTrue(forSale.contains("медовуха база"), "Expected 'медовуха база' in sale list");
+        assertTrue(forSale.contains("токен телепорта"), "Expected 'токен телепорта' in sale list");
     }
 
     @Test
     public void getItemsForSale_doesNotContainPassiveItems() {
         String forSale = itemsManager.getItemsForSale();
         // Boss-drop items are passive (action=false) and must NOT appear in the sale list
-        assertFalse("Passive boss item must not be for sale: бицушка ровера",
-                forSale.contains("бицушка ровера"));
-        assertFalse("Passive boss item must not be for sale: кисточка циника",
-                forSale.contains("кисточка циника"));
+        assertFalse(forSale.contains("бицушка ровера"), "Passive boss item must not be for sale: бицушка ровера");
+        assertFalse(forSale.contains("кисточка циника"), "Passive boss item must not be for sale: кисточка циника");
     }
 
     // ---- init repository population -------------------------------------------------
@@ -120,7 +118,7 @@ public class ItemsManagerTest {
         Item item = Item.builder().name("tmp").price(1).action(true)
                 .description("desc").expireTime(expireTime).build();
         String s = item.toString();
-        assertTrue("Expected expiry info in toString", s.contains("Исчезнет через"));
+        assertTrue(s.contains("Исчезнет через"), "Expected expiry info in toString");
     }
 
     @Test
@@ -135,6 +133,6 @@ public class ItemsManagerTest {
     public void item_sellPriceIsHalfOfBuyPrice() {
         Item item = Item.builder().name("x").price(200).action(false).description("y").build();
         String s = item.toString();
-        assertTrue("Expected sell price 100 in toString", s.contains("Продажа: **100**"));
+        assertTrue(s.contains("Продажа: **100**"), "Expected sell price 100 in toString");
     }
 }

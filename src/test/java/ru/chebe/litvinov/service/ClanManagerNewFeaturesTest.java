@@ -1,7 +1,7 @@
 package ru.chebe.litvinov.service;
 
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import ru.chebe.litvinov.data.Clan;
@@ -13,7 +13,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 /**
@@ -30,7 +30,7 @@ public class ClanManagerNewFeaturesTest {
 
     private ClanManager clanManager;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         MockitoAnnotations.initMocks(this);
         clanManager = new ClanManager(clanRepository, playerRepository);
@@ -111,7 +111,7 @@ public class ClanManagerNewFeaturesTest {
 
         String result = clanManager.clanBankWithdraw("Delta", "member1", 50, notLeader);
 
-        assertFalse("Non-leader should get error", result.isEmpty());
+        assertFalse(result.isEmpty(), "Non-leader should get error");
         assertEquals(0, notLeader.getMoney()); // unchanged
     }
 
@@ -126,7 +126,7 @@ public class ClanManagerNewFeaturesTest {
 
         String result = clanManager.clanBankWithdraw("Epsilon", "leader5", 100, leader);
 
-        assertFalse("Insufficient balance should return error", result.isEmpty());
+        assertFalse(result.isEmpty(), "Insufficient balance should return error");
         assertEquals(0, leader.getMoney()); // unchanged
     }
 
@@ -155,7 +155,7 @@ public class ClanManagerNewFeaturesTest {
 
         String result = clanManager.purchaseClanUpgrade("Eta", "leader7", "дроп");
 
-        assertFalse("Buying owned upgrade should return error", result.isEmpty());
+        assertFalse(result.isEmpty(), "Buying owned upgrade should return error");
         // Money unchanged
         assertEquals(2000, (int) clan.getClanBank().get("монеты"));
     }
@@ -168,7 +168,7 @@ public class ClanManagerNewFeaturesTest {
 
         String result = clanManager.purchaseClanUpgrade("Theta", "leader8", "дроп");
 
-        assertFalse("Insufficient funds should return error", result.isEmpty());
+        assertFalse(result.isEmpty(), "Insufficient funds should return error");
         assertFalse(clan.getClanUpgrades().contains("дроп"));
     }
 
@@ -180,7 +180,7 @@ public class ClanManagerNewFeaturesTest {
 
         String result = clanManager.purchaseClanUpgrade("Iota", "notLeader", "дроп");
 
-        assertFalse("Non-leader should get error", result.isEmpty());
+        assertFalse(result.isEmpty(), "Non-leader should get error");
     }
 
     // ---- setClanBase / getClanBase ---------------------------------------------
@@ -208,7 +208,7 @@ public class ClanManagerNewFeaturesTest {
 
         String result = clanManager.setClanBase("Lambda", "notLeader", "таверна");
 
-        assertFalse("Non-leader should get error", result.isEmpty());
+        assertFalse(result.isEmpty(), "Non-leader should get error");
     }
 
     @Test
@@ -242,7 +242,7 @@ public class ClanManagerNewFeaturesTest {
 
         String result = clanManager.promoteMember("Nu", "leader13", "member13");
 
-        assertTrue("Result should mention ветеран", result.contains("ветеран"));
+        assertTrue(result.contains("ветеран"), "Result should mention ветеран");
         assertEquals("ветеран", clan.getClanRoles().get("member13"));
     }
 
@@ -256,7 +256,7 @@ public class ClanManagerNewFeaturesTest {
 
         String result = clanManager.promoteMember("Xi", "leader14", "member14");
 
-        assertTrue("Result should mention офицер", result.contains("офицер"));
+        assertTrue(result.contains("офицер"), "Result should mention офицер");
         assertEquals("офицер", clan.getClanRoles().get("member14"));
     }
 
@@ -268,7 +268,7 @@ public class ClanManagerNewFeaturesTest {
 
         String result = clanManager.promoteMember("Omicron", "notLeader", "member15");
 
-        assertFalse("Non-leader should get error", result.isEmpty());
+        assertFalse(result.isEmpty(), "Non-leader should get error");
     }
 
     @Test
@@ -278,7 +278,7 @@ public class ClanManagerNewFeaturesTest {
 
         String result = clanManager.promoteMember("Pi", "leader16", "stranger");
 
-        assertFalse("Non-member promote should return error", result.isEmpty());
+        assertFalse(result.isEmpty(), "Non-member promote should return error");
     }
 
     // ---- kickMember ------------------------------------------------------------
@@ -307,7 +307,7 @@ public class ClanManagerNewFeaturesTest {
 
         String result = clanManager.kickMember("Sigma", "leader18", "leader18");
 
-        assertFalse("Leader cannot kick themselves", result.isEmpty());
+        assertFalse(result.isEmpty(), "Leader cannot kick themselves");
         assertTrue(clan.getMembers().contains("leader18")); // still in clan
     }
 
@@ -319,7 +319,7 @@ public class ClanManagerNewFeaturesTest {
 
         String result = clanManager.kickMember("Tau", "member19", "leader19");
 
-        assertFalse("Non-leader kick should return error", result.isEmpty());
+        assertFalse(result.isEmpty(), "Non-leader kick should return error");
     }
 
     // ---- getAllClans ------------------------------------------------------------

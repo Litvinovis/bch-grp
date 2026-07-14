@@ -1,10 +1,10 @@
 package ru.chebe.litvinov.service;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Method;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class ServiceCoverageSmokeTest {
 
@@ -20,6 +20,6 @@ public class ServiceCoverageSmokeTest {
     private void assertClassHasMethods(Class<?> type) {
         assertNotNull(type);
         Method[] methods = type.getDeclaredMethods();
-        assertTrue("No methods in " + type.getSimpleName(), methods.length > 0);
+        assertTrue(methods.length > 0, "No methods in " + type.getSimpleName());
     }
 }

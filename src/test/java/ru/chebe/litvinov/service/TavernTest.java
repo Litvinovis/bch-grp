@@ -1,15 +1,16 @@
 package ru.chebe.litvinov.service;
 
-import junit.framework.TestCase;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.*;
 import ru.chebe.litvinov.data.Player;
 
 import java.util.Random;
 
 import static org.mockito.Mockito.*;
 
-public class TavernTest extends TestCase {
+public class TavernTest {
 
     private Tavern tavern;
     
@@ -27,7 +28,7 @@ public class TavernTest extends TestCase {
         }
     }
 
-    @Before
+    @BeforeEach
     public void setUp() {
         tavern = new Tavern();
     }

@@ -1,14 +1,14 @@
 package ru.chebe.litvinov.service;
 
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import ru.chebe.litvinov.data.DailyQuest;
 import ru.chebe.litvinov.repository.DailyQuestRepository;
 
 import java.time.LocalDate;
 import java.util.Set;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
@@ -21,7 +21,7 @@ public class DailyQuestServiceTest {
     private PlayersManager playersManager;
     private DailyQuestService service;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         repository = mock(DailyQuestRepository.class);
         playersManager = mock(PlayersManager.class);
@@ -35,7 +35,7 @@ public class DailyQuestServiceTest {
         DailyQuest q = DailyQuestRepository.createRandom("u1", LocalDate.now());
 
         Set<String> types = Set.of(q.getQuest1Type(), q.getQuest2Type(), q.getQuest3Type());
-        assertEquals("Все 3 квеста должны быть разного типа", 3, types.size());
+        assertEquals(3, types.size(), "Все 3 квеста должны быть разного типа");
     }
 
     @Test
