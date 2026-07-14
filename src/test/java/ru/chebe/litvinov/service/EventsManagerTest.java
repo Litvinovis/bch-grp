@@ -1,7 +1,7 @@
 package ru.chebe.litvinov.service;
 
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import ru.chebe.litvinov.data.Event;
 import ru.chebe.litvinov.data.Player;
 
@@ -9,7 +9,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Tests for EventsManager: event creation, type distribution, quest check logic.
@@ -23,7 +23,7 @@ public class EventsManagerTest {
     private static final List<String> LOCATION_LIST = List.of(
             "респаун", "магазин", "таверна", "мейн", "дом");
 
-    @Before
+    @BeforeEach
     public void setUp() {
         eventsManager = new EventsManager();
     }
@@ -43,7 +43,7 @@ public class EventsManagerTest {
         for (int i = 0; i < 100; i++) {
             Event event = eventsManager.assignEvent(LOCATION_LIST);
             String type = event.getType();
-            assertTrue("Unknown event type: " + type, known.contains(type));
+            assertTrue(known.contains(type), "Unknown event type: " + type);
         }
     }
 
@@ -58,10 +58,9 @@ public class EventsManagerTest {
                 break;
             }
         }
-        assertNotNull("Did not encounter a Ходилка event in 200 attempts", pathfinder);
+        assertNotNull(pathfinder, "Did not encounter a Ходилка event in 200 attempts");
         assertNotNull(pathfinder.getLocationEnd());
-        assertFalse("LocationEnd must not be 'респаун'",
-                "респаун".equals(pathfinder.getLocationEnd()));
+        assertFalse("респаун".equals(pathfinder.getLocationEnd()), "LocationEnd must not be 'респаун'");
         assertNull(pathfinder.getCorrectAnswer());
     }
 
@@ -76,7 +75,7 @@ public class EventsManagerTest {
                 break;
             }
         }
-        assertNotNull("Did not encounter a Загадка event in 500 attempts", riddle);
+        assertNotNull(riddle, "Did not encounter a Загадка event in 500 attempts");
         assertNotNull(riddle.getCorrectAnswer());
         assertFalse(riddle.getCorrectAnswer().isBlank());
         assertNull(riddle.getLocationEnd());
@@ -86,8 +85,8 @@ public class EventsManagerTest {
     public void assignEvent_rewardsAreWithinExpectedRange() {
         for (int i = 0; i < 50; i++) {
             Event e = eventsManager.assignEvent(LOCATION_LIST);
-            assertTrue("moneyReward out of range", e.getMoneyReward() >= 150 && e.getMoneyReward() <= 350);
-            assertTrue("xpReward out of range", e.getXpReward() >= 150 && e.getXpReward() <= 350);
+            assertTrue(e.getMoneyReward() >= 150 && e.getMoneyReward() <= 350, "moneyReward out of range");
+            assertTrue(e.getXpReward() >= 150 && e.getXpReward() <= 350, "xpReward out of range");
         }
     }
 
@@ -96,7 +95,7 @@ public class EventsManagerTest {
         for (int i = 0; i < 50; i++) {
             Event e = eventsManager.assignEvent(LOCATION_LIST);
             if ("Ходилка".equals(e.getType())) {
-                assertFalse("Description must not be blank", e.getDescription().isBlank());
+                assertFalse(e.getDescription().isBlank(), "Description must not be blank");
                 return; // found one, test passed
             }
         }
@@ -181,8 +180,7 @@ public class EventsManagerTest {
         for (int i = 0; i < 500; i++) {
             Event e = eventsManager.assignEvent(LOCATION_LIST);
             if ("Ходилка".equals(e.getType())) {
-                assertNotEquals("Pathfinder destination must not be 'респаун'",
-                        "респаун", e.getLocationEnd());
+                assertNotEquals("респаун", e.getLocationEnd(), "Pathfinder destination must not be 'респаун'");
             }
         }
     }

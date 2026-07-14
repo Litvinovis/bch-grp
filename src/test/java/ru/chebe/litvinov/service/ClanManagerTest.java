@@ -1,7 +1,7 @@
 package ru.chebe.litvinov.service;
 
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import ru.chebe.litvinov.data.Clan;
@@ -12,7 +12,7 @@ import ru.chebe.litvinov.repository.PlayerRepository;
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 import static ru.chebe.litvinov.Constants.MAX_CLAN_SIZE;
 
@@ -30,7 +30,7 @@ public class ClanManagerTest {
 
     private ClanManager clanManager;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         MockitoAnnotations.initMocks(this);
         clanManager = new ClanManager(clanRepository, playerRepository);

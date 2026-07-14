@@ -5,8 +5,8 @@ import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.entities.channel.unions.MessageChannelUnion;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.requests.restaction.MessageCreateAction;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import ru.chebe.litvinov.data.Item;
@@ -15,7 +15,7 @@ import ru.chebe.litvinov.repository.PlayerRepository;
 
 import java.util.concurrent.CompletableFuture;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
@@ -44,7 +44,7 @@ public class PlayersManagerItemShopTest {
 
     private PlayersManager playersManager;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         MockitoAnnotations.initMocks(this);
         playersManager = new PlayersManager(
@@ -128,7 +128,7 @@ public class PlayersManagerItemShopTest {
 
         playersManager.buyItem(event);
 
-        assertEquals("Price must be deducted from player money", 50, player.getMoney());
+        assertEquals(50, player.getMoney(), "Price must be deducted from player money");
     }
 
     @Test
@@ -141,8 +141,7 @@ public class PlayersManagerItemShopTest {
 
         playersManager.buyItem(event);
 
-        assertTrue("Item must be in inventory after purchase",
-                player.getInventory().containsKey("зелье"));
+        assertTrue(player.getInventory().containsKey("зелье"), "Item must be in inventory after purchase");
     }
 
     // ---- sellItem: guard checks ----------------------------------------------
@@ -157,7 +156,7 @@ public class PlayersManagerItemShopTest {
         playersManager.sellItem(event);
 
         verify(channel).sendMessage(contains("нет в твоём инвентаре"));
-        assertEquals("Money must not change", 50, player.getMoney());
+        assertEquals(50, player.getMoney(), "Money must not change");
     }
 
     // ---- sellItem: success path ---------------------------------------------
@@ -174,7 +173,7 @@ public class PlayersManagerItemShopTest {
 
         playersManager.sellItem(event);
 
-        assertEquals("Money must increase by sell price", 75, player.getMoney());
+        assertEquals(75, player.getMoney(), "Money must increase by sell price");
     }
 
     @Test
@@ -189,8 +188,7 @@ public class PlayersManagerItemShopTest {
 
         playersManager.sellItem(event);
 
-        assertFalse("Item must be removed from inventory after sell",
-                player.getInventory().containsKey("меч"));
+        assertFalse(player.getInventory().containsKey("меч"), "Item must be removed from inventory after sell");
     }
 
     @Test
@@ -206,7 +204,7 @@ public class PlayersManagerItemShopTest {
 
         playersManager.sellItem(event);
 
-        assertEquals("High reputation gives full price", 50, player.getMoney());
+        assertEquals(50, player.getMoney(), "High reputation gives full price");
     }
 
     // ---- helpers -----------------------------------------------------------

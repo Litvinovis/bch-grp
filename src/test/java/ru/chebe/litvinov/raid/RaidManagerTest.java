@@ -2,8 +2,8 @@ package ru.chebe.litvinov.raid;
 
 import net.dv8tion.jda.api.entities.channel.unions.MessageChannelUnion;
 import net.dv8tion.jda.api.requests.restaction.MessageCreateAction;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
@@ -19,7 +19,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
@@ -59,7 +59,7 @@ public class RaidManagerTest {
 
     private RaidManager raidManager;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         MockitoAnnotations.initMocks(this);
         when(channel.getId()).thenReturn("default-channel");
@@ -76,7 +76,7 @@ public class RaidManagerTest {
     @Test
     public void createRaid_firstCall_returnsSuccessMessage() {
         String result = raidManager.createRaid(player("p1", 100, 5, 0), channel);
-        assertTrue("Expected success message, got: " + result, result.contains("Рейд начат"));
+        assertTrue(result.contains("Рейд начат"), "Expected success message, got: " + result);
     }
 
     @Test
@@ -84,7 +84,7 @@ public class RaidManagerTest {
         raidManager.createRaid(player("p1", 100, 5, 0), channel);
         // Attempt to create another raid in same channel → should see existing session
         String second = raidManager.createRaid(player("p2", 100, 5, 0), channel);
-        assertTrue("Expected duplicate-raid message", second.contains("уже идёт"));
+        assertTrue(second.contains("уже идёт"), "Expected duplicate-raid message");
     }
 
     @Test
@@ -100,7 +100,7 @@ public class RaidManagerTest {
         when(channel.getId()).thenReturn("bad-channel");
         RaidManager restricted = new RaidManager(battleManager, playersManager, Set.of("good-channel"));
         String result = restricted.createRaid(player("p1", 100, 5, 0), channel);
-        assertTrue("Expected channel restriction message", result.contains("разрешены только"));
+        assertTrue(result.contains("разрешены только"), "Expected channel restriction message");
     }
 
     @Test
@@ -116,7 +116,7 @@ public class RaidManagerTest {
     @Test
     public void joinRaid_noActiveSession_isRejected() {
         String result = raidManager.joinRaid(player("p1", 100, 5, 0), channel);
-        assertTrue("Expected no-raid message", result.contains("нет активного рейда"));
+        assertTrue(result.contains("нет активного рейда"), "Expected no-raid message");
     }
 
     @Test
@@ -128,7 +128,7 @@ public class RaidManagerTest {
         session.markStarted();
 
         String result = raidManager.joinRaid(player("p2", 100, 5, 0), channel);
-        assertTrue("Expected already-started message", result.contains("уже начался"));
+        assertTrue(result.contains("уже начался"), "Expected already-started message");
     }
 
     @Test
@@ -138,7 +138,7 @@ public class RaidManagerTest {
         raidManager.createRaid(p1, channel);
         // p1 is the initiator — trying to join again must be rejected
         String result = raidManager.joinRaid(p1, channel);
-        assertTrue("Expected already-participant message", result.contains("уже участвуешь"));
+        assertTrue(result.contains("уже участвуешь"), "Expected already-participant message");
     }
 
     @Test
@@ -168,8 +168,7 @@ public class RaidManagerTest {
         Thread.sleep(3000);
 
         RaidSession session = getSession("ch-trigger");
-        assertTrue("Session must be marked started after MIN_PLAYERS joined",
-                session == null || session.isStarted());
+        assertTrue(session == null || session.isStarted(), "Session must be marked started after MIN_PLAYERS joined");
     }
 
     // ---- executeRaid: all players survive --------------------------------------
@@ -301,7 +300,7 @@ public class RaidManagerTest {
         RaidSession session = sessionWith(channel, p1);
         raidManager.executeRaid(session);
 
-        assertTrue("Session must be finished after battle", session.isFinished());
+        assertTrue(session.isFinished(), "Session must be finished after battle");
     }
 
     // ---- executeRaid: double-start guard ---------------------------------------
@@ -334,8 +333,8 @@ public class RaidManagerTest {
 
         invokeCheckTimeouts();
 
-        assertTrue("Empty timed-out session must be marked finished", aged.isFinished());
-        assertFalse("Empty timed-out session must not be marked started", aged.isStarted());
+        assertTrue(aged.isFinished(), "Empty timed-out session must be marked finished");
+        assertFalse(aged.isStarted(), "Empty timed-out session must not be marked started");
     }
 
     @Test
@@ -351,7 +350,7 @@ public class RaidManagerTest {
         invokeCheckTimeouts();
 
         Thread.sleep(3000);
-        assertTrue("Session must be started after timeout with participants", aged.isStarted());
+        assertTrue(aged.isStarted(), "Session must be started after timeout with participants");
     }
 
     @Test
@@ -386,8 +385,8 @@ public class RaidManagerTest {
         invokeCheckTimeouts();
         Thread.sleep(3000);
 
-        assertTrue("Empty session A must be finished", agedA.isFinished());
-        assertTrue("Session B must be started", agedB.isStarted());
+        assertTrue(agedA.isFinished(), "Empty session A must be finished");
+        assertTrue(agedB.isStarted(), "Session B must be started");
     }
 
     // ---- helpers ---------------------------------------------------------------

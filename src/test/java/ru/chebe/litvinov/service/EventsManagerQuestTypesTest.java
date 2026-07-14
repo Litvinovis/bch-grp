@@ -1,7 +1,7 @@
 package ru.chebe.litvinov.service;
 
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import ru.chebe.litvinov.data.Event;
 import ru.chebe.litvinov.data.Player;
 
@@ -9,13 +9,13 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Set;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class EventsManagerQuestTypesTest {
 
     private EventsManager eventsManager;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         eventsManager = new EventsManager();
     }
@@ -134,7 +134,7 @@ public class EventsManagerQuestTypesTest {
         Set<String> validTypes = Set.of("Ходилка", "Загадка", "Таймер", "Путешественник", "Охота", "Везунчик");
         for (int i = 0; i < 50; i++) {
             Event e = eventsManager.assignEvent(locations);
-            assertTrue("Unknown event type: " + e.getType(), validTypes.contains(e.getType()));
+            assertTrue(validTypes.contains(e.getType()), "Unknown event type: " + e.getType());
         }
     }
 
@@ -145,7 +145,7 @@ public class EventsManagerQuestTypesTest {
             Event e = eventsManager.assignEvent(locations);
             if ("Путешественник".equals(e.getType()) || "Охота".equals(e.getType())
                     || "Везунчик".equals(e.getType())) {
-                assertEquals("New quest attempt must start at 0", 0, e.getAttempt());
+                assertEquals(0, e.getAttempt(), "New quest attempt must start at 0");
             }
         }
     }

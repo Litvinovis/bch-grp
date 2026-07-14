@@ -3,8 +3,8 @@ package ru.chebe.litvinov.service;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.requests.restaction.MessageCreateAction;
 import net.dv8tion.jda.api.entities.channel.unions.MessageChannelUnion;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import ru.chebe.litvinov.data.Player;
@@ -12,7 +12,7 @@ import ru.chebe.litvinov.repository.PlayerRepository;
 
 import java.util.concurrent.CompletableFuture;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
@@ -27,7 +27,7 @@ public class WorldEventManagerTest {
 
     private WorldEventManager worldEventManager;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         MockitoAnnotations.initMocks(this);
         worldEventManager = new WorldEventManager(playerRepository);

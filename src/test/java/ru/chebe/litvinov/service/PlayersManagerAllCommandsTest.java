@@ -1,6 +1,6 @@
 package ru.chebe.litvinov.service;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import ru.chebe.litvinov.service.interfaces.IPlayersManager;
 
 import java.lang.reflect.Method;
@@ -8,7 +8,7 @@ import java.util.Arrays;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Item 92: Smoke tests verifying that IPlayersManager declares all expected commands
@@ -55,14 +55,13 @@ public class PlayersManagerAllCommandsTest {
             .collect(Collectors.toSet());
 
         for (String expected : EXPECTED_METHODS) {
-            assertTrue("IPlayersManager is missing method: " + expected, declared.contains(expected));
+            assertTrue(declared.contains(expected), "IPlayersManager is missing method: " + expected);
         }
     }
 
     @Test
     public void playersManager_implementsIPlayersManager() {
-        assertTrue("PlayersManager must implement IPlayersManager",
-            IPlayersManager.class.isAssignableFrom(PlayersManager.class));
+        assertTrue(IPlayersManager.class.isAssignableFrom(PlayersManager.class), "PlayersManager must implement IPlayersManager");
     }
 
     @Test
@@ -74,8 +73,7 @@ public class PlayersManagerAllCommandsTest {
             .collect(Collectors.toSet());
 
         for (Method m : interfaceMethods) {
-            assertTrue("PlayersManager is missing implementation for: " + m.getName(),
-                concreteMethods.contains(m.getName()));
+            assertTrue(concreteMethods.contains(m.getName()), "PlayersManager is missing implementation for: " + m.getName());
         }
     }
 

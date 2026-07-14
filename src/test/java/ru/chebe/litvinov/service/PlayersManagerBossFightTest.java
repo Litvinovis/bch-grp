@@ -5,8 +5,8 @@ import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.entities.channel.unions.MessageChannelUnion;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.requests.restaction.MessageCreateAction;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
@@ -21,7 +21,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
@@ -50,7 +50,7 @@ public class PlayersManagerBossFightTest {
 
     private PlayersManager playersManager;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         MockitoAnnotations.initMocks(this);
         playersManager = new PlayersManager(
@@ -190,7 +190,7 @@ public class PlayersManagerBossFightTest {
         playersManager.bossFight(event);
 
         // Level-up restores HP to new maxHp — must be greater than post-battle HP (35)
-        assertTrue("HP must be restored to maxHp on level-up", player.getHp() > 35);
+        assertTrue(player.getHp() > 35, "HP must be restored to maxHp on level-up");
         assertEquals(player.getMaxHp(), player.getHp());
     }
 
@@ -334,8 +334,8 @@ public class PlayersManagerBossFightTest {
         ArgumentCaptor<String> idCaptor = ArgumentCaptor.forClass(String.class);
         verify(playerRepository, atLeast(2)).put(idCaptor.capture(), any());
         List<String> savedIds = idCaptor.getAllValues();
-        assertTrue("id1 must be saved", savedIds.contains("id1"));
-        assertTrue("id2 (ally) must be saved", savedIds.contains("id2"));
+        assertTrue(savedIds.contains("id1"), "id1 must be saved");
+        assertTrue(savedIds.contains("id2"), "id2 (ally) must be saved");
     }
 
     // ---- helpers ---------------------------------------------------------------

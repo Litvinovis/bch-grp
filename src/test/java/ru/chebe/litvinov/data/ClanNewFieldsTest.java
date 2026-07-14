@@ -1,8 +1,8 @@
 package ru.chebe.litvinov.data;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Tests for new Clan fields introduced in feature/items-13-84:
@@ -13,15 +13,15 @@ public class ClanNewFieldsTest {
     @Test
     public void clanBank_initializedAsEmptyMap() {
         Clan clan = new Clan("TestClan", "leader1");
-        assertNotNull("clanBank should not be null", clan.getClanBank());
-        assertTrue("clanBank should be empty", clan.getClanBank().isEmpty());
+        assertNotNull(clan.getClanBank(), "clanBank should not be null");
+        assertTrue(clan.getClanBank().isEmpty(), "clanBank should be empty");
     }
 
     @Test
     public void clanUpgrades_initializedAsEmptyList() {
         Clan clan = new Clan("TestClan", "leader2");
-        assertNotNull("clanUpgrades should not be null", clan.getClanUpgrades());
-        assertTrue("clanUpgrades should be empty", clan.getClanUpgrades().isEmpty());
+        assertNotNull(clan.getClanUpgrades(), "clanUpgrades should not be null");
+        assertTrue(clan.getClanUpgrades().isEmpty(), "clanUpgrades should be empty");
     }
 
     @Test
@@ -33,9 +33,9 @@ public class ClanNewFieldsTest {
     @Test
     public void clanRoles_initializedAsMapWithLeaderRole() {
         Clan clan = new Clan("TestClan", "leader4");
-        assertNotNull("clanRoles should not be null", clan.getClanRoles());
+        assertNotNull(clan.getClanRoles(), "clanRoles should not be null");
         // Leader role is set in constructor
-        assertTrue("clanRoles should contain leader entry", clan.getClanRoles().containsKey("leader4"));
+        assertTrue(clan.getClanRoles().containsKey("leader4"), "clanRoles should contain leader entry");
         assertEquals("лидер", clan.getClanRoles().get("leader4"));
     }
 

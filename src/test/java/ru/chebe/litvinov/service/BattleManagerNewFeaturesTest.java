@@ -2,8 +2,8 @@ package ru.chebe.litvinov.service;
 
 import net.dv8tion.jda.api.entities.channel.unions.MessageChannelUnion;
 import net.dv8tion.jda.api.requests.restaction.MessageCreateAction;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import ru.chebe.litvinov.data.Boss;
@@ -16,7 +16,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
@@ -38,7 +38,7 @@ public class BattleManagerNewFeaturesTest {
 
     private BattleManager battleManager;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         MockitoAnnotations.initMocks(this);
         when(channel.sendMessage(anyString())).thenReturn(messageAction);
@@ -59,7 +59,7 @@ public class BattleManagerNewFeaturesTest {
         battleManager.battleMechanicWithLog(team1, team2, channel, "a1");
 
         String log = battleManager.getLastBattleLog("a1");
-        assertTrue("Battle log should contain round label", log.contains("Раунд"));
+        assertTrue(log.contains("Раунд"), "Battle log should contain round label");
     }
 
     @Test
@@ -110,7 +110,7 @@ public class BattleManagerNewFeaturesTest {
         // Even if warrior took counter-damage afterward, the net effect of at least one
         // regen tick is visible in the log.
         String log = battleManager.getLastBattleLog("w1");
-        assertTrue("Battle must have happened", log.contains("Раунд"));
+        assertTrue(log.contains("Раунд"), "Battle must have happened");
         // The warrior had 80 hp and maxHp 100 — regen should have brought it toward 100
         // (this is a structural check that regen code path was exercised; HP state
         //  after the fight may vary with random combat)
@@ -129,7 +129,7 @@ public class BattleManagerNewFeaturesTest {
         List<Person> team2 = new ArrayList<>(List.of(opponent));
         battleManager.battleMechanic(team1, team2, channel);
 
-        assertTrue("Warrior HP must not exceed maxHp after regen", warrior.getHp() <= warrior.getMaxHp());
+        assertTrue(warrior.getHp() <= warrior.getMaxHp(), "Warrior HP must not exceed maxHp after regen");
     }
 
     // ---- Dodge -----------------------------------------------------------------
@@ -149,7 +149,7 @@ public class BattleManagerNewFeaturesTest {
         String log = battleManager.getLastBattleLog("att1");
 
         // Rogue always dodges → dodge message in log
-        assertTrue("Battle log should show dodge", log.contains("уклонился"));
+        assertTrue(log.contains("уклонился"), "Battle log should show dodge");
     }
 
     // ---- Block -----------------------------------------------------------------
@@ -175,7 +175,7 @@ public class BattleManagerNewFeaturesTest {
         // Block message appears when armor ≥ 34
         // We can't guarantee attacker hits (may dodge), but if attacker hit the block message appears
         // Just verify no exception occurred
-        assertTrue("Log should reference a round", log.contains("Раунд"));
+        assertTrue(log.contains("Раунд"), "Log should reference a round");
     }
 
     // ---- Clean kill bonus ------------------------------------------------------
@@ -232,7 +232,7 @@ public class BattleManagerNewFeaturesTest {
         // The battle will run; we just verify it completes without error.
         battleManager.battleMechanicWithLog(team1, team2, channel, "mag1");
         String log = battleManager.getLastBattleLog("mag1");
-        assertTrue("Log should reference round 1", log.contains("Раунд 1"));
+        assertTrue(log.contains("Раунд 1"), "Log should reference round 1");
     }
 
     // ---- Rogue counterattack ---------------------------------------------------
@@ -254,9 +254,9 @@ public class BattleManagerNewFeaturesTest {
         String log = battleManager.getLastBattleLog("att5");
 
         // The rogue always dodges, so the log should contain the dodge message
-        assertTrue("Log should contain dodge message", log.contains("уклонился"));
+        assertTrue(log.contains("уклонился"), "Log should contain dodge message");
         // And the counterattack message
-        assertTrue("Log should contain counterattack message", log.contains("контратакует"));
+        assertTrue(log.contains("контратакует"), "Log should contain counterattack message");
     }
 
     // ---- getMobTierDrop --------------------------------------------------------
@@ -276,7 +276,7 @@ public class BattleManagerNewFeaturesTest {
     public void getMobTierDrop_level1_returnsConsumable() {
         for (int i = 0; i < 20; i++) {
             String drop = battleManager.getMobTierDrop(1);
-            assertTrue("Level 1 drop should be in tier-1 list: " + drop, TIER1_DROPS.contains(drop));
+            assertTrue(TIER1_DROPS.contains(drop), "Level 1 drop should be in tier-1 list: " + drop);
         }
     }
 
@@ -284,7 +284,7 @@ public class BattleManagerNewFeaturesTest {
     public void getMobTierDrop_level5_returnsConsumable() {
         for (int i = 0; i < 20; i++) {
             String drop = battleManager.getMobTierDrop(5);
-            assertTrue("Level 5 drop should be in tier-1 list: " + drop, TIER1_DROPS.contains(drop));
+            assertTrue(TIER1_DROPS.contains(drop), "Level 5 drop should be in tier-1 list: " + drop);
         }
     }
 
@@ -292,7 +292,7 @@ public class BattleManagerNewFeaturesTest {
     public void getMobTierDrop_level6_returnsCommonBossDrop() {
         for (int i = 0; i < 20; i++) {
             String drop = battleManager.getMobTierDrop(6);
-            assertTrue("Level 6 drop should be in tier-2 list: " + drop, TIER2_DROPS.contains(drop));
+            assertTrue(TIER2_DROPS.contains(drop), "Level 6 drop should be in tier-2 list: " + drop);
         }
     }
 
@@ -300,7 +300,7 @@ public class BattleManagerNewFeaturesTest {
     public void getMobTierDrop_level15_returnsCommonBossDrop() {
         for (int i = 0; i < 20; i++) {
             String drop = battleManager.getMobTierDrop(15);
-            assertTrue("Level 15 drop should be in tier-2 list: " + drop, TIER2_DROPS.contains(drop));
+            assertTrue(TIER2_DROPS.contains(drop), "Level 15 drop should be in tier-2 list: " + drop);
         }
     }
 
@@ -308,7 +308,7 @@ public class BattleManagerNewFeaturesTest {
     public void getMobTierDrop_level16_returnsRareDrop() {
         for (int i = 0; i < 20; i++) {
             String drop = battleManager.getMobTierDrop(16);
-            assertTrue("Level 16 drop should be in tier-3 list: " + drop, TIER3_DROPS.contains(drop));
+            assertTrue(TIER3_DROPS.contains(drop), "Level 16 drop should be in tier-3 list: " + drop);
         }
     }
 
@@ -316,7 +316,7 @@ public class BattleManagerNewFeaturesTest {
     public void getMobTierDrop_level100_returnsRareDrop() {
         for (int i = 0; i < 20; i++) {
             String drop = battleManager.getMobTierDrop(100);
-            assertTrue("Level 100 drop should be in tier-3 list: " + drop, TIER3_DROPS.contains(drop));
+            assertTrue(TIER3_DROPS.contains(drop), "Level 100 drop should be in tier-3 list: " + drop);
         }
     }
 

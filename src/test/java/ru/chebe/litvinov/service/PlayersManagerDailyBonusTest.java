@@ -5,8 +5,8 @@ import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.entities.channel.unions.MessageChannelUnion;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.requests.restaction.MessageCreateAction;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
@@ -15,7 +15,7 @@ import ru.chebe.litvinov.repository.PlayerRepository;
 
 import java.util.concurrent.CompletableFuture;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
@@ -48,7 +48,7 @@ public class PlayersManagerDailyBonusTest {
     private static final long ONE_DAY_MS  = 24L * 60 * 60 * 1000;
     private static final long TWO_DAYS_MS = 48L * 60 * 60 * 1000;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         MockitoAnnotations.initMocks(this);
         playersManager = new PlayersManager(
@@ -127,7 +127,7 @@ public class PlayersManagerDailyBonusTest {
         verify(channel, atLeastOnce()).sendMessage(captor.capture());
         boolean found = captor.getAllValues().stream()
                 .anyMatch(s -> s.contains("уже получили") || s.contains("приходите"));
-        assertTrue("Should tell player to come back", found);
+        assertTrue(found, "Should tell player to come back");
     }
 
     // ---- 3-day streak ----------------------------------------------------------
