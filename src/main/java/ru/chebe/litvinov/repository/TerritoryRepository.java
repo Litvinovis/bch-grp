@@ -34,7 +34,7 @@ public class TerritoryRepository {
                 }
             }
         } catch (Exception e) {
-            log.warn("Ошибка get territory: {}", e.getMessage());
+            log.error("Ошибка get territory", e);
         }
         return null;
     }
@@ -50,7 +50,7 @@ public class TerritoryRepository {
                     rs.getLong("captured_at"), rs.getInt("tax_rate")));
             }
         } catch (Exception e) {
-            log.warn("Ошибка getAll territories: {}", e.getMessage());
+            log.error("Ошибка getAll territories", e);
         }
         return list;
     }
@@ -66,7 +66,7 @@ public class TerritoryRepository {
             ps.setInt(4, taxRate);
             ps.executeUpdate();
         } catch (Exception e) {
-            log.warn("Ошибка upsert territory: {}", e.getMessage());
+            log.error("Ошибка upsert territory", e);
         }
     }
 }

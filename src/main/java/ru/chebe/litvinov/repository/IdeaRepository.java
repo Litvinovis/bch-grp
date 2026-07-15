@@ -24,7 +24,7 @@ public class IdeaRepository {
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) return mapRow(rs);
             }
-        } catch (Exception e) { log.warn("Ошибка get({}): {}", id, e.getMessage()); }
+        } catch (Exception e) { log.error("Ошибка get({})", id, e); }
         return null;
     }
 
@@ -37,7 +37,7 @@ public class IdeaRepository {
             ps.setInt(1, id); ps.setString(2, idea.getDescription());
             ps.setString(3, idea.getAuthor()); ps.setString(4, idea.getResolution());
             ps.executeUpdate();
-        } catch (Exception e) { log.error("Ошибка put({}): {}", id, e.getMessage()); }
+        } catch (Exception e) { log.error("Ошибка put({})", id, e); }
     }
 
     public int size() {
@@ -45,7 +45,7 @@ public class IdeaRepository {
              PreparedStatement ps = conn.prepareStatement("SELECT COUNT(*) FROM ideas");
              ResultSet rs = ps.executeQuery()) {
             if (rs.next()) return rs.getInt(1);
-        } catch (Exception e) { log.warn("Ошибка size(): {}", e.getMessage()); }
+        } catch (Exception e) { log.error("Ошибка size()", e); }
         return 0;
     }
 
@@ -58,7 +58,7 @@ public class IdeaRepository {
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) result.add(mapRow(rs));
             }
-        } catch (Exception e) { log.warn("Ошибка findByResolution({}): {}", resolution, e.getMessage()); }
+        } catch (Exception e) { log.error("Ошибка findByResolution({})", resolution, e); }
         return result;
     }
 
@@ -68,7 +68,7 @@ public class IdeaRepository {
              PreparedStatement ps = conn.prepareStatement("SELECT id, description, author, resolution FROM ideas");
              ResultSet rs = ps.executeQuery()) {
             while (rs.next()) result.add(mapRow(rs));
-        } catch (Exception e) { log.warn("Ошибка findAll(): {}", e.getMessage()); }
+        } catch (Exception e) { log.error("Ошибка findAll()", e); }
         return result;
     }
 

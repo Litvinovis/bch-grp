@@ -37,7 +37,7 @@ public class PlayerRepository {
              ResultSet rs = ps.executeQuery()) {
             while (rs.next()) result.add(mapRow(rs));
         } catch (Exception e) {
-            log.warn("Ошибка getAll(): {}", e.getMessage());
+            log.error("Ошибка getAll()", e);
         }
         return result;
     }
@@ -50,7 +50,7 @@ public class PlayerRepository {
                 if (rs.next()) return mapRow(rs);
             }
         } catch (Exception e) {
-            log.warn("Ошибка get({}): {}", id, e.getMessage());
+            log.error("Ошибка get({})", id, e);
         }
         return null;
     }
@@ -61,7 +61,7 @@ public class PlayerRepository {
             ps.setString(1, id);
             try (ResultSet rs = ps.executeQuery()) { return rs.next(); }
         } catch (Exception e) {
-            log.warn("Ошибка contains({}): {}", id, e.getMessage());
+            log.error("Ошибка contains({})", id, e);
         }
         return false;
     }
@@ -138,7 +138,7 @@ public class PlayerRepository {
             ps.setLong(44, player.getLastTeleportTime());
             ps.executeUpdate();
         } catch (Exception e) {
-            log.error("Ошибка put({}): {}", id, e.getMessage());
+            log.error("Ошибка put({})", id, e);
         }
     }
 
@@ -148,7 +148,7 @@ public class PlayerRepository {
             ps.setString(1, id);
             ps.executeUpdate();
         } catch (Exception e) {
-            log.error("Ошибка remove({}): {}", id, e.getMessage());
+            log.error("Ошибка remove({})", id, e);
         }
     }
 
@@ -209,7 +209,7 @@ public class PlayerRepository {
             try {
                 p.setActiveEvent(MAPPER.readValue(eventJson, Event.class));
             } catch (Exception e) {
-                log.warn("Не удалось десериализовать activeEvent для игрока {}: {}", id, e.getMessage());
+                log.error("Не удалось десериализовать activeEvent для игрока {}", id, e);
                 p.setActiveEvent(null);
             }
         }
@@ -221,7 +221,7 @@ public class PlayerRepository {
         try {
             return MAPPER.writeValueAsString(player.getActiveEvent());
         } catch (Exception e) {
-            log.warn("Не удалось сериализовать activeEvent для игрока {}: {}", player.getId(), e.getMessage());
+            log.error("Не удалось сериализовать activeEvent для игрока {}", player.getId(), e);
             return null;
         }
     }

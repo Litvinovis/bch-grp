@@ -69,7 +69,7 @@ public class DailyQuestRepository {
             ps.setDate(9, Date.valueOf(quest.getQuestDate()));
             ps.executeUpdate();
         } catch (Exception e) {
-            log.error("Ошибка update daily_quests для {}: {}", quest.getUserId(), e.getMessage());
+            log.error("Ошибка update daily_quests для {}", quest.getUserId(), e);
         }
     }
 
@@ -87,7 +87,7 @@ public class DailyQuestRepository {
             ps.setDate(2, Date.valueOf(today));
             ps.executeUpdate();
         } catch (Exception e) {
-            log.error("Ошибка claimBonus для {}: {}", userId, e.getMessage());
+            log.error("Ошибка claimBonus для {}", userId, e);
         }
     }
 
@@ -103,7 +103,7 @@ public class DailyQuestRepository {
                 if (rs.next()) return mapRow(rs);
             }
         } catch (Exception e) {
-            log.warn("Ошибка findByUserAndDate({}, {}): {}", userId, date, e.getMessage());
+            log.error("Ошибка findByUserAndDate({}, {})", userId, date, e);
         }
         return null;
     }
@@ -133,7 +133,7 @@ public class DailyQuestRepository {
             ps.setBoolean(15, q.isBonusClaimed());
             ps.executeUpdate();
         } catch (Exception e) {
-            log.error("Ошибка insert daily_quests для {}: {}", q.getUserId(), e.getMessage());
+            log.error("Ошибка insert daily_quests для {}", q.getUserId(), e);
         }
     }
 

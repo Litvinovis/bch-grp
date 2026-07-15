@@ -22,7 +22,7 @@ public class BossRepository {
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) return mapRow(rs);
             }
-        } catch (Exception e) { log.warn("Ошибка get({}): {}", name, e.getMessage()); }
+        } catch (Exception e) { log.error("Ошибка get({})", name, e); }
         return null;
     }
 
@@ -31,7 +31,7 @@ public class BossRepository {
              PreparedStatement ps = conn.prepareStatement("SELECT 1 FROM bosses WHERE nick_name = ?")) {
             ps.setString(1, name);
             try (ResultSet rs = ps.executeQuery()) { return rs.next(); }
-        } catch (Exception e) { log.warn("Ошибка contains({}): {}", name, e.getMessage()); }
+        } catch (Exception e) { log.error("Ошибка contains({})", name, e); }
         return false;
     }
 
@@ -45,7 +45,7 @@ public class BossRepository {
             ps.setInt(4, boss.getArmor()); ps.setString(5, boss.getBossItem());
             ps.setInt(6, boss.getDefeat()); ps.setInt(7, boss.getWin());
             ps.executeUpdate();
-        } catch (Exception e) { log.error("Ошибка put({}): {}", name, e.getMessage()); }
+        } catch (Exception e) { log.error("Ошибка put({})", name, e); }
     }
 
     private Boss mapRow(ResultSet rs) throws SQLException {
