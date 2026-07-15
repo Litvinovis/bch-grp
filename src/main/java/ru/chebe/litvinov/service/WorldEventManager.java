@@ -17,6 +17,7 @@ import java.util.concurrent.TimeUnit;
  * Управляет периодическими событиями: нашествиями, мировыми боссами, турнирами и т.п.
  */
 public class WorldEventManager {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(WorldEventManager.class);
 
     private final PlayerRepository playerRepository;
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(2);
@@ -105,8 +106,14 @@ public class WorldEventManager {
         for (String channelId : allowedChannelIds) {
             try {
                 net.dv8tion.jda.api.entities.channel.concrete.TextChannel ch = jda.getTextChannelById(channelId);
-                if (ch != null) ch.sendMessage(msg).queue();
-            } catch (Exception ignored) {}
+                if (ch == null) {
+                    log.debug("Канал {} не найден — анонс мирового события не отправлен", channelId);
+                    continue;
+                }
+                ch.sendMessage(msg).queue();
+            } catch (Exception e) {
+                log.debug("Не удалось отправить анонс мирового события в канал {}: {}", channelId, e.getMessage());
+            }
         }
     }
 

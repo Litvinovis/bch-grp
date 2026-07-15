@@ -23,7 +23,7 @@ public class ItemRepository {
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) return mapRow(rs);
             }
-        } catch (Exception e) { log.warn("Ошибка get({}): {}", name, e.getMessage()); }
+        } catch (Exception e) { log.error("Ошибка get({})", name, e); }
         return null;
     }
 
@@ -32,7 +32,7 @@ public class ItemRepository {
              PreparedStatement ps = conn.prepareStatement("SELECT 1 FROM items WHERE name = ?")) {
             ps.setString(1, name);
             try (ResultSet rs = ps.executeQuery()) { return rs.next(); }
-        } catch (Exception e) { log.warn("Ошибка contains({}): {}", name, e.getMessage()); }
+        } catch (Exception e) { log.error("Ошибка contains({})", name, e); }
         return false;
     }
 
@@ -50,7 +50,7 @@ public class ItemRepository {
             ps.setInt(7, item.getArmor()); ps.setInt(8, item.getReputation()); ps.setInt(9, item.getXpGeneration());
             ps.setInt(10, item.getQuantity()); ps.setLong(11, item.getExpireTime()); ps.setBoolean(12, item.isAction());
             ps.executeUpdate();
-        } catch (Exception e) { log.error("Ошибка put({}): {}", name, e.getMessage()); }
+        } catch (Exception e) { log.error("Ошибка put({})", name, e); }
     }
 
     private Item mapRow(ResultSet rs) throws SQLException {

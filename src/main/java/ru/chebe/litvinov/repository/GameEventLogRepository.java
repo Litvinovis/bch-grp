@@ -36,7 +36,7 @@ public class GameEventLogRepository {
             ps.setLong(4, System.currentTimeMillis());
             ps.executeUpdate();
         } catch (Exception e) {
-            log.warn("Ошибка записи game_event_log: {}", e.getMessage());
+            log.error("Ошибка записи game_event_log", e);
         }
     }
 }

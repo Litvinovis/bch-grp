@@ -32,7 +32,7 @@ public class BountyRepository {
             ps.setLong(4, System.currentTimeMillis());
             ps.executeUpdate();
         } catch (Exception e) {
-            log.warn("Ошибка place bounty: {}", e.getMessage());
+            log.error("Ошибка place bounty", e);
         }
     }
 
@@ -47,7 +47,7 @@ public class BountyRepository {
                     rs.getInt("reward"), rs.getBoolean("active"), rs.getLong("created_at")));
             }
         } catch (Exception e) {
-            log.warn("Ошибка getActive bounties: {}", e.getMessage());
+            log.error("Ошибка getActive bounties", e);
         }
         return list;
     }
@@ -76,7 +76,7 @@ public class BountyRepository {
                 throw e;
             }
         } catch (Exception e) {
-            log.warn("Ошибка claimAndGetReward: {}", e.getMessage());
+            log.error("Ошибка claimAndGetReward", e);
         }
         return 0;
     }

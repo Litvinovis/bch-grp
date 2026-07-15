@@ -26,7 +26,7 @@ public class ClanRepository {
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) return mapRow(rs);
             }
-        } catch (Exception e) { log.warn("Ошибка get({}): {}", name, e.getMessage()); }
+        } catch (Exception e) { log.error("Ошибка get({})", name, e); }
         return null;
     }
 
@@ -35,7 +35,7 @@ public class ClanRepository {
              PreparedStatement ps = conn.prepareStatement("SELECT 1 FROM clans WHERE name = ?")) {
             ps.setString(1, name);
             try (ResultSet rs = ps.executeQuery()) { return rs.next(); }
-        } catch (Exception e) { log.warn("Ошибка contains({}): {}", name, e.getMessage()); }
+        } catch (Exception e) { log.error("Ошибка contains({})", name, e); }
         return false;
     }
 
@@ -56,7 +56,7 @@ public class ClanRepository {
             ps.setString(7, clan.getClanBase() != null ? clan.getClanBase() : "респаун");
             ps.setString(8, JsonUtil.toJson(clan.getClanRoles() != null ? clan.getClanRoles() : new HashMap<>()));
             ps.executeUpdate();
-        } catch (Exception e) { log.error("Ошибка put({}): {}", name, e.getMessage()); }
+        } catch (Exception e) { log.error("Ошибка put({})", name, e); }
     }
 
     /**
@@ -103,11 +103,11 @@ public class ClanRepository {
                 return true;
             } catch (Exception e) {
                 try { conn.rollback(); } catch (SQLException ignored) { }
-                log.error("Ошибка bankTransfer({}, {}, {}): {}", clanName, playerId, amount, e.getMessage());
+                log.error("Ошибка bankTransfer({}, {}, {})", clanName, playerId, amount, e);
                 return false;
             }
         } catch (Exception e) {
-            log.error("Ошибка bankTransfer({}, {}, {}): {}", clanName, playerId, amount, e.getMessage());
+            log.error("Ошибка bankTransfer({}, {}, {})", clanName, playerId, amount, e);
             return false;
         }
     }
@@ -117,7 +117,7 @@ public class ClanRepository {
              PreparedStatement ps = conn.prepareStatement("DELETE FROM clans WHERE name = ?")) {
             ps.setString(1, name);
             ps.executeUpdate();
-        } catch (Exception e) { log.error("Ошибка remove({}): {}", name, e.getMessage()); }
+        } catch (Exception e) { log.error("Ошибка remove({})", name, e); }
     }
 
     public List<Clan> getAll() {
@@ -127,7 +127,7 @@ public class ClanRepository {
                  "SELECT name, leader_id, members, appliers, clan_bank, clan_upgrades, clan_base, clan_roles FROM clans");
              ResultSet rs = ps.executeQuery()) {
             while (rs.next()) result.add(mapRow(rs));
-        } catch (Exception e) { log.warn("Ошибка getAll(): {}", e.getMessage()); }
+        } catch (Exception e) { log.error("Ошибка getAll()", e); }
         return result;
     }
 

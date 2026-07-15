@@ -33,7 +33,7 @@ public class TournamentRepository {
                 if (rs.next()) return rs.getInt(1);
             }
         } catch (Exception e) {
-            log.warn("Ошибка createTournament: {}", e.getMessage());
+            log.error("Ошибка createTournament", e);
         }
         return -1;
     }
@@ -51,7 +51,7 @@ public class TournamentRepository {
                 }
             }
         } catch (Exception e) {
-            log.warn("Ошибка getActive tournament: {}", e.getMessage());
+            log.error("Ошибка getActive tournament", e);
         }
         return null;
     }
@@ -71,7 +71,7 @@ public class TournamentRepository {
                 }
             }
         } catch (Exception e) {
-            log.warn("Ошибка addParticipant: {}", e.getMessage());
+            log.error("Ошибка addParticipant", e);
         }
     }
 
@@ -83,7 +83,7 @@ public class TournamentRepository {
             ps.setInt(2, id);
             ps.executeUpdate();
         } catch (Exception e) {
-            log.warn("Ошибка updateStatus tournament: {}", e.getMessage());
+            log.error("Ошибка updateStatus tournament", e);
         }
     }
 

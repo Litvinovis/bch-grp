@@ -45,7 +45,7 @@ public class SchemaInitializer {
                 }
             }
         } catch (Exception e) {
-            log.error("SchemaInitializer: ошибка подключения к БД: {}", e.getMessage());
+            log.error("SchemaInitializer: ошибка подключения к БД", e);
         }
         log.info("Схема PostgreSQL инициализирована: {} успешно, {} пропущено", ok, skipped);
     }
@@ -57,7 +57,7 @@ public class SchemaInitializer {
                 return r.lines().collect(Collectors.joining("\n"));
             }
         } catch (Exception e) {
-            log.error("Ошибка чтения {}: {}", name, e.getMessage());
+            log.error("Ошибка чтения {}", name, e);
             return null;
         }
     }

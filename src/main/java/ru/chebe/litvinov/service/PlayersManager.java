@@ -2534,8 +2534,14 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 			for (String chId : allowedChannelIds) {
 				try {
 					net.dv8tion.jda.api.entities.channel.concrete.TextChannel ch = jda.getTextChannelById(chId);
-					if (ch != null) ch.sendMessage(msg).queue();
-				} catch (Exception ignored) {}
+					if (ch == null) {
+						log.debug("Канал {} не найден — анонс не отправлен", chId);
+						continue;
+					}
+					ch.sendMessage(msg).queue();
+				} catch (Exception e) {
+					log.debug("Не удалось отправить анонс в канал {}: {}", chId, e.getMessage());
+				}
 			}
 		}
 	}

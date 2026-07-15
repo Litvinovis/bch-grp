@@ -24,7 +24,7 @@ public class LocationRepository {
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) return mapRow(rs);
             }
-        } catch (Exception e) { log.warn("Ошибка get({}): {}", name, e.getMessage()); }
+        } catch (Exception e) { log.error("Ошибка get({})", name, e); }
         return null;
     }
 
@@ -33,7 +33,7 @@ public class LocationRepository {
              PreparedStatement ps = conn.prepareStatement("SELECT 1 FROM locations WHERE name = ?")) {
             ps.setString(1, name);
             try (ResultSet rs = ps.executeQuery()) { return rs.next(); }
-        } catch (Exception e) { log.warn("Ошибка contains({}): {}", name, e.getMessage()); }
+        } catch (Exception e) { log.error("Ошибка contains({})", name, e); }
         return false;
     }
 
@@ -52,7 +52,7 @@ public class LocationRepository {
             ps.setBoolean(6, loc.isPvp()); ps.setString(7, loc.getBoss());
             ps.setString(8, loc.getBossItem()); ps.setBoolean(9, loc.isTeleport());
             ps.executeUpdate();
-        } catch (Exception e) { log.error("Ошибка put({}): {}", name, e.getMessage()); }
+        } catch (Exception e) { log.error("Ошибка put({})", name, e); }
     }
 
     private Location mapRow(ResultSet rs) throws SQLException {
