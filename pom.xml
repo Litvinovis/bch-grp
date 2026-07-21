@@ -81,14 +81,14 @@
     <dependency>
       <groupId>org.postgresql</groupId>
       <artifactId>postgresql</artifactId>
-      <version>42.7.12</version>
+      <version>42.7.13</version>
     </dependency>
 
     <!-- HikariCP — пул соединений JDBC -->
     <dependency>
       <groupId>com.zaxxer</groupId>
       <artifactId>HikariCP</artifactId>
-      <version>7.0.2</version>
+      <version>7.1.0</version>
     </dependency>
 
     <!-- Реализация SLF4J для правильной работы логов -->
