@@ -27,10 +27,15 @@ import static ru.chebe.litvinov.Constants.MIN_LVL_TO_CLAN_CREATE;
 import static ru.chebe.litvinov.Constants.MIN_LVL_TO_CLAN_JOIN;
 
 /**
- * Главный сервис управления игроками.
- * Координирует все игровые действия: создание персонажа, перемещение, бой, квесты,
- * инвентарь, торговля, игры в таверне, клановые операции и ежедневные бонусы.
- * Использует per-player блокировки для потокобезопасного изменения характеристик.
+ * Фасад команд игрока.
+ * Принимает вызовы из {@link ru.chebe.litvinov.command.CommandRegistry} и делегирует
+ * их профильным сервисам: {@link PlayerStatsService}, {@link InventoryService},
+ * {@link CombatService}, {@link TravelService}, {@link QuestEventService},
+ * {@link SkillsService}, {@link EconomyService}, {@link ClanCommandService},
+ * {@link MiniGamesService}, {@link AchievementService} и {@link LeaderboardService}.
+ * Сам держит регистрацию персонажа, профиль и делегаты к внешним менеджерам
+ * (питомцы, профессии, территории, арена, турниры).
+ * Блокировки по игроку общие для всех сервисов — см. {@link PlayerLocks}.
  */
 public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPlayersManager {
 	private static final Logger log = LoggerFactory.getLogger(PlayersManager.class);

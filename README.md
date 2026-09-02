@@ -377,12 +377,11 @@
 | **HikariCP 7.0.2** | Пул соединений (размер: 5) |
 | **Flyway 10** | Миграции схемы БД (`V1__initial_schema.sql`, `V2__items_85_150.sql`) |
 | **Lombok 1.18** | `@Getter`, `@Setter`, `@Builder` на моделях |
-| **Jackson 2.21** | Сериализация/десериализация JSON-полей (инвентарь, квесты, баффы…) |
-| **SnakeYAML 2.6** | Конфиги локаций, предметов и боссов из YAML |
-| **Logback 1.5** | Логирование (отдельный логгер `adminLog` для Admin-действий) |
-| **Prometheus** | Метрики на порту 9090 (`/metrics`): бои/час, монеты в обороте, активные игроки |
+| **Jackson 2.22** | Сериализация/десериализация JSON-полей (инвентарь, квесты, баффы…) |
+| **SnakeYAML 2.7** | Конфиги локаций, предметов и боссов из YAML |
+| **Logback 1.6** | Логирование (отдельный логгер `adminLog` для Admin-действий) |
 
-**Таблицы PostgreSQL:** `players`, `locations`, `items`, `bosses`, `clans`, `ideas`, `territories`, `world_events`, `tournaments`, `bounties`, `game_event_log`, `daily_quests`
+**Таблицы PostgreSQL:** `players`, `locations`, `items`, `bosses`, `clans`, `ideas`, `territories`, `world_events`, `tournaments`, `bounties`, `daily_quests`
 
 ---
 
@@ -477,8 +476,6 @@ mvn test
 
 **Сервис:** `systemctl status bot-bchgrp`
 
-**Метрики:** `http://localhost:9090/metrics` (Prometheus-формат)
-
 ---
 
 ## Структура проекта
@@ -503,7 +500,20 @@ src/main/java/ru/chebe/litvinov/
 │   └── Person.java               # Базовый тип для игрока и NPC в бою
 │
 ├── service/                      # Бизнес-логика
-│   ├── PlayersManager.java       # Ядро: 100+ методов — бой, движение, инвентарь, прогресс...
+│   ├── PlayersManager.java       # Фасад команд игрока: делегирует в сервисы ниже
+│   ├── PlayerStatsService.java   # HP, деньги, репутация, опыт и уровни, смерть
+│   ├── InventoryService.java     # Инвентарь, торговля, баффы, банк, передача предметов
+│   ├── CombatService.java        # Бои с NPC, боссами, PvP и клановые
+│   ├── TravelService.java        # Перемещение, маршруты, исследование локаций
+│   ├── QuestEventService.java    # События, ежедневный бонус, квесты
+│   ├── SkillsService.java        # Классы, дерево навыков, способности
+│   ├── EconomyService.java       # Крафт, лавка, кредиты, обменник, ресурсы
+│   ├── ClanCommandService.java   # Команды игрока по кланам
+│   ├── AchievementService.java   # Достижения и анонс редких
+│   ├── LeaderboardService.java   # Топы, активность, недельная доска
+│   ├── MiniGamesService.java     # Рулетка, КНБ, кости, покер, скачки
+│   ├── PlayerLocks.java          # Общие блокировки по игроку
+│   ├── QuestProgressTracker.java # Прогресс ежедневных квестов
 │   ├── BattleManager.java        # Боевой движок: раунды, уклонение, блок, скиллы, питомцы
 │   ├── ClanManager.java          # Управление кланами
 │   ├── TerritoryManager.java     # Территории, осады, крепости, альянсы
@@ -523,8 +533,7 @@ src/main/java/ru/chebe/litvinov/
 │   ├── NpcManager.java           # NPC по локациям (4 тира сложности)
 │   ├── RaidManager.java          # Рейдовые сессии
 │   ├── IdeasManager.java         # Идеи / баг-репорты
-│   ├── DataIntegrityService.java # Проверка целостности данных при старте
-│   └── MetricsService.java       # Prometheus HTTP-сервер на порту 9090
+│   └── DataIntegrityService.java # Проверка целостности данных при старте
 │
 ├── repository/                   # JDBC-репозитории (паттерн UPSERT)
 │   ├── PlayerRepository.java
@@ -554,14 +563,10 @@ src/main/java/ru/chebe/litvinov/
 │   └── RaidBoss.java
 │
 └── util/
-    ├── JsonUtil.java             # Сериализация коллекций для PostgreSQL TEXT-колонок
-    └── InputValidator.java       # Валидация входных данных команд
+    └── JsonUtil.java             # Сериализация коллекций для PostgreSQL TEXT-колонок
 
 src/main/resources/
-├── schema.sql                    # DDL всех таблиц + ALTER TABLE IF NOT EXISTS для миграций
-├── db/migration/
-│   ├── V1__initial_schema.sql    # Flyway: начальная схема
-│   └── V2__items_85_150.sql      # Flyway: новые таблицы (territories, bounties, ...)
+├── schema.sql                    # DDL всех таблиц; выполняется SchemaInitializer при старте
 ├── locations.yml                 # 26 локаций с путями, боссами, флагами PvP
 ├── items.yml                     # 35+ предметов с характеристиками
 ├── bosses.yml                    # 24 босса с HP, силой, лутом
