@@ -54,6 +54,7 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 	private DailyQuestService dailyQuestService;
 	private final QuestProgressTracker quests = new QuestProgressTracker();
 	private final MiniGamesService miniGames;
+	private final PlayerStatsService stats;
 
 	// Новые менеджеры (items 85-150)
 	private PetManager petManager;
@@ -129,6 +130,7 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		this.tavern = tavern;
 		this.npcManager = npcManager;
 		this.achievements = new AchievementService(playerCache);
+		this.stats = new PlayerStatsService(playerCache, locationManager, playerLocks, achievements);
 		this.miniGames = new MiniGamesService(playerCache, tavern, playerLocks, achievements, quests);
 		this.duelService = new DuelService(playerCache, this::getPlayerLock, achievements::unlock);
 	}
@@ -153,71 +155,9 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		event.getChannel().sendMessage(statsMsg + extra).submit();
 	}
 
-	/**
-	 * Возвращает количество опыта, необходимое для достижения следующего уровня.
-	 *
-	 * @param player игрок
-	 * @return количество опыта до следующего уровня
-	 */
-	public int getXp(Player player) {
-		return xpMap.get(player.getLevel() + 1);
-	}
 
-	/**
-	 * Возвращает максимальное значение HP для текущего уровня игрока.
-	 *
-	 * @param player игрок
-	 * @return максимальное значение HP
-	 */
-	public int getMaxHp(Player player) {
-		return hpMap.get(player.getLevel());
-	}
 
-	/**
-	 * Устанавливает точное значение HP игроку.
-	 *
-	 * @param id идентификатор игрока
-	 * @param hp новое значение HP
-	 */
-	public void changeHp(String id, int hp) {
-		ReentrantLock lock = getPlayerLock(id);
-		lock.lock();
-		try {
-			var player = playerCache.get(id);
-			if (player == null) return;
-			player.setHp(Math.min(hp, player.getMaxHp()));
-			playerCache.put(id, player);
-		} finally {
-			lock.unlock();
-		}
-	}
 
-	/**
-	 * Изменяет HP игрока на указанное значение.
-	 *
-	 * @param id       идентификатор игрока
-	 * @param hp       величина изменения HP
-	 * @param increase true — увеличить HP (не превышая максимум), false — уменьшить
-	 * @return актуальное значение HP после изменения
-	 */
-	public int changeHp(String id, int hp, boolean increase) {
-		ReentrantLock lock = getPlayerLock(id);
-		lock.lock();
-		try {
-			var player = playerCache.get(id);
-			if (player == null) return 0;
-			if (increase) {
-				int newHp = player.getHp() + hp;
-				player.setHp(Math.min(newHp, player.getMaxHp()));
-			} else {
-				player.setHp(player.getHp() - hp);
-			}
-			playerCache.put(id, player);
-			return player.getHp();
-		} finally {
-			lock.unlock();
-		}
-	}
 
 	/**
 	 * Отправляет игроку информацию об инвентаре или конкретном предмете.
@@ -247,64 +187,8 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		}
 	}
 
-	/**
-	 * Изменяет количество денег игрока.
-	 *
-	 * @param id       идентификатор игрока
-	 * @param money    сумма изменения
-	 * @param increase true — добавить деньги, false — вычесть
-	 * @return актуальное количество денег после изменения
-	 */
-	public int changeMoney(String id, int money, boolean increase) {
-		return mutate(id, Player::getMoney, Player::setMoney, money, increase);
-	}
 
-	/**
-	 * Изменяет репутацию игрока.
-	 *
-	 * @param id         идентификатор игрока
-	 * @param reputation величина изменения репутации
-	 * @param increase   true — увеличить, false — уменьшить
-	 * @return актуальное значение репутации после изменения
-	 */
-	public int changeReputation(String id, int reputation, boolean increase) {
-		return mutate(id, Player::getReputation, Player::setReputation, reputation, increase);
-	}
 
-	/**
-	 * Начисляет опыт игроку. При наборе достаточного количества — повышает уровень и восстанавливает HP.
-	 *
-	 * @param id идентификатор игрока
-	 * @param xp количество начисляемого опыта
-	 */
-	public void changeXp(String id, int xp) {
-		ReentrantLock lock = getPlayerLock(id);
-		lock.lock();
-		try {
-			var player = playerCache.get(id);
-			if (player == null) return;
-			
-			int totalXp = player.getExp() + xp;
-			int expToNext = player.getExpToNextLvl();
-			
-			// Повышаем уровень, пока опыт превышает требуемый
-			while (totalXp >= expToNext && player.getLevel() < 100) {
-				totalXp -= expToNext;
-				player.setLevel(player.getLevel() + 1);
-				player.setExpToNextLvl(xpMap.get(player.getLevel()));
-				player.setMaxHp(getMaxHp(player));  // Обновляем максимальное HP
-				player.setHp(player.getMaxHp());     // Восстанавливаем HP при повышении уровня
-				expToNext = player.getExpToNextLvl();
-				if (player.getLevel() == 10) achievements.unlock(player, "10_уровень");
-				if (player.getLevel() >= 50) achievements.unlock(player, "легенда");
-			}
-			
-			player.setExp(totalXp);
-			playerCache.put(id, player);
-		} finally {
-			lock.unlock();
-		}
-	}
 
 	/**
 	 * Регистрирует нового игрока. Если игрок уже существует — сообщает об этом.
@@ -401,35 +285,44 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		}
 	}
 
+	/** Делегат к {@link PlayerStatsService}. */
+	public int getXp(Player player) { return stats.getXp(player); }
+
+	/** Делегат к {@link PlayerStatsService}. */
+	public int getMaxHp(Player player) { return stats.getMaxHp(player); }
+
+	/** Делегат к {@link PlayerStatsService}. */
+	public void changeHp(String id, int hp) { stats.changeHp(id, hp); }
+
+	/** {@inheritDoc} */
 	@Override
+	public int changeHp(String id, int hp, boolean increase) { return stats.changeHp(id, hp, increase); }
+
+	/** {@inheritDoc} */
+	@Override
+	public int changeMoney(String id, int money, boolean increase) { return stats.changeMoney(id, money, increase); }
+
+	/** Делегат к {@link PlayerStatsService}. */
+	public int changeReputation(String id, int reputation, boolean increase) { return stats.changeReputation(id, reputation, increase); }
+
+	/** {@inheritDoc} */
+	@Override
+	public void changeXp(String id, int xp) { stats.changeXp(id, xp); }
+
+	/** Делегат к {@link PlayerStatsService}. */
+	public int changeLuck(String id, int luck, boolean increase) { return stats.changeLuck(id, luck, increase); }
+
+	/** Делегат к {@link PlayerStatsService}. */
+	public int changeStrength(String id, int strength, boolean increase) { return stats.changeStrength(id, strength, increase); }
+
+	/** {@inheritDoc} */
+	@Override
+	public void deathOfPlayer(Player dead) { stats.deathOfPlayer(dead); }
+
 	public Player getPlayer(String id) {
 		return playerCache.get(id);
 	}
 
-	/**
-	 * Обрабатывает смерть игрока: списывает 10% денег, восстанавливает HP и перемещает на Респаун.
-	 *
-	 * @param dead игрок, который погиб
-	 */
-	public void deathOfPlayer(Player dead) {
-		int level = dead.getLevel();
-		double moneyPenaltyPct = level <= 5  ? GameBalance.DEATH_MONEY_PENALTY_LOW
-				: level <= 15 ? GameBalance.DEATH_MONEY_PENALTY_MID
-				: level <= 30 ? GameBalance.DEATH_MONEY_PENALTY_HIGH
-				:               GameBalance.DEATH_MONEY_PENALTY_MAX;
-		dead.setMoney((int) (dead.getMoney() * (1 - moneyPenaltyPct)));
-
-		// Lose 5% of XP earned within current level (never goes below 0 in the level)
-		int xpLoss = (int) (dead.getExp() * GameBalance.DEATH_XP_LOSS_PCT);
-		dead.setExp(Math.max(0, dead.getExp() - xpLoss));
-
-		dead.setHp(dead.getMaxHp());
-		// movePlayerInPopulation reads dead.getLocation() to find the current location —
-		// must be called before changing it, otherwise the player is never removed from the old location
-		locationManager.movePlayerInPopulation(dead, "респаун");
-		dead.setLocation("респаун");
-		playerCache.put(dead.getId(), dead);
-	}
 
 	/**
 	 * Обрабатывает команду использования активируемого предмета из инвентаря игрока.
@@ -476,23 +369,23 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 				}
 
 				if (item.getHealth() > 0) {
-					int hp = changeHp(playerId, item.getHealth(), true);
+					int hp = stats.changeHp(playerId, item.getHealth(), true);
 					event.getChannel().sendMessage("Теперь у тебя " + hp + " здоровья").submit();
 				}
 				if (item.getArmor() > 0) {
-					int armor = changeArmor(playerId, item.getArmor(), true);
+					int armor = stats.changeArmor(playerId, item.getArmor(), true);
 					event.getChannel().sendMessage("Теперь у тебя " + armor + " брони").submit();
 				}
 				if (item.getLuck() > 0) {
-					int luck = changeLuck(playerId, item.getLuck(), true);
+					int luck = stats.changeLuck(playerId, item.getLuck(), true);
 					event.getChannel().sendMessage("Теперь у тебя " + luck + " удачи").submit();
 				}
 				if (item.getStrength() > 0) {
-					int str = changeStrength(playerId, item.getStrength(), true);
+					int str = stats.changeStrength(playerId, item.getStrength(), true);
 					event.getChannel().sendMessage("Теперь у тебя " + str + " силы").submit();
 				}
 				if (item.getReputation() > 0) {
-					int rep = changeReputation(playerId, item.getReputation(), true);
+					int rep = stats.changeReputation(playerId, item.getReputation(), true);
 					event.getChannel().sendMessage("Теперь у тебя " + rep + " репутации").submit();
 				}
 
@@ -556,47 +449,9 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		}
 	}
 
-	private int changeArmor(String id, int armor, boolean increase) {
-		return mutate(id, Player::getArmor, Player::setArmor, armor, increase);
-	}
 
-	/**
-	 * Изменяет удачу игрока.
-	 *
-	 * @param id       идентификатор игрока
-	 * @param luck     величина изменения удачи
-	 * @param increase true — увеличить, false — уменьшить
-	 * @return актуальное значение удачи после изменения
-	 */
-	public int changeLuck(String id, int luck, boolean increase) {
-		return mutate(id, Player::getLuck, Player::setLuck, luck, increase);
-	}
 
-	/**
-	 * Изменяет силу игрока.
-	 *
-	 * @param id       идентификатор игрока
-	 * @param strength величина изменения силы
-	 * @param increase true — увеличить, false — уменьшить
-	 * @return актуальное значение силы после изменения
-	 */
-	public int changeStrength(String id, int strength, boolean increase) {
-		return mutate(id, Player::getStrength, Player::setStrength, strength, increase);
-	}
 
-	private int mutate(String id, ToIntFunction<Player> get, ObjIntConsumer<Player> set, int delta, boolean increase) {
-		ReentrantLock lock = getPlayerLock(id);
-		lock.lock();
-		try {
-			Player player = playerCache.get(id);
-			if (player == null) return 0;
-			set.accept(player, increase ? get.applyAsInt(player) + delta : get.applyAsInt(player) - delta);
-			playerCache.put(id, player);
-			return get.applyAsInt(player);
-		} finally {
-			lock.unlock();
-		}
-	}
 
 	/**
 	 * Продаёт предмет из инвентаря игрока. Цена продажи зависит от репутации игрока.
@@ -611,7 +466,7 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 			String message = event.getMessage().getContentDisplay().substring(8).trim().toLowerCase();
 			if (player.getInventory().containsKey(message.toLowerCase())) {
 				Item item = itemsManager.getItem(message);
-				int money = changeMoney(player.getId(), item.getPrice() / (2 - player.getReputation() / 10), true);
+				int money = stats.changeMoney(player.getId(), item.getPrice() / (2 - player.getReputation() / 10), true);
 				deleteItem(player.getId(), item.getName());
 				event.getChannel().sendMessage("Теперь у тебя " + money + " денег").submit();
 			} else {
@@ -709,10 +564,10 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 							? GameBalance.HP_RECOVERY_PCT_LOW_LEVEL : GameBalance.HP_RECOVERY_PCT_NORMAL;
 					int hpLost = maxHp - currentHp;
 					int hpToRestore = Math.max(GameBalance.HP_RECOVERY_MIN, (hpLost * recoveryPercent) / 100);
-					changeHp(player.getId(), currentHp + hpToRestore);
+					stats.changeHp(player.getId(), currentHp + hpToRestore);
 				}
-				changeXp(player.getId(), GameBalance.MOB_KILL_XP);
-				changeMoney(player.getId(), GameBalance.MOB_KILL_MONEY, true);
+				stats.changeXp(player.getId(), GameBalance.MOB_KILL_XP);
+				stats.changeMoney(player.getId(), GameBalance.MOB_KILL_MONEY, true);
 
 				// Квест «Охота»: считаем убитых мобов
 				player = playerCache.get(player.getId());
@@ -741,7 +596,7 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 					}
 				}
 			} else {
-				deathOfPlayer(player);
+				stats.deathOfPlayer(player);
 			}
 		}
 	}
@@ -786,7 +641,7 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 			event.getChannel().sendMessage("У тебя нет активного квеста, сначала возьми его").submit();
 		} else if (player.getMoney() >= GameBalance.QUEST_CHANGE_FEE) {
 			player.setActiveEvent(eventsManager.assignEvent(locationManager.getLocationList()));
-			changeMoney(playerId, GameBalance.QUEST_CHANGE_FEE, false);
+			stats.changeMoney(playerId, GameBalance.QUEST_CHANGE_FEE, false);
 			event.getChannel().sendMessage("Ты потратил " + GameBalance.QUEST_CHANGE_FEE + " монет и получил новое задание :\n" + player.getActiveEvent().toString()).submit();
 			playerCache.put(playerId, player);
 		} else {
@@ -813,11 +668,11 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		battleManager.playerBattle(List.of(player), List.of((ru.chebe.litvinov.data.Person) bot), event.getChannel());
 		// battleMechanic modifies the local player object but doesn't write it back to cache.
 		// changeMoney/changeXp re-fetch from cache and would overwrite with pre-battle HP.
-		changeHp(playerId, Math.max(0, player.getHp()));
+		stats.changeHp(playerId, Math.max(0, player.getHp()));
 		if (bot.getHp() <= 0) {
 			event.getChannel().sendMessage("🏆 **Победа над " + bot.getNickName() + "!**\n💰 +" + bot.getMoneyReward() + " монет  ✨ +" + bot.getXpReward() + " опыта").submit();
-			changeMoney(playerId, bot.getMoneyReward(), true);
-			changeXp(playerId, bot.getXpReward());
+			stats.changeMoney(playerId, bot.getMoneyReward(), true);
+			stats.changeXp(playerId, bot.getXpReward());
 			quests.progress(playerId, "KILL_NPC", 1);
 			quests.progress(playerId, "EARN_GOLD", bot.getMoneyReward());
 			if (factionManager != null) factionManager.addRep(playerId, "ВОИНЫ", 1);
@@ -827,7 +682,7 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 			int penaltyPct = level <= 5 ? 5 : level <= 15 ? 10 : level <= 30 ? 15 : 20;
 			event.getChannel().sendMessage("💀 **" + bot.getNickName() + "** победил тебя! 😵 Ты воскрешён на Респауне и потерял **" + penaltyPct + "%** монет.").submit();
 			npcManager.respawnBot(bot);
-			deathOfPlayer(player);
+			stats.deathOfPlayer(player);
 		}
 	}
 
@@ -861,8 +716,8 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 
 			player.setActiveEvent(null);
 			playerCache.put(playerId, player);
-			changeMoney(playerId, activeEvent.getMoneyReward(), true);
-			changeXp(playerId, activeEvent.getXpReward());
+			stats.changeMoney(playerId, activeEvent.getMoneyReward(), true);
+			stats.changeXp(playerId, activeEvent.getXpReward());
 			quests.progress(playerId, "EARN_GOLD", activeEvent.getMoneyReward());
 			if (factionManager != null) factionManager.addRep(playerId, "МАГИ", 2);
 			StringBuilder reward = new StringBuilder("Ты успешно завершил свой квест! Опыт: ")
@@ -903,7 +758,7 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 						event.getChannel().sendMessage("У вас недостаточно денег для покупки этого предмета").submit();
 						return;
 					}
-					int moneyLeft = changeMoney(player.getId(), price, false);
+					int moneyLeft = stats.changeMoney(player.getId(), price, false);
 					addNewItem(player.getId(), item.getName());
 					event.getChannel().sendMessage("Вы купили " + item.getName() + " у вас осталось " + moneyLeft + " денег").submit();
 				} finally {
@@ -954,8 +809,8 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 			for (Person play : players) {
 				if (play.getHp() > 0) {
 					String winnerId = ((Player) play).getId();
-					changeXp(winnerId, GameBalance.BOSS_KILL_XP);
-					changeMoney(winnerId, GameBalance.BOSS_KILL_MONEY, true);
+					stats.changeXp(winnerId, GameBalance.BOSS_KILL_XP);
+					stats.changeMoney(winnerId, GameBalance.BOSS_KILL_MONEY, true);
 					quests.progress(winnerId, "DEFEAT_BOSS", 1);
 					quests.progress(winnerId, "EARN_GOLD", GameBalance.BOSS_KILL_MONEY);
 					String bossItem = battleManager.getBossItemName(loc.getBoss());
@@ -981,7 +836,7 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 						playerCache.put(winnerId, winPlayer);
 					}
 				} else {
-					deathOfPlayer(((Player) play));
+					stats.deathOfPlayer(((Player) play));
 				}
 			}
 		}
@@ -1059,8 +914,8 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 			Player pObj = (Player) p;
 			if (p.getHp() > 0) {
 				if (attackers.contains(p)) {
-					changeMoney(pObj.getId(), GameBalance.PVP_WIN_MONEY, true);
-					changeXp(pObj.getId(), GameBalance.PVP_WIN_XP);
+					stats.changeMoney(pObj.getId(), GameBalance.PVP_WIN_MONEY, true);
+					stats.changeXp(pObj.getId(), GameBalance.PVP_WIN_XP);
 					// Трекинг PvP побед (71)
 					ReentrantLock pvpLock = getPlayerLock(pObj.getId());
 					pvpLock.lock();
@@ -1085,7 +940,7 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 					event.getChannel().sendMessage(pObj.getNickName() + " получает награду!").queue();
 				}
 			} else {
-				deathOfPlayer(pObj);
+				stats.deathOfPlayer(pObj);
 				event.getChannel().sendMessage(pObj.getNickName() + " погиб!").queue();
 			}
 		});
@@ -1529,10 +1384,10 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		for (ru.chebe.litvinov.data.Person p : result) {
 			if (p instanceof Player pl && pl.getId() != null) {
 				if (pl.getHp() > 0) {
-					changeMoney(pl.getId(), GameBalance.MOB_KILL_MONEY * 2, true);
-					changeXp(pl.getId(), GameBalance.MOB_KILL_XP * 2);
+					stats.changeMoney(pl.getId(), GameBalance.MOB_KILL_MONEY * 2, true);
+					stats.changeXp(pl.getId(), GameBalance.MOB_KILL_XP * 2);
 				} else {
-					deathOfPlayer(pl);
+					stats.deathOfPlayer(pl);
 				}
 			}
 		}
@@ -2198,10 +2053,10 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		boolean attackersWon = atk.stream().anyMatch(p -> p.getHp() > 0);
 		if (attackersWon) {
 			event.getChannel().sendMessage("🏆 Клан **" + player.getClanName() + "** победил! Каждый участник получает **" + GameBalance.CLAN_WAR_WIN_MONEY + "** монет!").submit();
-			attackers.forEach(p -> changeMoney(p.getId(), GameBalance.CLAN_WAR_WIN_MONEY, true));
+			attackers.forEach(p -> stats.changeMoney(p.getId(), GameBalance.CLAN_WAR_WIN_MONEY, true));
 		} else {
 			event.getChannel().sendMessage("🏆 Клан **" + targetClan + "** победил! Каждый участник получает **" + GameBalance.CLAN_WAR_WIN_MONEY + "** монет!").submit();
-			defenders.forEach(p -> changeMoney(p.getId(), GameBalance.CLAN_WAR_WIN_MONEY, true));
+			defenders.forEach(p -> stats.changeMoney(p.getId(), GameBalance.CLAN_WAR_WIN_MONEY, true));
 		}
 	}
 
@@ -2768,7 +2623,7 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 						String[] words = part.split("\\s+");
 						xpAmount = Integer.parseInt(words[words.length - 1].replace("+", ""));
 					} catch (Exception ignored) {}
-					changeXp(id, xpAmount);
+					stats.changeXp(id, xpAmount);
 				}
 				if (reward.contains("монет")) {
 					int moneyAmount = 50;
@@ -2778,7 +2633,7 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 						String[] words = part.split("\\s+");
 						moneyAmount = Integer.parseInt(words[words.length - 1].replace("+", ""));
 					} catch (Exception ignored) {}
-					changeMoney(id, moneyAmount, true);
+					stats.changeMoney(id, moneyAmount, true);
 				}
 				if (reward.contains("кружка цикория")) {
 					addNewItem(id, "кружка цикория");
