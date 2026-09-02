@@ -58,6 +58,9 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 	private final TravelService travel;
 	private final ClanCommandService clans;
 	private final SkillsService skills;
+	private final QuestEventService questEvents;
+	private final EconomyService economy;
+	private final LeaderboardService leaderboards;
 
 	// Новые менеджеры (items 85-150)
 	private PetManager petManager;
@@ -80,6 +83,7 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 	/** Устанавливает сервис ежедневных квестов (вызывается после конструктора). */
 	public void setDailyQuestService(DailyQuestService dailyQuestService) {
 		quests.setDailyQuestService(dailyQuestService);
+		questEvents.setDailyQuestService(dailyQuestService);
 		this.dailyQuestService = dailyQuestService;
 	}
 
@@ -94,6 +98,7 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		this.factionManager = factionManager;
 		inventory.setFactionManager(factionManager);
 		combat.setFactionManager(factionManager);
+		questEvents.setFactionManager(factionManager);
 	}
 	public void setBountyManager(BountyManager bountyManager) {
 		this.bountyManager = bountyManager;
@@ -104,6 +109,7 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 	public void setJda(net.dv8tion.jda.api.JDA jda) {
 		this.jda = jda;
 		achievements.setJda(jda);
+		leaderboards.setJda(jda);
 	}
 	public void setAllowedChannelIds(java.util.Set<String> allowedChannelIds) {
 		this.allowedChannelIds = allowedChannelIds;
@@ -151,6 +157,10 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 				playerLocks, achievements, stats, inventory, eventsManager, battleManager);
 		this.clans = new ClanCommandService(playerCache, clanManager, playerLocks, achievements);
 		this.skills = new SkillsService(playerCache, locationManager, playerLocks, achievements);
+		this.questEvents = new QuestEventService(playerCache, eventsManager, locationManager,
+				playerLocks, achievements, stats, quests, inventory);
+		this.economy = new EconomyService(playerCache, itemsManager, playerLocks, achievements, inventory);
+		this.leaderboards = new LeaderboardService(playerCache);
 		this.miniGames = new MiniGamesService(playerCache, tavern, playerLocks, achievements, quests);
 		this.duelService = new DuelService(playerCache, this::getPlayerLock, achievements::unlock);
 	}
@@ -370,6 +380,74 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 	@Override
 	public void useAbility(MessageReceivedEvent event) { skills.useAbility(event); }
 
+	/** {@inheritDoc} */
+	@Override
+	public void assignEvent(MessageReceivedEvent event) { questEvents.assignEvent(event); }
+
+	/** {@inheritDoc} */
+	@Override
+	public void changeEvent(MessageReceivedEvent event) { questEvents.changeEvent(event); }
+
+	/** {@inheritDoc} */
+	@Override
+	public void checkEvent(MessageReceivedEvent event) { questEvents.checkEvent(event); }
+
+	/** {@inheritDoc} */
+	@Override
+	public void dailyBonus(MessageReceivedEvent event) { questEvents.dailyBonus(event); }
+
+	/** {@inheritDoc} */
+	@Override
+	public void showDailyQuests(MessageReceivedEvent event) { questEvents.showDailyQuests(event); }
+
+	/** {@inheritDoc} */
+	@Override
+	public void questJournal(MessageReceivedEvent event) { questEvents.questJournal(event); }
+
+	/** {@inheritDoc} */
+	@Override
+	public void craftItem(MessageReceivedEvent event) { economy.craftItem(event); }
+
+	/** {@inheritDoc} */
+	@Override
+	public void merchantShop(MessageReceivedEvent event) { economy.merchantShop(event); }
+
+	/** {@inheritDoc} */
+	@Override
+	public void takeCredit(MessageReceivedEvent event) { economy.takeCredit(event); }
+
+	/** {@inheritDoc} */
+	@Override
+	public void repayCredit(MessageReceivedEvent event) { economy.repayCredit(event); }
+
+	/** {@inheritDoc} */
+	@Override
+	public void exchangeInfo(MessageReceivedEvent event) { economy.exchangeInfo(event); }
+
+	/** {@inheritDoc} */
+	@Override
+	public void sellResource(MessageReceivedEvent event) { economy.sellResource(event); }
+
+	/** {@inheritDoc} */
+	@Override
+	public void topLeaderboard(MessageReceivedEvent event) { leaderboards.topLeaderboard(event); }
+
+	/** {@inheritDoc} */
+	@Override
+	public void topActivity(MessageReceivedEvent event) { leaderboards.topActivity(event); }
+
+	/** {@inheritDoc} */
+	@Override
+	public void weeklyBoard(MessageReceivedEvent event) { leaderboards.weeklyBoard(event); }
+
+	/** {@inheritDoc} */
+	@Override
+	public void onlineCommand(MessageReceivedEvent event) { leaderboards.onlineCommand(event); }
+
+	/** {@inheritDoc} */
+	@Override
+	public boolean checkHiddenQuest(MessageReceivedEvent event) { return questEvents.checkHiddenQuest(event); }
+
 	public Player getPlayer(String id) {
 		return playerCache.get(id);
 	}
@@ -395,180 +473,6 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 	public void dieCast(MessageReceivedEvent event) { miniGames.dieCast(event); }
 
 
-	/**
-	 * Назначает игроку новый случайный квест.
-	 *
-	 * @param event событие Discord-сообщения
-	 */
-	public void assignEvent(MessageReceivedEvent event) {
-		String playerId = event.getAuthor().getId();
-		var player = playerCache.get(playerId);
-		if (player == null) {
-			event.getChannel().sendMessage("Сначала зарегистрируйся командой +начать").submit();
-			return;
-		}
-		if (player.getActiveEvent() != null) {
-			event.getChannel().sendMessage("У тебя уже есть активный квест, сначала заверши его").submit();
-		} else {
-			Event newEvent = eventsManager.assignEvent(locationManager.getLocationList());
-			log.debug("Выдан новый квест игроку {}: {}", playerId, newEvent);
-			player.setActiveEvent(newEvent);
-			event.getChannel().sendMessage("Ты получил новое задание :\n" + player.getActiveEvent().toString()).submit();
-			playerCache.put(playerId, player);
-			log.debug("Игрок {} сохранён с активным квестом", playerId);
-		}
-	}
-
-	/**
-	 * Заменяет текущий квест игрока на новый за 5 монет.
-	 *
-	 * @param event событие Discord-сообщения
-	 */
-	public void changeEvent(MessageReceivedEvent event) {
-		String playerId = event.getAuthor().getId();
-		var player = playerCache.get(playerId);
-		if (player == null) {
-			event.getChannel().sendMessage("Сначала зарегистрируйся командой +начать").submit();
-			return;
-		}
-		if (player.getActiveEvent() == null) {
-			event.getChannel().sendMessage("У тебя нет активного квеста, сначала возьми его").submit();
-		} else if (player.getMoney() >= GameBalance.QUEST_CHANGE_FEE) {
-			player.setActiveEvent(eventsManager.assignEvent(locationManager.getLocationList()));
-			stats.changeMoney(playerId, GameBalance.QUEST_CHANGE_FEE, false);
-			event.getChannel().sendMessage("Ты потратил " + GameBalance.QUEST_CHANGE_FEE + " монет и получил новое задание :\n" + player.getActiveEvent().toString()).submit();
-			playerCache.put(playerId, player);
-		} else {
-			event.getChannel().sendMessage("У тебя недостаточно денег, сначала зарабаотай их").submit();
-		}
-	}
-
-
-	/**
-	 * Проверяет выполнение условия активного квеста.
-	 * При успехе начисляет награду и снимает квест.
-	 *
-	 * @param event событие Discord-сообщения с ответом игрока (для квестов-загадок)
-	 */
-	public void checkEvent(MessageReceivedEvent event) {
-		String playerId = event.getAuthor().getId();
-		var player = playerCache.get(playerId);
-		if (player == null) {
-			event.getChannel().sendMessage("Сначала зарегистрируйся командой +начать").submit();
-			return;
-		}
-		String content = event.getMessage().getContentDisplay();
-		String message = content.length() > 16 ? content.substring(16).trim().toLowerCase() : "";
-		player.setAnswer(message);
-		var activeEvent = player.getActiveEvent();
-		if (activeEvent == null) {
-			event.getChannel().sendMessage("У тебя нет активного квеста, сначала возьми его").submit();
-			return;
-		}
-		
-		boolean isCompleted = eventsManager.checkEvent(activeEvent, player);
-		if (isCompleted) {
-			// Добавляем квест в журнал (48)
-			if (player.getCompletedQuests() == null) player.setCompletedQuests(new ArrayList<>());
-			player.getCompletedQuests().add(activeEvent.getDescription());
-
-			player.setActiveEvent(null);
-			playerCache.put(playerId, player);
-			stats.changeMoney(playerId, activeEvent.getMoneyReward(), true);
-			stats.changeXp(playerId, activeEvent.getXpReward());
-			quests.progress(playerId, "EARN_GOLD", activeEvent.getMoneyReward());
-			if (factionManager != null) factionManager.addRep(playerId, "МАГИ", 2);
-			StringBuilder reward = new StringBuilder("Ты успешно завершил свой квест! Опыт: ")
-					.append(activeEvent.getXpReward()).append(", монеты: ").append(activeEvent.getMoneyReward());
-			String itemReward = activeEvent.getItemReward();
-			if (itemReward != null && !itemReward.isBlank()) {
-				addNewItem(playerId, itemReward);
-				reward.append(", предмет: **").append(itemReward).append("**");
-			}
-			event.getChannel().sendMessage(reward.toString()).submit();
-		} else {
-			event.getChannel().sendMessage("Ты не выполнил условия квеста или ответил неправильно!").submit();
-		}
-	}
-
-
-
-
-	/**
-	 * Начисляет игроку ежедневный бонус (100 монет) с учётом стрика.
-	 * 3 дня подряд — +50 бонус; 7 дней — редкий предмет.
-	 *
-	 * @param event событие Discord-сообщения
-	 */
-	public void dailyBonus(MessageReceivedEvent event) {
-		String id = event.getAuthor().getId();
-		ReentrantLock lock = getPlayerLock(id);
-		lock.lock();
-		try {
-			Player player = playerCache.get(id);
-			long now = System.currentTimeMillis();
-			if (player.getDailyTime() < now - GameBalance.ONE_DAY_MS) {
-				if (player.getDailyTime() == 0 || player.getDailyTime() < now - GameBalance.TWO_DAYS_MS) {
-					player.setDailyStreak(1);
-				} else {
-					player.setDailyStreak(player.getDailyStreak() + 1);
-				}
-				int streak = player.getDailyStreak();
-				player.setDailyTime(now);
-				int dailyBonus = GameBalance.DAILY_BONUS_BASE + player.getLevel() * GameBalance.DAILY_BONUS_PER_LEVEL;
-				player.setMoney(player.getMoney() + dailyBonus);
-
-				StringBuilder msg = new StringBuilder("Вы получили ежедневный бонус " + dailyBonus + " монет! (Стрик: " + streak + " дн.)");
-				if (streak == 3) {
-					player.setMoney(player.getMoney() + GameBalance.DAILY_STREAK_3_BONUS);
-					msg.append("\n Стрик 3 дня! Бонус +" + GameBalance.DAILY_STREAK_3_BONUS + " монет!");
-					achievements.unlock(player, "стрик_3");
-				}
-				if (streak % GameBalance.DAILY_STREAK_RARE_ITEM_INTERVAL == 0 && streak > 0) {
-					String rareItem = GameBalance.DAILY_STREAK_RARE_ITEM;
-					Map<String, Integer> inv = player.getInventory();
-					inv.put(rareItem, inv.getOrDefault(rareItem, 0) + 1);
-					msg.append("\n Стрик ").append(streak).append(" дней! Получен редкий предмет: ").append(rareItem).append("!");
-					achievements.unlock(player, "стрик_7");
-				}
-
-				// Налог на богатство (68)
-				if (player.getMoney() > GameBalance.WEALTH_TAX_THRESHOLD) {
-					int tax = (int)(player.getMoney() * GameBalance.WEALTH_TAX_RATE);
-					player.setMoney(player.getMoney() - tax);
-					msg.append("\n💰 Налог на богатство: -").append(tax).append(" монет");
-				}
-
-				// Процент по долгу (63)
-				if (player.getDebt() > 0) {
-					int interest = (int)(player.getDebt() * GameBalance.CREDIT_DAILY_INTEREST);
-					if (player.getMoney() >= interest) {
-						player.setMoney(player.getMoney() - interest);
-						msg.append("\n💳 Проценты по кредиту: -").append(interest).append(" монет (долг: ").append(player.getDebt()).append(")");
-					}
-				}
-
-				playerCache.put(id, player);
-				event.getChannel().sendMessage(msg.toString()).submit();
-			} else {
-				int hours = (int) (24 - (now - player.getDailyTime()) / (GameBalance.ONE_DAY_MS / 24));
-				event.getChannel().sendMessage("Вы уже получили ежедневный бонус, приходите через " + hours + " часов. Текущий стрик: " + player.getDailyStreak() + " дн.").submit();
-			}
-		} finally {
-			lock.unlock();
-		}
-	}
-
-	/**
-	 * Показывает ежедневные квесты игрока.
-	 *
-	 * @param event событие Discord-сообщения
-	 */
-	public void showDailyQuests(MessageReceivedEvent event) {
-		String id = event.getAuthor().getId();
-		DailyQuest quests = dailyQuestService.getDailyQuests(id);
-		event.getChannel().sendMessage(dailyQuestService.formatQuests(quests)).submit();
-	}
 
 
 
@@ -576,48 +480,14 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 
 
 
-	/**
-	 * Выводит таблицу лидеров top-10.
-	 * Синтаксис: +топ [уровень|деньги|репутация] (по умолчанию — уровень)
-	 */
-	public void topLeaderboard(MessageReceivedEvent event) {
-		String msg = event.getMessage().getContentDisplay();
-		String arg = msg.length() > 4 ? msg.substring(4).trim().toLowerCase() : "";
 
-		List<Player> all = playerCache.getAll();
-		if (all.isEmpty()) {
-			event.getChannel().sendMessage("Нет зарегистрированных игроков.").submit();
-			return;
-		}
 
-		java.util.Comparator<Player> comparator;
-		String title;
-		if ("деньги".equals(arg)) {
-			comparator = java.util.Comparator.comparingInt(Player::getMoney).reversed();
-			title = "Топ по деньгам";
-		} else if ("репутация".equals(arg)) {
-			comparator = java.util.Comparator.comparingInt(Player::getReputation).reversed();
-			title = "Топ по репутации";
-		} else {
-			comparator = java.util.Comparator.comparingInt(Player::getLevel).reversed();
-			title = "Топ по уровню";
-		}
 
-		List<Player> sorted = all.stream().sorted(comparator).limit(10).collect(Collectors.toList());
-		StringBuilder sb = new StringBuilder(title + "\n");
-		for (int i = 0; i < sorted.size(); i++) {
-			Player p = sorted.get(i);
-			String classLabel = (p.getPlayerClass() != null && !p.getPlayerClass().isEmpty()) ? " [" + p.getPlayerClass() + "]" : "";
-			if ("деньги".equals(arg)) {
-				sb.append(String.format("%d. %s%s — %d монет\n", i + 1, p.getNickName(), classLabel, p.getMoney()));
-			} else if ("репутация".equals(arg)) {
-				sb.append(String.format("%d. %s%s — %d репутации\n", i + 1, p.getNickName(), classLabel, p.getReputation()));
-			} else {
-				sb.append(String.format("%d. %s%s — %d ур.\n", i + 1, p.getNickName(), classLabel, p.getLevel()));
-			}
-		}
-		event.getChannel().sendMessage(sb.toString()).submit();
-	}
+
+
+
+
+
 
 
 	/**
@@ -651,152 +521,11 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 
 
 
-	private static final Map<String, Map<String, Integer>> CRAFT_RECIPES = Map.of(
-		"зелье силы", Map.of("кружка цикория", 2, "вино лаба", 1),
-		"боевой эликсир", Map.of("зелье лаба", 1, "протеин ябыса", 1),
-		"счастливый амулет", Map.of("амулет рианель", 1, "шарики лаба", 1)
-	);
 
-	/** +крафт — список рецептов / +крафт [предмет] — создание (39) */
-	public void craftItem(MessageReceivedEvent event) {
-		String id = event.getAuthor().getId();
-		String arg = event.getMessage().getContentDisplay().substring(6).trim().toLowerCase();
-		if (arg.isEmpty()) {
-			var sb = new StringBuilder("⚒️ **Рецепты крафта:**\n");
-			CRAFT_RECIPES.forEach((result, ingredients) -> {
-				sb.append("• **").append(result).append("**: ");
-				ingredients.forEach((mat, qty) -> sb.append(qty).append("x ").append(mat).append(", "));
-				sb.setLength(sb.length() - 2);
-				sb.append("\n");
-			});
-			event.getChannel().sendMessage(sb.toString()).submit();
-			return;
-		}
-		Map<String, Integer> recipe = CRAFT_RECIPES.get(arg);
-		if (recipe == null) {
-			event.getChannel().sendMessage("Рецепт **" + arg + "** не найден. Введи +крафт для списка рецептов.").submit();
-			return;
-		}
-		ReentrantLock lock = getPlayerLock(id);
-		lock.lock();
-		try {
-			Player player = playerCache.get(id);
-			for (Map.Entry<String, Integer> e : recipe.entrySet()) {
-				if (player.getInventory().getOrDefault(e.getKey(), 0) < e.getValue()) {
-					event.getChannel().sendMessage("❌ Недостаточно **" + e.getKey() + "** (нужно: " + e.getValue() + ", есть: " + player.getInventory().getOrDefault(e.getKey(), 0) + ")").submit();
-					return;
-				}
-			}
-			recipe.forEach((mat, qty) -> {
-				int have = player.getInventory().get(mat);
-				if (have <= qty) player.getInventory().remove(mat);
-				else player.getInventory().put(mat, have - qty);
-			});
-			player.getInventory().merge(arg, 1, Integer::sum);
-			playerCache.put(id, player);
-			event.getChannel().sendMessage("✅ Создан предмет: **" + arg + "**!").submit();
-		} finally {
-			lock.unlock();
-		}
-	}
 
-	/** +торговец — случайные предметы в локации (42) */
-	public void merchantShop(MessageReceivedEvent event) {
-		String id = event.getAuthor().getId();
-		Player player = playerCache.get(id);
-		List<String> merchantItems = itemsManager.getMerchantItems(player.getLocation());
-		String discountItem = itemsManager.getSeasonalDiscountItem();
-		var sb = new StringBuilder("🛒 **Торговец в " + player.getLocation() + "**\n");
-		for (String name : merchantItems) {
-			ru.chebe.litvinov.data.Item item = itemsManager.getItem(name);
-			if (item == null) continue;
-			int price = item.getPrice();
-			if (name.equals(discountItem)) {
-				price = price / 2;
-				sb.append("• **").append(name).append("** — ").append(price).append(" монет 🏷️ Скидка 50%!\n");
-			} else {
-				sb.append("• **").append(name).append("** — ").append(price).append(" монет\n");
-			}
-		}
-		sb.append("Купить: +купить [предмет]");
-		event.getChannel().sendMessage(sb.toString()).submit();
-	}
 
-	/** +квесты — журнал выполненных квестов (48) */
-	public void questJournal(MessageReceivedEvent event) {
-		String id = event.getAuthor().getId();
-		Player player = playerCache.get(id);
-		List<String> completed = player.getCompletedQuests();
-		if (completed == null || completed.isEmpty()) {
-			event.getChannel().sendMessage("📜 Ты ещё не выполнил ни одного квеста.").submit();
-			return;
-		}
-		int start = Math.max(0, completed.size() - 10);
-		List<String> last10 = completed.subList(start, completed.size());
-		var sb = new StringBuilder("📜 **Журнал квестов:**\n");
-		for (int i = 0; i < last10.size(); i++) {
-			sb.append(i + 1).append(". ").append(last10.get(i)).append("\n");
-		}
-		event.getChannel().sendMessage(sb.toString()).submit();
-	}
 
-	/** +кредит [amount] — кредит из таверны (63) */
-	public void takeCredit(MessageReceivedEvent event) {
-		String id = event.getAuthor().getId();
-		String raw = event.getMessage().getContentDisplay().substring(8).trim();
-		int amount;
-		try {
-			amount = Integer.parseInt(raw);
-		} catch (NumberFormatException e) {
-			event.getChannel().sendMessage("Укажите сумму кредита: +кредит [сумма]").submit();
-			return;
-		}
-		if (amount <= 0 || amount > GameBalance.CREDIT_MAX) {
-			event.getChannel().sendMessage("Сумма кредита от 1 до " + GameBalance.CREDIT_MAX + " монет.").submit();
-			return;
-		}
-		ReentrantLock lock = getPlayerLock(id);
-		lock.lock();
-		try {
-			Player player = playerCache.get(id);
-			if (player.getDebt() > 0) {
-				event.getChannel().sendMessage("У вас уже есть долг: **" + player.getDebt() + "** монет. Сначала погасите его (+погасить).").submit();
-				return;
-			}
-			player.setMoney(player.getMoney() + amount);
-			player.setDebt(amount);
-			playerCache.put(id, player);
-			event.getChannel().sendMessage("💳 Вы взяли кредит **" + amount + "** монет. Долг: **" + amount + "** (5% в день).").submit();
-		} finally {
-			lock.unlock();
-		}
-	}
 
-	/** +погасить — погасить кредит (63) */
-	public void repayCredit(MessageReceivedEvent event) {
-		String id = event.getAuthor().getId();
-		ReentrantLock lock = getPlayerLock(id);
-		lock.lock();
-		try {
-			Player player = playerCache.get(id);
-			if (player.getDebt() <= 0) {
-				event.getChannel().sendMessage("У вас нет долга.").submit();
-				return;
-			}
-			int debt = player.getDebt();
-			int total = (int) (debt * 1.05);
-			if (player.getMoney() < total) {
-				event.getChannel().sendMessage("Недостаточно монет для погашения долга **" + total + "** (долг " + debt + " + 5% процентов).").submit();
-				return;
-			}
-			player.setMoney(player.getMoney() - total);
-			player.setDebt(0);
-			playerCache.put(id, player);
-			event.getChannel().sendMessage("✅ Долг погашен! Уплачено **" + total + "** монет (включая проценты).").submit();
-		} finally {
-			lock.unlock();
-		}
-	}
 
 	/** {@inheritDoc} */
 	@Override
@@ -868,71 +597,7 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		}
 	}
 
-	/** +биржа — текущие цены на ресурсы (69); +продать ресурс [предмет] [qty] */
-	public void exchangeInfo(MessageReceivedEvent event) {
-		var sb = new StringBuilder("📊 **Биржа ресурсов** (цены меняются ±20% каждый день)\n\n");
-		int seed = (int)(System.currentTimeMillis() / GameBalance.ONE_DAY_MS);
-		Random rng = new Random(seed);
-		String[] resources = {"кружка цикория", "вино лаба", "медовуха база", "протеин ябыса"};
-		for (String res : resources) {
-			ru.chebe.litvinov.data.Item item = itemsManager.getItem(res);
-			if (item == null) continue;
-			double factor = 0.8 + rng.nextDouble() * 0.4;
-			int price = Math.max(1, (int)(item.getPrice() * factor));
-			sb.append("• **").append(res).append("** — ").append(price).append(" монет\n");
-		}
-		sb.append("\nПродать: +продать ресурс [предмет] [количество]");
-		event.getChannel().sendMessage(sb.toString()).submit();
-	}
 
-	public void sellResource(MessageReceivedEvent event) {
-		String id = event.getAuthor().getId();
-		String raw = event.getMessage().getContentDisplay().substring(16).trim().toLowerCase();
-		String[] parts = raw.split("\\s+");
-		if (parts.length < 2) {
-			event.getChannel().sendMessage("Использование: +продать ресурс [предмет] [количество]").submit();
-			return;
-		}
-		int qty;
-		try {
-			qty = Integer.parseInt(parts[parts.length - 1]);
-		} catch (NumberFormatException e) {
-			event.getChannel().sendMessage("Укажите количество.").submit();
-			return;
-		}
-		if (qty <= 0) {
-			event.getChannel().sendMessage("Количество должно быть больше нуля.").submit();
-			return;
-		}
-		String itemName = raw.substring(0, raw.lastIndexOf(parts[parts.length - 1])).trim();
-		ReentrantLock lock = getPlayerLock(id);
-		lock.lock();
-		try {
-			Player player = playerCache.get(id);
-			int have = player.getInventory().getOrDefault(itemName, 0);
-			if (have < qty) {
-				event.getChannel().sendMessage("Недостаточно **" + itemName + "** (есть: " + have + ").").submit();
-				return;
-			}
-			ru.chebe.litvinov.data.Item item = itemsManager.getItem(itemName);
-			if (item == null) {
-				event.getChannel().sendMessage("Предмет не найден на бирже.").submit();
-				return;
-			}
-			int seed = (int)(System.currentTimeMillis() / GameBalance.ONE_DAY_MS);
-			double factor = 0.8 + new Random(seed + itemName.hashCode()).nextDouble() * 0.4;
-			int price = Math.max(1, (int)(item.getPrice() * factor));
-			int total = price * qty;
-			if (have == qty) player.getInventory().remove(itemName);
-			else player.getInventory().put(itemName, have - qty);
-			player.setMoney(player.getMoney() + total);
-			playerCache.put(id, player);
-			event.getChannel().sendMessage("💱 Продано **" + qty + "x " + itemName + "** за **" + total + "** монет.").submit();
-			achievements.checkRich(player);
-		} finally {
-			lock.unlock();
-		}
-	}
 
 	/** +топ кланы — рейтинг кланов (56) */
 	public void clanLeaderboard(MessageReceivedEvent event) {
@@ -1263,19 +928,6 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 	}
 
 	// ---- Item 99: Online command ----
-	/** +онлайн — количество активных игроков */
-	public void onlineCommand(MessageReceivedEvent event) {
-		long now = System.currentTimeMillis();
-		long oneDayAgo = now - 24 * 60 * 60 * 1000L;
-		List<Player> all = playerCache.getAll();
-		List<Player> online = all.stream()
-			.filter(p -> p.getDailyTime() > oneDayAgo)
-			.collect(Collectors.toList());
-		var sb = new StringBuilder("🟢 **Онлайн за последние 24 часа:** " + online.size() + " игроков\n");
-		online.stream().limit(20).forEach(p -> sb.append("• ").append(p.getNickName()).append("\n"));
-		if (online.size() > 20) sb.append("...и ещё ").append(online.size() - 20).append(" игроков");
-		event.getChannel().sendMessage(sb.toString()).submit();
-	}
 
 	// ---- Item 100: Rare achievement broadcast ----
 
@@ -1460,75 +1112,9 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		}
 	}
 
-	/** +топ активность — топ активных игроков */
-	public void topActivity(MessageReceivedEvent event) {
-		List<Player> all = playerCache.getAll();
-		all.sort((a, b) -> {
-			int scoreA = a.getPvpWins() + a.getMobKills() + (a.getCompletedQuests() != null ? a.getCompletedQuests().size() : 0);
-			int scoreB = b.getPvpWins() + b.getMobKills() + (b.getCompletedQuests() != null ? b.getCompletedQuests().size() : 0);
-			return scoreB - scoreA;
-		});
-		var sb = new StringBuilder("🏆 **Топ активности:**\n\n");
-		for (int i = 0; i < Math.min(10, all.size()); i++) {
-			Player p = all.get(i);
-			int score = p.getPvpWins() + p.getMobKills() + (p.getCompletedQuests() != null ? p.getCompletedQuests().size() : 0);
-			sb.append(String.format("%d. **%s** — %d очков активности\n", i + 1, p.getNickName(), score));
-		}
-		event.getChannel().sendMessage(sb.toString()).submit();
-	}
 
 	// Карта скрытых квестов
-	private static final Map<String, String> HIDDEN_QUESTS = Map.ofEntries(
-		Map.entry("открою тайну", "Ты нашёл тайную тропу! +50 XP"),
-		Map.entry("чего это за дверь", "Скрытая комната! +100 монет"),
-		Map.entry("что здесь происходит", "Странное место... +30 XP"),
-		Map.entry("найди меня", "Кто-то тебя ждал! +50 монет"),
-		Map.entry("секрет сервера", "Ты раскрыл секрет! +75 XP"),
-		Map.entry("цикорий навсегда", "Ты один из настоящих! +60 XP + кружка цикория"),
-		Map.entry("ровер лучший", "Лесть работает. +80 монет"),
-		Map.entry("хочу чебурек", "В это место не завезли еду. +40 XP"),
-		Map.entry("где тут касса", "Касса закрыта навсегда. +50 монет"),
-		Map.entry("что посоветуешь", "Посоветую бросить это всё. +100 XP")
-	);
 
-	/** Проверяет скрытые квесты по тексту сообщения */
-	public boolean checkHiddenQuest(MessageReceivedEvent event) {
-		String content = event.getMessage().getContentDisplay().toLowerCase();
-		for (Map.Entry<String, String> entry : HIDDEN_QUESTS.entrySet()) {
-			if (content.contains(entry.getKey())) {
-				String id = event.getAuthor().getId();
-				event.getChannel().sendMessage("🔮 " + entry.getValue()).submit();
-				String reward = entry.getValue();
-				// Parse XP amount
-				if (reward.contains("XP")) {
-					int xpAmount = 50;
-					try {
-						// Extract number before " XP"
-						int xpIdx = reward.indexOf("XP");
-						String part = reward.substring(0, xpIdx).trim();
-						String[] words = part.split("\\s+");
-						xpAmount = Integer.parseInt(words[words.length - 1].replace("+", ""));
-					} catch (Exception ignored) {}
-					stats.changeXp(id, xpAmount);
-				}
-				if (reward.contains("монет")) {
-					int moneyAmount = 50;
-					try {
-						int moneyIdx = reward.indexOf("монет");
-						String part = reward.substring(0, moneyIdx).trim();
-						String[] words = part.split("\\s+");
-						moneyAmount = Integer.parseInt(words[words.length - 1].replace("+", ""));
-					} catch (Exception ignored) {}
-					stats.changeMoney(id, moneyAmount, true);
-				}
-				if (reward.contains("кружка цикория")) {
-					addNewItem(id, "кружка цикория");
-				}
-				return true;
-			}
-		}
-		return false;
-	}
 
 	/** +лор — лор мира */
 	public void lorePage(MessageReceivedEvent event) {
@@ -1570,21 +1156,6 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		event.getChannel().sendMessage(sb.toString()).submit();
 	}
 
-	/** +доска — еженедельная доска почёта */
-	public void weeklyBoard(MessageReceivedEvent event) {
-		List<Player> all = playerCache.getAll();
-		Player topPvp = all.stream().max(Comparator.comparingInt(Player::getPvpWins)).orElse(null);
-		Player topMobs = all.stream().max(Comparator.comparingInt(Player::getMobKills)).orElse(null);
-		Player topMoney = all.stream().max(Comparator.comparingInt(Player::getMoney)).orElse(null);
-
-		net.dv8tion.jda.api.EmbedBuilder embed = new net.dv8tion.jda.api.EmbedBuilder()
-			.setTitle("📊 Доска почёта — Эта неделя")
-			.setColor(new java.awt.Color(255, 215, 0));
-		if (topPvp != null) embed.addField("⚔️ Лучший в PvP", topPvp.getNickName() + " — " + topPvp.getPvpWins() + " побед", false);
-		if (topMobs != null) embed.addField("🗡️ Охотник на мобов", topMobs.getNickName() + " — " + topMobs.getMobKills() + " убийств", false);
-		if (topMoney != null) embed.addField("💰 Богатейший", topMoney.getNickName() + " — " + topMoney.getMoney() + " монет", false);
-		event.getChannel().sendMessageEmbeds(embed.build()).submit();
-	}
 
 	// ---- Items 138-144: Bounty ----
 	/** +бонт @player [reward] */
