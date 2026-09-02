@@ -128,7 +128,7 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 	/**
 	 * Создаёт менеджер игроков со всеми зависимостями.
 	 *
-	 * @param playerCache    репозиторий Ignite 3 для хранения данных игроков
+	 * @param playerCache    репозиторий игроков (PostgreSQL)
 	 * @param locationManager менеджер локаций
 	 * @param itemsManager    менеджер предметов
 	 * @param battleManager   менеджер боевой системы
@@ -716,49 +716,6 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		}
 	}
 
-	/** +война [клан] — вызов на клановую войну (58) */
-	public void clanWar(MessageReceivedEvent event) {
-		String id = event.getAuthor().getId();
-		Player player = playerCache.get(id);
-		if (player.getClanName() == null || player.getClanName().isEmpty()) {
-			event.getChannel().sendMessage("Вы не состоите в клане.").submit();
-			return;
-		}
-		String targetClan = event.getMessage().getContentDisplay().substring(7).trim().toLowerCase();
-		if (targetClan.isEmpty()) {
-			event.getChannel().sendMessage("Укажите название клана: +война [клан]").submit();
-			return;
-		}
-		if (targetClan.equals(player.getClanName())) {
-			event.getChannel().sendMessage("Нельзя объявить войну своему клану.").submit();
-			return;
-		}
-		ru.chebe.litvinov.data.Clan enemyClan = clanManager.getClan(targetClan);
-		if (enemyClan == null) {
-			event.getChannel().sendMessage("Клан **" + targetClan + "** не найден.").submit();
-			return;
-		}
-		List<Player> attackers = clanManager.getClanMembers(player.getClanName()).stream()
-				.map(playerCache::get).filter(Objects::nonNull).collect(Collectors.toList());
-		List<Player> defenders = clanManager.getClanMembers(targetClan).stream()
-				.map(playerCache::get).filter(Objects::nonNull).collect(Collectors.toList());
-		if (attackers.isEmpty() || defenders.isEmpty()) {
-			event.getChannel().sendMessage("Недостаточно участников для войны.").submit();
-			return;
-		}
-		event.getChannel().sendMessage("⚔️ **Клановая война:** **" + player.getClanName() + "** vs **" + targetClan + "**!").submit();
-		List<ru.chebe.litvinov.data.Person> atk = attackers.stream().map(p -> (ru.chebe.litvinov.data.Person) p).collect(Collectors.toList());
-		List<ru.chebe.litvinov.data.Person> def = defenders.stream().map(p -> (ru.chebe.litvinov.data.Person) p).collect(Collectors.toList());
-		battleManager.playerBattle(atk, def, event.getChannel());
-		boolean attackersWon = atk.stream().anyMatch(p -> p.getHp() > 0);
-		if (attackersWon) {
-			event.getChannel().sendMessage("🏆 Клан **" + player.getClanName() + "** победил! Каждый участник получает **" + GameBalance.CLAN_WAR_WIN_MONEY + "** монет!").submit();
-			attackers.forEach(p -> stats.changeMoney(p.getId(), GameBalance.CLAN_WAR_WIN_MONEY, true));
-		} else {
-			event.getChannel().sendMessage("🏆 Клан **" + targetClan + "** победил! Каждый участник получает **" + GameBalance.CLAN_WAR_WIN_MONEY + "** монет!").submit();
-			defenders.forEach(p -> stats.changeMoney(p.getId(), GameBalance.CLAN_WAR_WIN_MONEY, true));
-		}
-	}
 
 	/** +клан повысить @user — повысить роль (59) */
 	public void promoteClanMember(MessageReceivedEvent event) {
@@ -979,11 +936,6 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		else event.getChannel().sendMessage("Система профессий недоступна.").submit();
 	}
 
-	/** +создать [рецепт] — крафт предмета профессии */
-	public void professionCraftItem(MessageReceivedEvent event) {
-		if (professionManager != null) professionManager.craftItem(event);
-		else event.getChannel().sendMessage("Система профессий недоступна.").submit();
-	}
 
 	/** +рецепты — список рецептов профессии */
 	public void showProfessionRecipes(MessageReceivedEvent event) {
@@ -1047,11 +999,6 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		else event.getChannel().sendMessage("Статус кризиса недоступен.").submit();
 	}
 
-	/** +сезон — сезонный предмет */
-	public void showSeason(MessageReceivedEvent event) {
-		if (worldEventManager != null) worldEventManager.showSeason(event);
-		else event.getChannel().sendMessage("Сезон недоступен.").submit();
-	}
 
 	/** +турнир сервера */
 	public void serverTournament(MessageReceivedEvent event) {

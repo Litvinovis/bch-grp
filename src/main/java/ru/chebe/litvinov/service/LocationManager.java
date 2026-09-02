@@ -15,7 +15,7 @@ import java.util.Queue;
 
 /**
  * Менеджер игровых локаций.
- * Инициализирует карту мира в Ignite-кэше, обрабатывает перемещение игроков между локациями
+ * Инициализирует карту мира в базе, обрабатывает перемещение игроков между локациями
  * и предоставляет информацию о локациях.
  */
 public class LocationManager implements ru.chebe.litvinov.service.interfaces.ILocationManager {
@@ -26,7 +26,7 @@ public class LocationManager implements ru.chebe.litvinov.service.interfaces.ILo
 	/**
 	 * Создаёт менеджер локаций и инициализирует карту мира в репозитории.
 	 *
-	 * @param locationCache репозиторий Ignite 3 для хранения локаций
+	 * @param locationCache репозиторий локаций (PostgreSQL)
 	 */
 	public LocationManager(LocationRepository locationCache) {
 		this.locationCache = locationCache;
@@ -37,7 +37,7 @@ public class LocationManager implements ru.chebe.litvinov.service.interfaces.ILo
 	 * Инициализирует репозиторий локаций полным набором игровых локаций.
 	 * Локации добавляются только если ещё не существуют в репозитории.
 	 *
-	 * @param locationCache репозиторий Ignite 3 для инициализации
+	 * @param locationCache репозиторий локаций для инициализации
 	 */
 	public static void init(LocationRepository locationCache) {
 		Map<String, Location> map = new HashMap<>();

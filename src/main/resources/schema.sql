@@ -1,5 +1,5 @@
 -- PostgreSQL schema for BCH-GRP bot
--- Converted from Ignite 3 DDL: ZONE removed, VARCHAR -> TEXT, INT -> INTEGER, DOUBLE -> DOUBLE PRECISION
+-- Схема PostgreSQL (перенесена с Ignite 3 в апреле 2026)
 -- "exp" renamed to player_exp (cleaner, no quoting needed in JDBC code)
 
 CREATE TABLE IF NOT EXISTS players (
@@ -126,13 +126,6 @@ ALTER TABLE clans ADD COLUMN IF NOT EXISTS fortress_upgrades TEXT NOT NULL DEFAU
 ALTER TABLE clans ADD COLUMN IF NOT EXISTS active_sieges     TEXT NOT NULL DEFAULT '{}';
 
 -- Item 90: Game event log
-CREATE TABLE IF NOT EXISTS game_event_log (
-    id         SERIAL PRIMARY KEY,
-    event_type TEXT NOT NULL,
-    player_id  TEXT NOT NULL,
-    details    TEXT,
-    created_at BIGINT NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW())::BIGINT * 1000
-);
 
 -- Item 117-123: Territories
 CREATE TABLE IF NOT EXISTS territories (
@@ -190,3 +183,7 @@ CREATE TABLE IF NOT EXISTS daily_quests (
     bonus_claimed    BOOLEAN NOT NULL DEFAULT FALSE,
     PRIMARY KEY (user_id, quest_date)
 );
+
+-- Таблица не использовалась: писавший в неё GameEventLogRepository не вызывался
+-- ни из одной команды, записей не было (удалено 02.09.2026)
+DROP TABLE IF EXISTS game_event_log;

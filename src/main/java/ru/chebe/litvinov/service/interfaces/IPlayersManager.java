@@ -263,7 +263,6 @@ public interface IPlayersManager {
     void clanBankCommand(MessageReceivedEvent event);
     void clanUpgradesCommand(MessageReceivedEvent event);
     void setClanBase(MessageReceivedEvent event);
-    void clanWar(MessageReceivedEvent event);
     void promoteClanMember(MessageReceivedEvent event);
     void kickClanMember(MessageReceivedEvent event);
     void seasonLeaderboard(MessageReceivedEvent event);
@@ -291,7 +290,6 @@ public interface IPlayersManager {
     void worldBossAttack(MessageReceivedEvent event);
     void invasionStatus(MessageReceivedEvent event);
     void crisisStatus(MessageReceivedEvent event);
-    void showSeason(MessageReceivedEvent event);
     void serverTournament(MessageReceivedEvent event);
     void showSkills(MessageReceivedEvent event);
     void investSkill(MessageReceivedEvent event);

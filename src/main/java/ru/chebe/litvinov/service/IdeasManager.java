@@ -15,7 +15,7 @@ public class IdeasManager implements ru.chebe.litvinov.service.interfaces.IIdeas
 	/**
 	 * Создаёт менеджер идей.
 	 *
-	 * @param ideaCache репозиторий Ignite 3 для хранения идей
+	 * @param ideaCache репозиторий идей (PostgreSQL)
 	 */
 	public IdeasManager(IdeaRepository ideaCache) {
 		this.ideaCache = ideaCache;
