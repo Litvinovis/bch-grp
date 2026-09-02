@@ -44,7 +44,8 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 	private final NpcManager npcManager;
 	private final Random random = new Random();
 
-	private final ConcurrentHashMap<String, ReentrantLock> playerLocks = new ConcurrentHashMap<>();
+	private final PlayerLocks playerLocks = new PlayerLocks();
+	private final AchievementService achievements;
 	private final DuelService duelService;
 
 	// Кулдаун на убийство босса
@@ -67,7 +68,6 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 	private static final int INVENTORY_PAGE_SIZE = 10;
 
 	// Редкие достижения для анонсов (item 100)
-	private static final java.util.Set<String> RARE_ACHIEVEMENTS = java.util.Set.of("легенда", "100_pvp", "коллекционер", "исследователь", "победитель_рейда");
 	private net.dv8tion.jda.api.JDA jda;
 	private java.util.Set<String> allowedChannelIds;
 
@@ -84,11 +84,17 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 	public void setBountyManager(BountyManager bountyManager) { this.bountyManager = bountyManager; }
 	public void setArenaManager(ArenaManager arenaManager) { this.arenaManager = arenaManager; }
 	public void setTournamentManager(TournamentManager tournamentManager) { this.tournamentManager = tournamentManager; }
-	public void setJda(net.dv8tion.jda.api.JDA jda) { this.jda = jda; }
-	public void setAllowedChannelIds(java.util.Set<String> allowedChannelIds) { this.allowedChannelIds = allowedChannelIds; }
+	public void setJda(net.dv8tion.jda.api.JDA jda) {
+		this.jda = jda;
+		achievements.setJda(jda);
+	}
+	public void setAllowedChannelIds(java.util.Set<String> allowedChannelIds) {
+		this.allowedChannelIds = allowedChannelIds;
+		achievements.setAllowedChannelIds(allowedChannelIds);
+	}
 
 	private ReentrantLock getPlayerLock(String id) {
-		return playerLocks.computeIfAbsent(id, k -> new ReentrantLock());
+		return playerLocks.get(id);
 	}
 
 	private static final Map<Integer, Integer> xpMap = PlayerProgressTables.XP_MAP;
@@ -119,7 +125,8 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		this.clanManager = clanManager;
 		this.tavern = tavern;
 		this.npcManager = npcManager;
-		this.duelService = new DuelService(playerCache, this::getPlayerLock, this::unlockAchievement);
+		this.achievements = new AchievementService(playerCache);
+		this.duelService = new DuelService(playerCache, this::getPlayerLock, achievements::unlock);
 	}
 
 	/**
@@ -137,7 +144,7 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		String extra = "\n🏷️ Звание: **" + title + "**" + prestige;
 		List<String> achs = player.getAchievements();
 		if (achs != null && !achs.isEmpty()) {
-			extra += "\n🌟 Редкое достижение: **" + achievementName(achs.get(achs.size() - 1)) + "**";
+			extra += "\n🌟 Редкое достижение: **" + achievements.name(achs.get(achs.size() - 1)) + "**";
 		}
 		event.getChannel().sendMessage(statsMsg + extra).submit();
 	}
@@ -284,8 +291,8 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 				player.setMaxHp(getMaxHp(player));  // Обновляем максимальное HP
 				player.setHp(player.getMaxHp());     // Восстанавливаем HP при повышении уровня
 				expToNext = player.getExpToNextLvl();
-				if (player.getLevel() == 10) unlockAchievement(player, "10_уровень");
-				if (player.getLevel() >= 50) unlockAchievement(player, "легенда");
+				if (player.getLevel() == 10) achievements.unlock(player, "10_уровень");
+				if (player.getLevel() >= 50) achievements.unlock(player, "легенда");
 			}
 			
 			player.setExp(totalXp);
@@ -305,7 +312,7 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		if (!playerCache.contains(id)) {
 			String nickName = event.getMessage().getAuthor().getName();
 			Player newPlayer = new Player(nickName, id);
-			unlockAchievement(newPlayer, "первые_шаги");
+			achievements.unlock(newPlayer, "первые_шаги");
 			playerCache.put(id, newPlayer);
 			event.getChannel().sendMessage("""
 					Добро пожаловать в игру, мы внимательно проанализировали твой профиль и решили, что ник %s отлично тебе подходит
@@ -714,7 +721,7 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 			activeEvent.setAttempt(activeEvent.getAttempt() + 1);
 		}
 		playerCache.put(player.getId(), player);
-		checkExplorerAchievement(player);
+		achievements.checkExplorer(player);
 
 		var token = player.getInventory().get("токен телепорта") == null ? 0 : player.getInventory().get("токен телепорта");
 		String teleport = isTeleport ? " с помощью токена телепорта, осталось " + token : "";
@@ -757,7 +764,7 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 					}
 					// Трекинг убийств мобов (71)
 					player.setMobKills(player.getMobKills() + 1);
-					if (player.getMobKills() >= 50) unlockAchievement(player, "ветеран");
+					if (player.getMobKills() >= 50) achievements.unlock(player, "ветеран");
 					playerCache.put(player.getId(), player);
 				}
 
@@ -1001,10 +1008,10 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 					// Достижения рейда (71)
 					Player winPlayer = playerCache.get(winnerId);
 					if (winPlayer != null) {
-						unlockAchievement(winPlayer, "первый_рейд");
-						unlockAchievement(winPlayer, "победитель_рейда");
-						checkRichAchievement(winPlayer);
-						checkCollectorAchievement(winPlayer);
+						achievements.unlock(winPlayer, "первый_рейд");
+						achievements.unlock(winPlayer, "победитель_рейда");
+						achievements.checkRich(winPlayer);
+						achievements.checkCollector(winPlayer);
 						// 2% chance of pet egg from boss kill
 						if (new Random().nextInt(100) < 2 && winPlayer.getPet() == null) {
 							String[] petTypes = {"WOLF", "FOX", "CAT", "RAVEN"};
@@ -1103,7 +1110,7 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 						Player pvpWinner = playerCache.get(pObj.getId());
 						if (pvpWinner != null) {
 							pvpWinner.setPvpWins(pvpWinner.getPvpWins() + 1);
-							if (pvpWinner.getPvpWins() >= 100) unlockAchievement(pvpWinner, "100_pvp");
+							if (pvpWinner.getPvpWins() >= 100) achievements.unlock(pvpWinner, "100_pvp");
 							playerCache.put(pObj.getId(), pvpWinner);
 						}
 					} finally {
@@ -1157,14 +1164,14 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 				if (streak == 3) {
 					player.setMoney(player.getMoney() + GameBalance.DAILY_STREAK_3_BONUS);
 					msg.append("\n Стрик 3 дня! Бонус +" + GameBalance.DAILY_STREAK_3_BONUS + " монет!");
-					unlockAchievement(player, "стрик_3");
+					achievements.unlock(player, "стрик_3");
 				}
 				if (streak % GameBalance.DAILY_STREAK_RARE_ITEM_INTERVAL == 0 && streak > 0) {
 					String rareItem = GameBalance.DAILY_STREAK_RARE_ITEM;
 					Map<String, Integer> inv = player.getInventory();
 					inv.put(rareItem, inv.getOrDefault(rareItem, 0) + 1);
 					msg.append("\n Стрик ").append(streak).append(" дней! Получен редкий предмет: ").append(rareItem).append("!");
-					unlockAchievement(player, "стрик_7");
+					achievements.unlock(player, "стрик_7");
 				}
 
 				// Налог на богатство (68)
@@ -1261,7 +1268,7 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		if (player.getClanName() == null || player.getClanName().isEmpty()) {
 			String result = clanManager.joinClan(clanName, player.getId());
 			if (result.isEmpty()) {
-				unlockAchievement(player, "клановый_чел");
+				achievements.unlock(player, "клановый_чел");
 				playerCache.put(player.getId(), player);
 				event.getChannel().sendMessage("Ваша заявка на вступление в клан " + clanName + " подана. Ожидайте подтверждения лидера").submit();
 			} else {
@@ -1406,7 +1413,7 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 					event.getChannel().sendMessage("Доступные классы: воин, разбойник, маг\nПример: +класс воин").submit();
 					return;
 			}
-			unlockAchievement(player, "классовый");
+			achievements.unlock(player, "классовый");
 			playerCache.put(id, player);
 		} finally {
 			lock.unlock();
@@ -1418,16 +1425,10 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 	 */
 	public void getAchievements(MessageReceivedEvent event) {
 		Player player = playerCache.get(event.getAuthor().getId());
-		List<String> achievements = player.getAchievements();
-		if (achievements == null || achievements.isEmpty()) {
-			event.getChannel().sendMessage("У вас пока нет достижений. Играйте, чтобы их получить!").submit();
-			return;
-		}
-		StringBuilder sb = new StringBuilder("Ваши достижения:\n");
-		for (String achId : achievements) {
-			sb.append("- ").append(achievementName(achId)).append("\n");
-		}
-		event.getChannel().sendMessage(sb.toString()).submit();
+		String description = achievements.describeAll(player);
+		event.getChannel().sendMessage(description != null
+				? description
+				: "У вас пока нет достижений. Играйте, чтобы их получить!").submit();
 	}
 
 	/**
@@ -1507,7 +1508,7 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 				}
 				Map<String, Integer> receiverInv = receiver.getInventory();
 				receiverInv.put(itemName, receiverInv.getOrDefault(itemName, 0) + quantity);
-				unlockAchievement(sender, "торговец");
+				achievements.unlock(sender, "торговец");
 				// Обе стороны сохраняются одной транзакцией: иначе предмет исчезал
 				// у отправителя, не появившись у получателя
 				playerCache.putBoth(senderId, sender, receiverId, receiver);
@@ -1626,7 +1627,7 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 				player.setMoney(player.getMoney() + money);
 				playerCache.put(id, player);
 				event.getChannel().sendMessage("🔍 Ты исследовал локацию и нашёл **" + money + "** монет!").submit();
-				checkRichAchievement(player);
+				achievements.checkRich(player);
 			} else {
 				String drop = itemsManager.getRandomItemName();
 				if (drop != null) {
@@ -2041,7 +2042,7 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 				player.setMoney(player.getMoney() + win - bet);
 				playerCache.put(id, player);
 				event.getChannel().sendMessage("🏆 Вы выиграли! **" + player.getNickName() + "** получает **" + win + "** монет (x" + Tavern.HORSE_ODDS[horseIndex] + ")!").submit();
-				checkRichAchievement(player);
+				achievements.checkRich(player);
 			} else {
 				player.setMoney(player.getMoney() - bet);
 				playerCache.put(id, player);
@@ -2112,7 +2113,7 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 			player.setMoney(player.getMoney() + total);
 			playerCache.put(id, player);
 			event.getChannel().sendMessage("💱 Продано **" + qty + "x " + itemName + "** за **" + total + "** монет.").submit();
-			checkRichAchievement(player);
+			achievements.checkRich(player);
 		} finally {
 			lock.unlock();
 		}
@@ -2383,7 +2384,7 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		sb.append("🏆 Звание: **").append(getTitle(target)).append("**\n");
 		List<String> achs = target.getAchievements();
 		if (achs != null && !achs.isEmpty())
-			sb.append("🌟 Лучшее достижение: **").append(achievementName(achs.get(achs.size() - 1))).append("**\n");
+			sb.append("🌟 Лучшее достижение: **").append(achievements.name(achs.get(achs.size() - 1))).append("**\n");
 		event.getChannel().sendMessage(sb.toString()).submit();
 	}
 
@@ -2419,71 +2420,13 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		return "Новичок";
 	}
 
-	private void checkRichAchievement(Player player) {
-		if (player.getMoney() >= 10000) {
-			unlockAchievement(player, "богач");
-			playerCache.put(player.getId(), player);
-		}
-	}
 
-	private void checkExplorerAchievement(Player player) {
-		List<String> history = player.getLocationHistory();
-		if (history != null && new java.util.HashSet<>(history).containsAll(LocationManager.locationList)) {
-			unlockAchievement(player, "исследователь");
-			playerCache.put(player.getId(), player);
-		}
-	}
 
-	private static final List<String> BOSS_ITEMS = List.of(
-		"бицушка ровера", "кисточка циника", "корона дарха", "кринж стина", "попка ушаса",
-		"око мора", "очко бога", "хуй вущъта", "удача рианель", "шарики лаба", "вонь арктулза",
-		"скейт ябыса", "форточка орсона", "месть гордона", "хатка база", "игла бувки",
-		"калькулятор сталкера", "язык вороны", "диплом ильи", "кресло чегоба",
-		"сиськи ред", "банка эдика", "кринж стина", "корона дарха"
-	);
 
-	private void checkCollectorAchievement(Player player) {
-		Map<String, Integer> inv = player.getInventory();
-		if (inv != null && BOSS_ITEMS.stream().distinct().allMatch(inv::containsKey)) {
-			unlockAchievement(player, "коллекционер");
-			playerCache.put(player.getId(), player);
-		}
-	}
 
 	// ---- achievements helpers ----
 
-	private void unlockAchievement(Player player, String achievementId) {
-		List<String> achievements = player.getAchievements();
-		if (achievements == null) {
-			achievements = new ArrayList<>();
-			player.setAchievements(achievements);
-		}
-		if (!achievements.contains(achievementId)) {
-			achievements.add(achievementId);
-		}
-	}
 
-	private String achievementName(String id) {
-		return switch (id) {
-			case "первые_шаги" -> "Первые шаги — зарегистрироваться в игре";
-			case "стрик_3"     -> "Постоянство — получить бонус 3 дня подряд";
-			case "стрик_7"     -> "Недельный игрок — получить бонус 7 дней подряд";
-			case "классовый"   -> "Классовый игрок — выбрать класс персонажа";
-			case "торговец"    -> "Торговец — передать предмет другому игроку";
-			case "дуэлянт"    -> "Дуэлянт — победить в дуэли";
-			case "первый_рейд" -> "Первый рейд — участие в рейде";
-			case "победитель_рейда" -> "Победитель рейда — победа в рейде";
-			case "100_pvp"     -> "100 PvP побед — одержать 100 побед в PvP";
-			case "10_уровень"  -> "10 уровень — достичь 10 уровня";
-			case "богач"       -> "Богач — накопить 10 000 монет";
-			case "коллекционер" -> "Коллекционер — собрать все предметы боссов";
-			case "исследователь" -> "Исследователь — посетить все локации";
-			case "ветеран"     -> "Ветеран — убить 50 мобов";
-			case "клановый_чел" -> "Клановый — вступить в клан";
-			case "легенда"     -> "Легенда — достичь 50 уровня";
-			default -> id;
-		};
-	}
 
 	/** Безопасно увеличивает прогресс ежедневного квеста (игнорирует если сервис не задан). */
 	private void questProgress(String userId, String type, int amount) {
@@ -2526,25 +2469,6 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 	}
 
 	// ---- Item 100: Rare achievement broadcast ----
-	private void unlockAchievementWithBroadcast(Player player, String achievementId) {
-		boolean wasNew = !player.getAchievements().contains(achievementId);
-		unlockAchievement(player, achievementId);
-		if (wasNew && RARE_ACHIEVEMENTS.contains(achievementId) && jda != null && allowedChannelIds != null) {
-			String msg = "🌟 **" + player.getNickName() + "** получил редкое достижение: **" + achievementName(achievementId) + "**!";
-			for (String chId : allowedChannelIds) {
-				try {
-					net.dv8tion.jda.api.entities.channel.concrete.TextChannel ch = jda.getTextChannelById(chId);
-					if (ch == null) {
-						log.debug("Канал {} не найден — анонс не отправлен", chId);
-						continue;
-					}
-					ch.sendMessage(msg).queue();
-				} catch (Exception e) {
-					log.debug("Не удалось отправить анонс в канал {}: {}", chId, e.getMessage());
-				}
-			}
-		}
-	}
 
 	// ---- Items 101-108: Pet system ----
 	/** Grants a pet of the given type to the player if they have no pet. */
