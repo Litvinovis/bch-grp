@@ -255,8 +255,8 @@ public class PlayersManagerPvpDuelTest {
         // Winner gets +100 money and +5 reputation; duel resolved
         assertTrue(challenger.getReputation() == 5 || challenged.getReputation() == 5, "One player must have +5 reputation (winner)");
         // Total prize goes to winner; verify both were saved
-        verify(playerRepository, atLeastOnce()).put(eq("chal"), any());
-        verify(playerRepository, atLeastOnce()).put(eq("uid1"), any());
+        // Обе стороны дуэли сохраняются одной транзакцией
+        verify(playerRepository).putBoth(eq("chal"), any(), eq("uid1"), any());
     }
 
     @Test

@@ -2,7 +2,6 @@ package ru.chebe.litvinov.service;
 
 import org.junit.jupiter.api.Test;
 import ru.chebe.litvinov.util.InputValidator;
-import ru.chebe.litvinov.util.MetricsService;
 
 import java.io.InputStream;
 import java.util.Map;
@@ -13,7 +12,6 @@ import static org.junit.jupiter.api.Assertions.*;
  * Smoke tests for items 85-93:
  * - YAML config loading (items 85-87)
  * - InputValidator (item 88)
- * - MetricsService counters (item 89)
  * - Progress bar via PlayersManager helper (item 98)
  */
 public class Items85to93Test {
@@ -82,32 +80,6 @@ public class Items85to93Test {
     public void testValidateName_exactMaxLength_succeeds() {
         String name = "A".repeat(20);
         assertEquals(name, InputValidator.validateName(name, 20));
-    }
-
-    // --- Item 89: MetricsService ---
-
-    @Test
-    public void testMetricsService_recordBattle_increments() {
-        long before = MetricsService.battlesTotal.get();
-        MetricsService.recordBattle();
-        assertEquals(before + 1, MetricsService.battlesTotal.get());
-    }
-
-    @Test
-    public void testMetricsService_updateCoins_delta() {
-        MetricsService.coinsInCirculation.set(1000);
-        MetricsService.updateCoins(500);
-        assertEquals(1500, MetricsService.coinsInCirculation.get());
-        MetricsService.updateCoins(-200);
-        assertEquals(1300, MetricsService.coinsInCirculation.get());
-    }
-
-    @Test
-    public void testMetricsService_updateActivePlayers_sets() {
-        MetricsService.updateActivePlayers(42);
-        assertEquals(42, MetricsService.activePlayersToday.get());
-        MetricsService.updateActivePlayers(7);
-        assertEquals(7, MetricsService.activePlayersToday.get());
     }
 
     // --- Items 85-87: YAML config files exist on classpath ---

@@ -2,6 +2,8 @@ package ru.chebe.litvinov.util;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -15,6 +17,8 @@ import java.util.Map;
  */
 public final class JsonUtil {
 
+    private static final Logger log = LoggerFactory.getLogger(JsonUtil.class);
+
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private JsonUtil() {}
@@ -23,13 +27,15 @@ public final class JsonUtil {
      * Сериализует объект в JSON-строку.
      *
      * @param value объект для сериализации
-     * @return JSON-строка или "{}" при ошибке
+     * @return JSON-строка
+     * @throws IllegalStateException если объект не сериализуется — подстановка "{}"
+     *         молча стирала инвентарь, навыки и прочие коллекции игрока
      */
     public static String toJson(Object value) {
         try {
             return MAPPER.writeValueAsString(value);
         } catch (IOException e) {
-            return "{}";
+            throw new IllegalStateException("Не удалось сериализовать данные игрока в JSON", e);
         }
     }
 
@@ -44,6 +50,7 @@ public final class JsonUtil {
         try {
             return MAPPER.readValue(json, new TypeReference<Map<String, Integer>>() {});
         } catch (IOException e) {
+            log.warn("Повреждённый JSON в данных игрока, прочитан как пустая коллекция: {}", json, e);
             return new HashMap<>();
         }
     }
@@ -59,6 +66,7 @@ public final class JsonUtil {
         try {
             return MAPPER.readValue(json, new TypeReference<Map<String, Long>>() {});
         } catch (IOException e) {
+            log.warn("Повреждённый JSON в данных игрока, прочитан как пустая коллекция: {}", json, e);
             return new HashMap<>();
         }
     }
@@ -74,6 +82,7 @@ public final class JsonUtil {
         try {
             return MAPPER.readValue(json, new TypeReference<List<String>>() {});
         } catch (IOException e) {
+            log.warn("Повреждённый JSON в данных игрока, прочитан как пустая коллекция: {}", json, e);
             return new ArrayList<>();
         }
     }
@@ -83,6 +92,7 @@ public final class JsonUtil {
         try {
             return MAPPER.readValue(json, new TypeReference<Map<String, String>>() {});
         } catch (IOException e) {
+            log.warn("Повреждённый JSON в данных игрока, прочитан как пустая коллекция: {}", json, e);
             return new HashMap<>();
         }
     }
