@@ -36,8 +36,8 @@ public class PlayerRepository {
              PreparedStatement ps = conn.prepareStatement("SELECT " + SELECT_COLS + " FROM players");
              ResultSet rs = ps.executeQuery()) {
             while (rs.next()) result.add(mapRow(rs));
-        } catch (Exception e) {
-            log.error("Ошибка getAll()", e);
+        } catch (SQLException e) {
+            throw new IllegalStateException("Не удалось прочитать список игроков", e);
         }
         return result;
     }
@@ -49,8 +49,8 @@ public class PlayerRepository {
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) return mapRow(rs);
             }
-        } catch (Exception e) {
-            log.error("Ошибка get({})", id, e);
+        } catch (SQLException e) {
+            throw new IllegalStateException("Не удалось прочитать игрока " + id, e);
         }
         return null;
     }
@@ -60,18 +60,50 @@ public class PlayerRepository {
              PreparedStatement ps = conn.prepareStatement("SELECT 1 FROM players WHERE id = ?")) {
             ps.setString(1, id);
             try (ResultSet rs = ps.executeQuery()) { return rs.next(); }
-        } catch (Exception e) {
-            log.error("Ошибка contains({})", id, e);
+        } catch (SQLException e) {
+            throw new IllegalStateException("Не удалось проверить наличие игрока " + id, e);
         }
-        return false;
     }
 
     public void put(String id, Player player) {
+        try (Connection conn = dataSource.getConnection()) {
+            upsert(conn, id, player);
+        } catch (SQLException e) {
+            // Молчаливый провал записи означал потерянный прогресс при успешном ответе бота
+            throw new IllegalStateException("Не удалось сохранить игрока " + id, e);
+        }
+    }
+
+    /**
+     * Сохраняет двух игроков одной транзакцией.
+     * Обмен предметами, ставки в таверне и дуэли меняют обе стороны сразу:
+     * при раздельных put сбой между ними уносил предмет или монеты в никуда.
+     */
+    public void putBoth(String firstId, Player first, String secondId, Player second) {
+        try (Connection conn = dataSource.getConnection()) {
+            conn.setAutoCommit(false);
+            try {
+                upsert(conn, firstId, first);
+                upsert(conn, secondId, second);
+                conn.commit();
+            } catch (Exception e) {
+                try { conn.rollback(); } catch (SQLException ignored) { }
+                throw new IllegalStateException(
+                        "Не удалось сохранить игроков " + firstId + " и " + secondId, e);
+            } finally {
+                conn.setAutoCommit(true);
+            }
+        } catch (SQLException e) {
+            throw new IllegalStateException(
+                    "Не удалось сохранить игроков " + firstId + " и " + secondId, e);
+        }
+    }
+
+    private void upsert(Connection conn, String id, Player player) throws SQLException {
         String eventJson = serializeEvent(player);
         String petJson = player.getPet() != null ? JsonUtil.toJson(player.getPet()) : null;
-        try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(
-                 "INSERT INTO players (id, nick_name, hp, max_hp, luck, money, reputation, armor, strength, location, level, " +
+        try (PreparedStatement ps = conn.prepareStatement(
+                "INSERT INTO players (id, nick_name, hp, max_hp, luck, money, reputation, armor, strength, location, level, " +
                  "player_exp, exp_to_next, inventory, answer, active_event, daily_time, clan_name, daily_streak, player_class, achievements, active_buffs, " +
                  "location_history, last_explore_time, bank_inventory, completed_quests, debt, pvp_wins, mob_kills, prestige, last_horse_race, " +
                  "pet, has_mount, profession, profession_level, resources, jewelry, skill_points, skills, faction_rep, diary, last_monthly_bonus, arena_rating, last_teleport_time) " +
@@ -137,8 +169,6 @@ public class PlayerRepository {
             ps.setInt(43, player.getArenaRating());
             ps.setLong(44, player.getLastTeleportTime());
             ps.executeUpdate();
-        } catch (Exception e) {
-            log.error("Ошибка put({})", id, e);
         }
     }
 
@@ -147,8 +177,8 @@ public class PlayerRepository {
              PreparedStatement ps = conn.prepareStatement("DELETE FROM players WHERE id = ?")) {
             ps.setString(1, id);
             ps.executeUpdate();
-        } catch (Exception e) {
-            log.error("Ошибка remove({})", id, e);
+        } catch (SQLException e) {
+            throw new IllegalStateException("Не удалось удалить игрока " + id, e);
         }
     }
 
@@ -175,34 +205,39 @@ public class PlayerRepository {
         p.setAchievements(JsonUtil.fromJsonToListString(rs.getString("achievements")));
         p.setInventory(JsonUtil.fromJsonToMapStringInt(rs.getString("inventory")));
         p.setActiveBuffs(JsonUtil.fromJsonToMapStringLong(rs.getString("active_buffs")));
-        try { p.setLocationHistory(JsonUtil.fromJsonToListString(rs.getString("location_history"))); } catch (Exception e) { p.setLocationHistory(new ArrayList<>()); }
-        try { p.setLastExploreTime(rs.getLong("last_explore_time")); } catch (Exception e) { p.setLastExploreTime(0); }
-        try { p.setBankInventory(JsonUtil.fromJsonToMapStringInt(rs.getString("bank_inventory"))); } catch (Exception e) { p.setBankInventory(new HashMap<>()); }
-        try { p.setCompletedQuests(JsonUtil.fromJsonToListString(rs.getString("completed_quests"))); } catch (Exception e) { p.setCompletedQuests(new ArrayList<>()); }
-        try { p.setDebt(rs.getInt("debt")); } catch (Exception e) { p.setDebt(0); }
-        try { p.setPvpWins(rs.getInt("pvp_wins")); } catch (Exception e) { p.setPvpWins(0); }
-        try { p.setMobKills(rs.getInt("mob_kills")); } catch (Exception e) { p.setMobKills(0); }
-        try { p.setPrestige(rs.getInt("prestige")); } catch (Exception e) { p.setPrestige(0); }
-        try { p.setLastHorseRaceTime(rs.getLong("last_horse_race")); } catch (Exception e) { p.setLastHorseRaceTime(0); }
+        p.setLocationHistory(JsonUtil.fromJsonToListString(rs.getString("location_history")));
+        p.setLastExploreTime(rs.getLong("last_explore_time"));
+        p.setBankInventory(JsonUtil.fromJsonToMapStringInt(rs.getString("bank_inventory")));
+        p.setCompletedQuests(JsonUtil.fromJsonToListString(rs.getString("completed_quests")));
+        p.setDebt(rs.getInt("debt"));
+        p.setPvpWins(rs.getInt("pvp_wins"));
+        p.setMobKills(rs.getInt("mob_kills"));
+        p.setPrestige(rs.getInt("prestige"));
+        p.setLastHorseRaceTime(rs.getLong("last_horse_race"));
         // New fields (items 85-150)
-        try {
-            String petJson = rs.getString("pet");
-            if (petJson != null && !petJson.isBlank() && !petJson.equals("null")) {
+        String petJson = rs.getString("pet");
+        if (petJson != null && !petJson.isBlank() && !petJson.equals("null")) {
+            try {
                 p.setPet(MAPPER.readValue(petJson, ru.chebe.litvinov.data.Pet.class));
+            } catch (Exception e) {
+                log.warn("Не удалось прочитать питомца игрока {}: {}", id, petJson, e);
+                p.setPet(null);
             }
-        } catch (Exception e) { p.setPet(null); }
-        try { p.setHasMount(rs.getBoolean("has_mount")); } catch (Exception e) { p.setHasMount(false); }
-        try { p.setProfession(rs.getString("profession") != null ? rs.getString("profession") : ""); } catch (Exception e) { p.setProfession(""); }
-        try { p.setProfessionLevel(rs.getInt("profession_level")); } catch (Exception e) { p.setProfessionLevel(0); }
-        try { p.setResources(JsonUtil.fromJsonToMapStringInt(rs.getString("resources"))); } catch (Exception e) { p.setResources(new HashMap<>()); }
-        try { p.setJewelry(JsonUtil.fromJsonToMapStringInt(rs.getString("jewelry"))); } catch (Exception e) { p.setJewelry(new HashMap<>()); }
-        try { p.setSkillPoints(rs.getInt("skill_points")); } catch (Exception e) { p.setSkillPoints(0); }
-        try { p.setSkills(JsonUtil.fromJsonToMapStringInt(rs.getString("skills"))); } catch (Exception e) { p.setSkills(new HashMap<>()); }
-        try { p.setFactionRep(JsonUtil.fromJsonToMapStringInt(rs.getString("faction_rep"))); } catch (Exception e) { p.setFactionRep(new HashMap<>(Map.of("ТОРГОВЦЫ", 0, "МАГИ", 0, "ВОИНЫ", 0))); }
-        try { p.setDiary(JsonUtil.fromJsonToListString(rs.getString("diary"))); } catch (Exception e) { p.setDiary(new ArrayList<>()); }
-        try { p.setLastMonthlyBonus(rs.getLong("last_monthly_bonus")); } catch (Exception e) { p.setLastMonthlyBonus(0); }
-        try { p.setArenaRating(rs.getInt("arena_rating")); } catch (Exception e) { p.setArenaRating(1000); }
-        try { p.setLastTeleportTime(rs.getLong("last_teleport_time")); } catch (Exception e) { p.setLastTeleportTime(0); }
+        }
+        p.setHasMount(rs.getBoolean("has_mount"));
+        p.setProfession(rs.getString("profession") != null ? rs.getString("profession") : "");
+        p.setProfessionLevel(rs.getInt("profession_level"));
+        p.setResources(JsonUtil.fromJsonToMapStringInt(rs.getString("resources")));
+        p.setJewelry(JsonUtil.fromJsonToMapStringInt(rs.getString("jewelry")));
+        p.setSkillPoints(rs.getInt("skill_points"));
+        p.setSkills(JsonUtil.fromJsonToMapStringInt(rs.getString("skills")));
+        Map<String, Integer> factionRep = JsonUtil.fromJsonToMapStringInt(rs.getString("faction_rep"));
+        // Пустая репутация означает нового игрока, а не потерю данных: ставим стартовые фракции
+        p.setFactionRep(factionRep.isEmpty() ? new HashMap<>(Map.of("ТОРГОВЦЫ", 0, "МАГИ", 0, "ВОИНЫ", 0)) : factionRep);
+        p.setDiary(JsonUtil.fromJsonToListString(rs.getString("diary")));
+        p.setLastMonthlyBonus(rs.getLong("last_monthly_bonus"));
+        p.setArenaRating(rs.getInt("arena_rating"));
+        p.setLastTeleportTime(rs.getLong("last_teleport_time"));
 
         String eventJson = rs.getString("active_event");
         if (eventJson != null && !eventJson.isBlank() && !eventJson.equals("null")) {

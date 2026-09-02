@@ -96,8 +96,7 @@ class DuelService {
 				winner.setReputation(winner.getReputation() + 5);
 				achievementUnlocker.accept(winner, "дуэлянт");
 
-				playerCache.put(challenger.getId(), challenger);
-				playerCache.put(challenged.getId(), challenged);
+				playerCache.putBoth(challenger.getId(), challenger, challenged.getId(), challenged);
 
 				event.getChannel().sendMessage(String.format(
 						"Дуэль: **%s** (бросок %d) vs **%s** (бросок %d)\nПобедитель: **%s** (+%d монет, +5 репутации)\nПроигравший: **%s** (-%d монет)",

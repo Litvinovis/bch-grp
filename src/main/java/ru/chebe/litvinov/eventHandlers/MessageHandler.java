@@ -14,7 +14,6 @@ import ru.chebe.litvinov.repository.*;
 import ru.chebe.litvinov.raid.RaidManager;
 import ru.chebe.litvinov.repository.DailyQuestRepository;
 import ru.chebe.litvinov.service.*;
-import ru.chebe.litvinov.util.MetricsService;
 
 import java.util.Optional;
 import java.util.Set;
@@ -184,6 +183,13 @@ public class MessageHandler extends ListenerAdapter {
 
 		} catch (Exception e) {
 			logger.error(Constants.MESSAGE_PROCESS_FAILED, e.toString(), e);
+			try {
+				// Молчание в ответ на сбой хуже ошибки: игрок повторял команду,
+				// не зная, применилось действие или нет
+				event.getChannel().sendMessage("⚠️ Команда не выполнена из-за внутренней ошибки. Попробуй позже.").submit();
+			} catch (Exception sendEx) {
+				logger.warn("Не удалось отправить сообщение об ошибке в канал", sendEx);
+			}
 		}
 	}
 

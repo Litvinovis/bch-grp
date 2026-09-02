@@ -1508,8 +1508,9 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 				Map<String, Integer> receiverInv = receiver.getInventory();
 				receiverInv.put(itemName, receiverInv.getOrDefault(itemName, 0) + quantity);
 				unlockAchievement(sender, "торговец");
-				playerCache.put(senderId, sender);
-				playerCache.put(receiverId, receiver);
+				// Обе стороны сохраняются одной транзакцией: иначе предмет исчезал
+				// у отправителя, не появившись у получателя
+				playerCache.putBoth(senderId, sender, receiverId, receiver);
 				event.getChannel().sendMessage("Вы передали " + quantity + "x " + itemName + " игроку " + targetUser.getName() + ".").submit();
 				// DM уведомление получателю (81)
 				final String finalItemName = itemName;
@@ -1982,8 +1983,7 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		Player challenger = playerCache.get(senderId);
 		Player opponent = playerCache.get(opponentId);
 		tavern.playPoker(event, challenger, opponent, bet);
-		playerCache.put(senderId, challenger);
-		playerCache.put(opponentId, opponent);
+		playerCache.putBoth(senderId, challenger, opponentId, opponent);
 	}
 
 	/** +скачки — информация о скачках; +поставить [лошадь] [сумма] — ставка (66) */
