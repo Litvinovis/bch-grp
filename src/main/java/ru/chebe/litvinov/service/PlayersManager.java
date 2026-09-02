@@ -56,6 +56,8 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 	private final InventoryService inventory;
 	private final CombatService combat;
 	private final TravelService travel;
+	private final ClanCommandService clans;
+	private final SkillsService skills;
 
 	// Новые менеджеры (items 85-150)
 	private PetManager petManager;
@@ -147,6 +149,8 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 				playerLocks, achievements, stats, quests, inventory);
 		this.travel = new TravelService(playerCache, locationManager, itemsManager, clanManager,
 				playerLocks, achievements, stats, inventory, eventsManager, battleManager);
+		this.clans = new ClanCommandService(playerCache, clanManager, playerLocks, achievements);
+		this.skills = new SkillsService(playerCache, locationManager, playerLocks, achievements);
 		this.miniGames = new MiniGamesService(playerCache, tavern, playerLocks, achievements, quests);
 		this.duelService = new DuelService(playerCache, this::getPlayerLock, achievements::unlock);
 	}
@@ -321,6 +325,50 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 	/** {@inheritDoc} */
 	@Override
 	public void goHome(MessageReceivedEvent event) { travel.goHome(event); }
+
+	/** {@inheritDoc} */
+	@Override
+	public void clanRegister(MessageReceivedEvent event) { clans.clanRegister(event); }
+
+	/** {@inheritDoc} */
+	@Override
+	public void clanLeave(MessageReceivedEvent event) { clans.clanLeave(event); }
+
+	/** {@inheritDoc} */
+	@Override
+	public void clanJoin(MessageReceivedEvent event) { clans.clanJoin(event); }
+
+	/** {@inheritDoc} */
+	@Override
+	public void acceptApply(MessageReceivedEvent event) { clans.acceptApply(event); }
+
+	/** {@inheritDoc} */
+	@Override
+	public void rejectApply(MessageReceivedEvent event) { clans.rejectApply(event); }
+
+	/** {@inheritDoc} */
+	@Override
+	public void clanInfo(MessageReceivedEvent event) { clans.clanInfo(event); }
+
+	/** {@inheritDoc} */
+	@Override
+	public void chooseClass(MessageReceivedEvent event) { skills.chooseClass(event); }
+
+	/** {@inheritDoc} */
+	@Override
+	public void chooseSecondClass(MessageReceivedEvent event) { skills.chooseSecondClass(event); }
+
+	/** {@inheritDoc} */
+	@Override
+	public void showSkills(MessageReceivedEvent event) { skills.showSkills(event); }
+
+	/** {@inheritDoc} */
+	@Override
+	public void investSkill(MessageReceivedEvent event) { skills.investSkill(event); }
+
+	/** {@inheritDoc} */
+	@Override
+	public void useAbility(MessageReceivedEvent event) { skills.useAbility(event); }
 
 	public Player getPlayer(String id) {
 		return playerCache.get(id);
@@ -522,120 +570,11 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		event.getChannel().sendMessage(dailyQuestService.formatQuests(quests)).submit();
 	}
 
-	/**
-	 * Обрабатывает команду создания нового клана. Требует минимального 10-го уровня.
-	 *
-	 * @param event событие Discord-сообщения с названием клана
-	 */
-	public void clanRegister(MessageReceivedEvent event) {
-		var player = playerCache.get(event.getAuthor().getId());
-		if (player.getLevel() < MIN_LVL_TO_CLAN_CREATE) {
-			event.getChannel().sendMessage("Вы не можете создать клан раньше, чем достигните 10 уровня").submit();
-			return;
-		}
-		if (player.getClanName() != null && !player.getClanName().isEmpty()) {
-			event.getChannel().sendMessage("Вы уже состоите в клане, сначала покиньте его").submit();
-		} else {
-			String clanName = event.getMessage().getContentDisplay().substring(11).trim().toLowerCase();
-			String result = clanManager.registerClan(clanName, player.getId());
-			if (!result.isEmpty()) {
-				event.getChannel().sendMessage(result).submit();
-			} else {
-				player.setClanName(clanName);
-				playerCache.put(player.getId(), player);
-				event.getChannel().sendMessage("Вы успешно зарегистрировали клан " + clanName).submit();
-			}
-		}
-	}
 
-	/**
-	 * Обрабатывает команду выхода игрока из клана.
-	 *
-	 * @param event событие Discord-сообщения
-	 */
-	public void clanLeave(MessageReceivedEvent event) {
-		var player = playerCache.get(event.getAuthor().getId());
-		if (player.getClanName() == null || player.getClanName().isEmpty()) {
-			event.getChannel().sendMessage("Вы не состоите в клане").submit();
-		} else {
-			clanManager.leaveClan(player.getClanName(), player.getId());
-			event.getChannel().sendMessage("Вы покинули клан " + player.getClanName()).submit();
-		}
-	}
 
-	/**
-	 * Обрабатывает команду подачи заявки на вступление в клан. Требует минимального 3-го уровня.
-	 *
-	 * @param event событие Discord-сообщения с названием клана
-	 */
-	public void clanJoin(MessageReceivedEvent event) {
-		String clanName = event.getMessage().getContentDisplay().substring(16).trim().toLowerCase();
-		var player = playerCache.get(event.getAuthor().getId());
-		if (player.getLevel() < MIN_LVL_TO_CLAN_JOIN) {
-			event.getChannel().sendMessage("Вы не можете присоединиться к клану раньше, чем достигните " + MIN_LVL_TO_CLAN_JOIN + " уровня").submit();
-			return;
-		}
-		if (player.getClanName() == null || player.getClanName().isEmpty()) {
-			String result = clanManager.joinClan(clanName, player.getId());
-			if (result.isEmpty()) {
-				achievements.unlock(player, "клановый_чел");
-				playerCache.put(player.getId(), player);
-				event.getChannel().sendMessage("Ваша заявка на вступление в клан " + clanName + " подана. Ожидайте подтверждения лидера").submit();
-			} else {
-				event.getChannel().sendMessage(result).submit();
-			}
-		} else {
-			event.getChannel().sendMessage("Вы уже состоите в клане " + player.getClanName()).submit();
-		}
-	}
 
-	/**
-	 * Обрабатывает команду принятия всех заявок на вступление в клан лидером.
-	 *
-	 * @param event событие Discord-сообщения
-	 */
-	public void acceptApply(MessageReceivedEvent event) {
-		var player = playerCache.get(event.getAuthor().getId());
-		if (player.getClanName() == null || player.getClanName().isEmpty()) {
-			event.getChannel().sendMessage("Вы не состоите в клане").submit();
-		} else {
-			String result = clanManager.acceptApply(player.getClanName(), player.getId());
-			if (!result.isEmpty()) {
-				event.getChannel().sendMessage(result).submit();
-			} else {
-				event.getChannel().sendMessage("Вы приняли все заявки на вступление в клан").submit();
-			}
-		}
-	}
 
-	/**
-	 * Обрабатывает команду отклонения всех заявок на вступление в клан лидером.
-	 *
-	 * @param event событие Discord-сообщения
-	 */
-	public void rejectApply(MessageReceivedEvent event) {
-		var player = playerCache.get(event.getAuthor().getId());
-		if (player.getClanName() == null || player.getClanName().isEmpty()) {
-			event.getChannel().sendMessage("Вы не состоите в клане").submit();
-		} else {
-			String result = clanManager.rejectApply(player.getClanName(), player.getId());
-			if (!result.isEmpty()) {
-				event.getChannel().sendMessage(result).submit();
-			} else {
-				event.getChannel().sendMessage("Вы отклонили все заявки на вступление в клан").submit();
-			}
-		}
-	}
 
-	/**
-	 * Отправляет информацию о клане по его названию.
-	 *
-	 * @param event событие Discord-сообщения с названием клана
-	 */
-	public void clanInfo(MessageReceivedEvent event) {
-		String clanName = event.getMessage().getContentDisplay().substring(10).trim().toLowerCase();
-		event.getChannel().sendMessage(clanManager.getClanInfo(clanName)).submit();
-	}
 
 	/**
 	 * Выводит таблицу лидеров top-10.
@@ -680,55 +619,6 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		event.getChannel().sendMessage(sb.toString()).submit();
 	}
 
-	/**
-	 * Выбор класса персонажа (с 5 уровня, один раз).
-	 * Синтаксис: +класс [воин|разбойник|маг]
-	 */
-	public void chooseClass(MessageReceivedEvent event) {
-		String id = event.getAuthor().getId();
-		ReentrantLock lock = getPlayerLock(id);
-		lock.lock();
-		try {
-			Player player = playerCache.get(id);
-			if (player.getLevel() < 5) {
-				event.getChannel().sendMessage("Класс доступен с 5 уровня. У вас сейчас " + player.getLevel() + " уровень.").submit();
-				return;
-			}
-			if (player.getPlayerClass() != null && !player.getPlayerClass().isEmpty()) {
-				event.getChannel().sendMessage("Вы уже выбрали класс: " + player.getPlayerClass()).submit();
-				return;
-			}
-			String arg = event.getMessage().getContentDisplay().length() > 6
-					? event.getMessage().getContentDisplay().substring(6).trim().toLowerCase()
-					: "";
-			switch (arg) {
-				case "воин":
-					player.setStrength(player.getStrength() + 5);
-					player.setArmor(player.getArmor() + 2);
-					player.setPlayerClass("ВОИН");
-					event.getChannel().sendMessage("Вы выбрали класс ВОИН! +5 к силе, +2 к броне.").submit();
-					break;
-				case "разбойник":
-					player.setLuck(player.getLuck() + 5);
-					player.setPlayerClass("РАЗБОЙНИК");
-					event.getChannel().sendMessage("Вы выбрали класс РАЗБОЙНИК! +5 к удаче.").submit();
-					break;
-				case "маг":
-					player.setMaxHp(player.getMaxHp() + 30);
-					player.setLuck(player.getLuck() + 1);
-					player.setPlayerClass("МАГ");
-					event.getChannel().sendMessage("Вы выбрали класс МАГ! +30 к макс. HP, +1 к удаче.").submit();
-					break;
-				default:
-					event.getChannel().sendMessage("Доступные классы: воин, разбойник, маг\nПример: +класс воин").submit();
-					return;
-			}
-			achievements.unlock(player, "классовый");
-			playerCache.put(id, player);
-		} finally {
-			lock.unlock();
-		}
-	}
 
 	/**
 	 * Показывает достижения игрока.
@@ -1518,159 +1408,10 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 	}
 
 	// ---- Items 131-137: Classes & Skills ----
-	/** +скиллы — список навыков */
-	public void showSkills(MessageReceivedEvent event) {
-		String id = event.getAuthor().getId();
-		Player player = playerCache.get(id);
-		String playerClass = player.getPlayerClass() != null ? player.getPlayerClass() : "";
-		int points = player.getSkillPoints();
-		Map<String, Integer> skills = player.getSkills() != null ? player.getSkills() : new java.util.HashMap<>();
-		var sb = new StringBuilder("⚡ **Навыки** | Очков доступно: **" + points + "**\n\n");
-		sb.append("Класс: **").append(playerClass.isEmpty() ? "не выбран" : playerClass).append("**\n\n");
-		getAvailableSkills(playerClass).forEach((skillName, desc) -> {
-			int invested = skills.getOrDefault(skillName, 0);
-			sb.append("• **").append(skillName).append("** (").append(invested).append(" ур.) — ").append(desc).append("\n");
-		});
-		sb.append("\n+1 очко навыков каждые 5 уровней. Вложить: **+вложить [навык]**");
-		event.getChannel().sendMessage(sb.toString()).submit();
-	}
 
-	private Map<String, String> getAvailableSkills(String playerClass) {
-		return switch (playerClass) {
-			case "ВОИН" -> Map.of("берсерк", "+15% урона", "второе дыхание", "реген 20 HP при <20% HP", "стальная кожа", "+5 брони");
-			case "МАГ" -> Map.of("молния", "первая атака 150% урона", "телепорт", "бесплатное перемещение раз в день", "щит маны", "+30% уклонение");
-			case "РАЗБОЙНИК" -> Map.of("ядовитый клинок", "10% яд за раунд", "уклонение мастера", "+20% уклонение", "воровство", "10% денег при победе");
-			case "ПАЛАДИН" -> Map.of("священный щит", "+10 брони", "исцеление", "50 HP раз в бой", "аура защиты", "+5 брони союзникам");
-			case "НЕКРОМАНТ" -> Map.of("армия мертвых", "призвать 2 нежити", "проклятие", "-20% урона врага на 3 хода", "жизнеотнятие", "кража 20 HP");
-			case "СЛЕДОПЫТ" -> Map.of("следопыт", "+20% ресурсов", "природная ловушка", "враг пропускает ход", "охотничий инстинкт", "+20% дроп");
-			default -> Map.of("базовый удар", "+5% урона");
-		};
-	}
 
-	/** +вложить [навык] — вложить очко в навык */
-	public void investSkill(MessageReceivedEvent event) {
-		String id = event.getAuthor().getId();
-		String skillName = event.getMessage().getContentDisplay().substring(9).trim().toLowerCase();
-		ReentrantLock lock = getPlayerLock(id);
-		lock.lock();
-		try {
-			Player player = playerCache.get(id);
-			if (player.getSkillPoints() <= 0) {
-				event.getChannel().sendMessage("У тебя нет очков навыков. Повышай уровень!").submit();
-				return;
-			}
-			String playerClass = player.getPlayerClass() != null ? player.getPlayerClass() : "";
-			if (!getAvailableSkills(playerClass).containsKey(skillName)) {
-				event.getChannel().sendMessage("Навык **" + skillName + "** не найден для твоего класса. Посмотри **+скиллы**").submit();
-				return;
-			}
-			if (player.getSkills() == null) player.setSkills(new java.util.HashMap<>());
-			int current = player.getSkills().getOrDefault(skillName, 0);
-			if (current >= 3) {
-				event.getChannel().sendMessage("Навык **" + skillName + "** уже на максимальном уровне (3).").submit();
-				return;
-			}
-			player.getSkills().put(skillName, current + 1);
-			player.setSkillPoints(player.getSkillPoints() - 1);
-			playerCache.put(id, player);
-			event.getChannel().sendMessage("✅ Навык **" + skillName + "** прокачан до уровня **" + (current + 1) + "**!").submit();
-		} finally {
-			lock.unlock();
-		}
-	}
 
-	/** +умение [название] — активное умение */
-	public void useAbility(MessageReceivedEvent event) {
-		String id = event.getAuthor().getId();
-		String abilityName = event.getMessage().getContentDisplay().substring(7).trim().toLowerCase();
-		Player player = playerCache.get(id);
-		String playerClass = player.getPlayerClass() != null ? player.getPlayerClass() : "";
-		switch (abilityName) {
-			case "телепорт" -> {
-				if (!"МАГ".equals(playerClass) || player.getSkills() == null || !player.getSkills().containsKey("телепорт")) {
-					event.getChannel().sendMessage("Умение **телепорт** доступно только МАГам со скиллом.").submit();
-					return;
-				}
-				// Check cooldown: 1 per day
-				long now = System.currentTimeMillis();
-				long todayStart = now - (now % (24 * 60 * 60 * 1000));
-				ReentrantLock lock = getPlayerLock(id);
-				lock.lock();
-				try {
-					Player p = playerCache.get(id);
-					if (p.getLastTeleportTime() != 0 && p.getLastTeleportTime() > todayStart) {
-						event.getChannel().sendMessage("🌀 Телепорт уже использован сегодня!").submit();
-						return;
-					}
-					// Get adjacent locations
-					ru.chebe.litvinov.data.Location loc = locationManager.getLocation(p.getLocation());
-					if (loc == null || loc.getPaths().isEmpty()) {
-						event.getChannel().sendMessage("Нет доступных локаций для телепорта.").submit();
-						return;
-					}
-					// Teleport to first adjacent location
-					String dest = loc.getPaths().get(0);
-					locationManager.movePlayerInPopulation(p, dest);
-					p.setLocation(dest);
-					p.setLastTeleportTime(now);
-					playerCache.put(id, p);
-					event.getChannel().sendMessage("🌀 **Телепорт!** Ты перемещён в **" + dest + "**!").submit();
-				} finally { lock.unlock(); }
-			}
-			case "исцеление" -> {
-				if (!"ПАЛАДИН".equals(playerClass)) {
-					event.getChannel().sendMessage("Умение **исцеление** доступно только ПАЛАДИНам.").submit();
-					return;
-				}
-				ReentrantLock lock = getPlayerLock(id);
-				lock.lock();
-				try {
-					Player p = playerCache.get(id);
-					if (p != null) {
-						p.setHp(Math.min(p.getHp() + 50, p.getMaxHp()));
-						playerCache.put(id, p);
-					}
-				} finally { lock.unlock(); }
-				event.getChannel().sendMessage("💚 Паладин исцелился на **50 HP**!").submit();
-			}
-			default -> event.getChannel().sendMessage("Умение **" + abilityName + "** не найдено. Посмотри **+скиллы**").submit();
-		}
-	}
 
-	/** +второй класс [класс] — второй класс на уровне 50 */
-	public void chooseSecondClass(MessageReceivedEvent event) {
-		String id = event.getAuthor().getId();
-		ReentrantLock lock = getPlayerLock(id);
-		lock.lock();
-		try {
-			Player player = playerCache.get(id);
-			if (player.getLevel() < 50) {
-				event.getChannel().sendMessage("Второй класс доступен с 50 уровня.").submit();
-				return;
-			}
-			String arg = event.getMessage().getContentDisplay().substring(14).trim().toLowerCase();
-			Set<String> validClasses = Set.of("воин", "разбойник", "маг", "паладин", "некромант", "следопыт");
-			if (!validClasses.contains(arg)) {
-				event.getChannel().sendMessage("Доступные классы: " + validClasses).submit();
-				return;
-			}
-			String existing = player.getPlayerClass() != null ? player.getPlayerClass() : "";
-			player.setPlayerClass(existing + "/" + arg.toUpperCase());
-			// Половина бонусов второго класса
-			switch (arg) {
-				case "воин" -> { player.setStrength(player.getStrength() + 2); player.setArmor(player.getArmor() + 1); }
-				case "разбойник" -> player.setLuck(player.getLuck() + 2);
-				case "маг" -> player.setMaxHp(player.getMaxHp() + 15);
-				case "паладин" -> player.setArmor(player.getArmor() + 2);
-				case "некромант" -> player.setStrength(player.getStrength() + 1);
-				case "следопыт" -> player.setLuck(player.getLuck() + 1);
-			}
-			playerCache.put(id, player);
-			event.getChannel().sendMessage("✅ Второй класс **" + arg.toUpperCase() + "** добавлен! Текущий класс: **" + player.getPlayerClass() + "**").submit();
-		} finally {
-			lock.unlock();
-		}
-	}
 
 	// ---- Items 138-144: Social mechanics ----
 	/** +фракции — репутация у фракций */
