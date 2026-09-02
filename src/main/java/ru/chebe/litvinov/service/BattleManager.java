@@ -12,7 +12,7 @@ import java.util.Map;
 
 /**
  * Менеджер боевой системы.
- * Управляет боями между игроками, мобами и боссами, а также хранит состояние боссов в Ignite-кэше.
+ * Управляет боями между игроками, мобами и боссами, а также хранит состояние боссов в базе.
  */
 public class BattleManager {
 
@@ -25,7 +25,7 @@ public class BattleManager {
 	/**
 	 * Создаёт менеджер боёв и инициализирует репозиторий боссов начальными данными.
 	 *
-	 * @param bossCache репозиторий Ignite 3 для хранения состояния боссов
+	 * @param bossCache репозиторий состояния боссов (PostgreSQL)
 	 */
 	public BattleManager(BossRepository bossCache) {
 		this.bossCache = bossCache;

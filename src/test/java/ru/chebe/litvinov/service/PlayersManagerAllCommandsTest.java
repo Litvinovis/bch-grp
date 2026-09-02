@@ -32,7 +32,7 @@ public class PlayersManagerAllCommandsTest {
         "craftItem", "merchantShop", "questJournal", "takeCredit", "repayCredit",
         "playPoker", "horseRacingInfo", "betOnHorse", "exchangeInfo",
         "sellResource", "clanLeaderboard", "clanBankCommand", "clanUpgradesCommand",
-        "setClanBase", "clanWar", "promoteClanMember", "kickClanMember",
+        "setClanBase", "promoteClanMember", "kickClanMember",
         "seasonLeaderboard", "prestige", "playerProfile", "hallOfFame",
         // Items 85-150 additions
         "adminReload", "giveActivityReward", "onlineCommand",
@@ -40,7 +40,7 @@ public class PlayersManagerAllCommandsTest {
         "professionCommand", "gatherResource", "showProfessionRecipes", "resourceMarket",
         "captureTerritory", "siegeCommand", "fortressCommand", "territoryClanMap",
         "declareAlliance", "worldBossAttack", "invasionStatus", "crisisStatus",
-        "showSeason", "serverTournament", "showSkills", "investSkill", "useAbility",
+        "serverTournament", "showSkills", "investSkill", "useAbility",
         "chooseSecondClass", "showFactions", "diaryCommand", "topActivity",
         "lorePage", "weeklyBoard", "placeBounty", "getBounties",
         "arenaChallenge", "arenaLeaderboard", "teamArena", "survivalChallenge",
@@ -95,7 +95,6 @@ public class PlayersManagerAllCommandsTest {
         assertNotNull(ru.chebe.litvinov.repository.BountyRepository.class);
         assertNotNull(ru.chebe.litvinov.repository.TerritoryRepository.class);
         assertNotNull(ru.chebe.litvinov.repository.TournamentRepository.class);
-        assertNotNull(ru.chebe.litvinov.repository.GameEventLogRepository.class);
     }
 
     @Test

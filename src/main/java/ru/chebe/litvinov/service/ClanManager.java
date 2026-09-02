@@ -14,7 +14,7 @@ import static ru.chebe.litvinov.Constants.MAX_CLAN_SIZE;
 /**
  * Менеджер кланов.
  * Управляет созданием, вступлением, выходом и управлением заявками в кланах.
- * Данные хранятся в Ignite-кэшах кланов и игроков.
+ * Данные кланов и игроков хранятся в PostgreSQL.
  */
 public class ClanManager {
 
@@ -24,8 +24,8 @@ public class ClanManager {
 	/**
 	 * Создаёт менеджер кланов.
 	 *
-	 * @param clanCache   репозиторий Ignite 3 для хранения данных кланов
-	 * @param playerCache репозиторий Ignite 3 для хранения данных игроков
+	 * @param clanCache   репозиторий кланов (PostgreSQL)
+	 * @param playerCache репозиторий игроков (PostgreSQL)
 	 */
 	public ClanManager(ClanRepository clanCache, PlayerRepository playerCache) {
 		this.clanCache = clanCache;

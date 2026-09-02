@@ -14,7 +14,7 @@ import java.util.Random;
 
 /**
  * Менеджер игровых предметов.
- * Инициализирует каталог предметов в Ignite-кэше и предоставляет методы для получения информации о них.
+ * Инициализирует каталог предметов в базе и предоставляет методы для получения информации о них.
  */
 public class ItemsManager {
 
@@ -24,7 +24,7 @@ public class ItemsManager {
 	/**
 	 * Создаёт менеджер предметов и заполняет репозиторий начальным набором предметов.
 	 *
-	 * @param itemsCache репозиторий Ignite 3 для хранения предметов
+	 * @param itemsCache репозиторий предметов (PostgreSQL)
 	 */
 	public ItemsManager(ItemRepository itemsCache) {
 		this.itemsCache = itemsCache;
