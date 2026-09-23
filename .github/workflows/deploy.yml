@@ -42,6 +42,10 @@ jobs:
           BACKUP="${DEPLOY_DIR}/${JAR_NAME}.backup.$(date +%Y%m%d_%H%M)"
           sudo cp ${DEPLOY_DIR}/${JAR_NAME} ${BACKUP} 2>/dev/null || true
 
+          # Ротация: для отката нужен только свежий бэкап, остальные копились без предела
+          # (по 25–60 МБ за деплой). Оставляем три последних.
+          ls -t ${DEPLOY_DIR}/${JAR_NAME}.backup.* 2>/dev/null | tail -n +4 | sudo xargs -r rm -f
+
           # Deploy new jar (assembly plugin produces jar-with-dependencies)
           sudo cp target/bchgrp-*-jar-with-dependencies.jar ${DEPLOY_DIR}/${JAR_NAME}
 
@@ -56,7 +60,9 @@ jobs:
           STATUS=$(sudo systemctl is-active bot-bchgrp)
           if [ "$STATUS" != "active" ]; then
             echo "❌ Bot failed to start, rolling back..."
-            LATEST_BACKUP=$(ls -t /opt/BCHGRP/bchgrp.jar.backup.* 2>/dev/null | sed -n '2p')
+            # Самый свежий бэкап — это jar, работавший до деплоя (бэкап делается ДО копирования
+            # нового). '2p' откатывало на две версии назад.
+            LATEST_BACKUP=$(ls -t /opt/BCHGRP/bchgrp.jar.backup.* 2>/dev/null | head -1)
             if [ -n "$LATEST_BACKUP" ]; then
               sudo cp "$LATEST_BACKUP" /opt/BCHGRP/bchgrp.jar
               sudo systemctl restart bot-bchgrp
