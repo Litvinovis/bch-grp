@@ -21,7 +21,7 @@ public class ClanRepository {
     public Clan get(String name) {
         try (Connection conn = dataSource.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                 "SELECT name, leader_id, members, appliers, clan_bank, clan_upgrades, clan_base, clan_roles FROM clans WHERE name = ?")) {
+                 "SELECT name, leader_id, members, appliers, clan_bank, clan_upgrades, clan_base, clan_roles, alliances, fortress_upgrades, active_sieges FROM clans WHERE name = ?")) {
             ps.setString(1, name);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) return mapRow(rs);
@@ -42,11 +42,14 @@ public class ClanRepository {
     public void put(String name, Clan clan) {
         try (Connection conn = dataSource.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                 "INSERT INTO clans (name, leader_id, members, appliers, clan_bank, clan_upgrades, clan_base, clan_roles) VALUES (?,?,?,?,?,?,?,?) " +
+                 "INSERT INTO clans (name, leader_id, members, appliers, clan_bank, clan_upgrades, clan_base, clan_roles, " +
+                 "alliances, fortress_upgrades, active_sieges) VALUES (?,?,?,?,?,?,?,?,?,?,?) " +
                  "ON CONFLICT (name) DO UPDATE SET leader_id=EXCLUDED.leader_id, " +
                  "members=EXCLUDED.members, appliers=EXCLUDED.appliers, " +
                  "clan_bank=EXCLUDED.clan_bank, clan_upgrades=EXCLUDED.clan_upgrades, " +
-                 "clan_base=EXCLUDED.clan_base, clan_roles=EXCLUDED.clan_roles")) {
+                 "clan_base=EXCLUDED.clan_base, clan_roles=EXCLUDED.clan_roles, " +
+                 "alliances=EXCLUDED.alliances, fortress_upgrades=EXCLUDED.fortress_upgrades, " +
+                 "active_sieges=EXCLUDED.active_sieges")) {
             ps.setString(1, name);
             ps.setString(2, clan.getLeaderId());
             ps.setString(3, JsonUtil.toJson(clan.getMembers()));
@@ -55,8 +58,15 @@ public class ClanRepository {
             ps.setString(6, JsonUtil.toJson(clan.getClanUpgrades() != null ? clan.getClanUpgrades() : new ArrayList<>()));
             ps.setString(7, clan.getClanBase() != null ? clan.getClanBase() : "респаун");
             ps.setString(8, JsonUtil.toJson(clan.getClanRoles() != null ? clan.getClanRoles() : new HashMap<>()));
+            // Колонки были в схеме, но не писались: осады, крепость и альянсы терялись сразу после команды
+            ps.setString(9, JsonUtil.toJson(clan.getAlliances() != null ? clan.getAlliances() : new ArrayList<>()));
+            ps.setString(10, JsonUtil.toJson(clan.getFortressUpgrades() != null ? clan.getFortressUpgrades() : new ArrayList<>()));
+            ps.setString(11, JsonUtil.toJson(clan.getActiveSieges() != null ? clan.getActiveSieges() : new HashMap<>()));
             ps.executeUpdate();
-        } catch (Exception e) { log.error("Ошибка put({})", name, e); }
+        } catch (SQLException e) {
+            // Как в PlayerRepository: молчаливый провал записи выдавал успех при потерянных данных
+            throw new IllegalStateException("Не удалось сохранить клан " + name, e);
+        }
     }
 
     /**
@@ -124,7 +134,7 @@ public class ClanRepository {
         List<Clan> result = new ArrayList<>();
         try (Connection conn = dataSource.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                 "SELECT name, leader_id, members, appliers, clan_bank, clan_upgrades, clan_base, clan_roles FROM clans");
+                 "SELECT name, leader_id, members, appliers, clan_bank, clan_upgrades, clan_base, clan_roles, alliances, fortress_upgrades, active_sieges FROM clans");
              ResultSet rs = ps.executeQuery()) {
             while (rs.next()) result.add(mapRow(rs));
         } catch (Exception e) { log.error("Ошибка getAll()", e); }
@@ -157,6 +167,9 @@ public class ClanRepository {
             String rolesJson = rs.getString("clan_roles");
             clan.setClanRoles(rolesJson != null ? JsonUtil.fromJsonToMapStringString(rolesJson) : new HashMap<>());
         } catch (Exception e) { clan.setClanRoles(new HashMap<>()); }
+        clan.setAlliances(new ArrayList<>(JsonUtil.fromJsonToListString(rs.getString("alliances"))));
+        clan.setFortressUpgrades(new ArrayList<>(JsonUtil.fromJsonToListString(rs.getString("fortress_upgrades"))));
+        clan.setActiveSieges(new HashMap<>(JsonUtil.fromJsonToMapStringLong(rs.getString("active_sieges"))));
         return clan;
     }
 }

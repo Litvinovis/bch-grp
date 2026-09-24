@@ -80,10 +80,14 @@ public class ClanManager {
 		var clan = clanCache.get(clanName);
 		if (clan == null) {
 			return "Клан с таким названием не существует";
-		} else if (clan.getMembers().size() + clan.getAppliers().size() == MAX_CLAN_SIZE) {
+		} else if (clan.getAppliers().contains(id) || clan.getMembers().contains(id)) {
+			return "Заявка в клан " + clanName + " уже подана";
+		} else if (clan.getMembers().size() + clan.getAppliers().size() >= MAX_CLAN_SIZE) {
 			return "Количество мест в клане с учетом действующих заявок исчерпано, допустимое количество игроков в клане: " + MAX_CLAN_SIZE;
 		} else {
 			clan.getAppliers().add(id);
+			// Без сохранения заявка терялась: вступить в клан было невозможно
+			clanCache.put(clanName, clan);
 		}
 		return "";
 	}
@@ -108,11 +112,18 @@ public class ClanManager {
 				clan.getAppliers().clear();
 				return "Произошла ошибка, количетство заявок превышает максимальное, все заявки отменены, подайте заново";
 			} else {
-				for (var member : clan.getAppliers()) {
+				// Обход копии: удаление из обходимого списка бросало ConcurrentModificationException
+				for (var member : new ArrayList<>(clan.getAppliers())) {
 					var player = playerCache.get(member);
+					if (player == null) {
+						clan.getAppliers().remove(member);
+						clanCache.put(clan.getName(), clan);
+						continue;
+					}
 					if (player.getClanName() != null && !player.getClanName().isEmpty()) {
 						clan.getAppliers().remove(member);
-						return player.getClanName() + " не может вступить в клан, т.к. он уже в другом клане, его заявка отменена, для обработки оставшихся заявок, запустите команду заново";
+						clanCache.put(clan.getName(), clan);
+						return player.getNickName() + " не может вступить в клан, т.к. он уже в другом клане, его заявка отменена, для обработки оставшихся заявок, запустите команду заново";
 					} else {
 						player.setClanName(clan.getName());
 						playerCache.put(member, player);
@@ -145,6 +156,7 @@ public class ClanManager {
 				return "Нет активных заявок";
 			} else {
 				clan.getAppliers().clear();
+				clanCache.put(clanName, clan);
 			}
 		} else {
 			return "Вы не являетесь лидером клана";

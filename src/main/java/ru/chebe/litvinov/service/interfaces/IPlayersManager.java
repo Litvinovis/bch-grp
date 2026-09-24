@@ -281,6 +281,9 @@ public interface IPlayersManager {
     void professionCommand(MessageReceivedEvent event);
     void gatherResource(MessageReceivedEvent event);
     void showProfessionRecipes(MessageReceivedEvent event);
+
+    /** +создать [рецепт] — создать предмет по рецепту профессии. */
+    void craftProfessionItem(MessageReceivedEvent event);
     void resourceMarket(MessageReceivedEvent event);
     void captureTerritory(MessageReceivedEvent event);
     void siegeCommand(MessageReceivedEvent event);

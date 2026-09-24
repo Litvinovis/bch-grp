@@ -17,15 +17,22 @@ public class BountyManager {
 
     private final BountyRepository bountyRepository;
     private final PlayerRepository playerRepository;
-    private final ConcurrentHashMap<String, ReentrantLock> locks = new ConcurrentHashMap<>();
+    // Общие с остальными сервисами блокировки игроков: собственная карта не защищала
+    // от одновременной записи того же игрока из другой подсистемы (потерянные обновления)
+    private final PlayerLocks locks;
 
     public BountyManager(BountyRepository bountyRepository, PlayerRepository playerRepository) {
+        this(bountyRepository, playerRepository, new PlayerLocks());
+    }
+
+    public BountyManager(BountyRepository bountyRepository, PlayerRepository playerRepository, PlayerLocks locks) {
         this.bountyRepository = bountyRepository;
         this.playerRepository = playerRepository;
+        this.locks = locks;
     }
 
     private ReentrantLock getLock(String id) {
-        return locks.computeIfAbsent(id, k -> new ReentrantLock());
+        return locks.get(id);
     }
 
     /** +бонт @player [reward] — поставить награду за голову */

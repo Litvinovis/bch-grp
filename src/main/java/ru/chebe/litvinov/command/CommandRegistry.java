@@ -9,15 +9,16 @@ import java.util.*;
 
 /**
  * Реестр команд — маппит строковые префиксы на реализации {@link Command}.
- * Команды проверяются в порядке регистрации (более длинные префиксы должны идти раньше).
+ * Побеждает самый длинный совпавший префикс, поэтому порядок регистрации не важен:
+ * раньше «+идеяномер» перехватывался «+идея», а «+карта кланов» — «+карта».
  */
 public class CommandRegistry {
 
-    /** Пара (prefix, command) — порядок важен. */
+    /** Пара (prefix, command) в порядке регистрации. */
     private final List<Map.Entry<String, Command>> entries = new ArrayList<>();
 
-    /** Выделенный список команд, требующих прав администратора. */
-    private final Map<String, Command> adminCommands = new LinkedHashMap<>();
+    /** Префиксы команд, требующих прав администратора. */
+    private final Set<String> adminPrefixes = new HashSet<>();
 
     /**
      * Зарегистрировать обычную команду.
@@ -36,7 +37,7 @@ public class CommandRegistry {
      * @param command реализация команды
      */
     public void registerAdmin(String prefix, Command command) {
-        adminCommands.put(prefix, command);
+        adminPrefixes.add(prefix);
         entries.add(Map.entry(prefix, command));
     }
 
@@ -44,28 +45,33 @@ public class CommandRegistry {
      * Найти команду по тексту сообщения.
      *
      * @param content содержимое сообщения
-     * @return найденная команда или {@link Optional#empty()}
+     * @return команда с самым длинным совпавшим префиксом или {@link Optional#empty()}
      */
     public Optional<Command> resolve(String content) {
-        for (Map.Entry<String, Command> e : entries) {
-            if (content.startsWith(e.getKey())) {
-                return Optional.of(e.getValue());
-            }
-        }
-        return Optional.empty();
+        return longestMatch(content).map(Map.Entry::getValue);
     }
 
     /**
-     * Проверяет, является ли текст сообщения администраторской командой.
+     * Проверить, является ли команда в сообщении администраторской.
+     * Решает та же запись, что будет выполнена, — иначе проверка прав и исполнение
+     * могли смотреть на разные команды.
      *
      * @param content содержимое сообщения
-     * @return true если сообщение начинается с префикса администраторской команды
+     * @return {@code true}, если найденная команда требует прав администратора
      */
     public boolean isAdminCommand(String content) {
-        for (String prefix : adminCommands.keySet()) {
-            if (content.startsWith(prefix)) return true;
+        return longestMatch(content).map(e -> adminPrefixes.contains(e.getKey())).orElse(false);
+    }
+
+    private Optional<Map.Entry<String, Command>> longestMatch(String content) {
+        if (content == null) return Optional.empty();
+        Map.Entry<String, Command> best = null;
+        for (Map.Entry<String, Command> e : entries) {
+            if (content.startsWith(e.getKey()) && (best == null || e.getKey().length() > best.getKey().length())) {
+                best = e;
+            }
         }
-        return false;
+        return Optional.ofNullable(best);
     }
 
     /**
@@ -228,6 +234,7 @@ public class CommandRegistry {
         registry.register("+профессия", playersManager::professionCommand);
         registry.register("+добыть", playersManager::gatherResource);
         registry.register("+рецепты", playersManager::showProfessionRecipes);
+        registry.register("+создать", playersManager::craftProfessionItem);
 
         // --- Территории (item 117-123) ---
         registry.register("+захватить", playersManager::captureTerritory);
@@ -253,6 +260,7 @@ public class CommandRegistry {
         registry.register("+дневник", playersManager::diaryCommand);
         registry.register("+лор", playersManager::lorePage);
         registry.register("+доска", playersManager::weeklyBoard);
+        registry.register("+еженедельные", playersManager::weeklyBoard);
         registry.register("+бонты", playersManager::getBounties);
         registry.register("+бонт", playersManager::placeBounty);
 
