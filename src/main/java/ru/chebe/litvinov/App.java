@@ -3,6 +3,7 @@ package ru.chebe.litvinov;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import net.dv8tion.jda.api.JDABuilder;
+import net.dv8tion.jda.api.exceptions.InvalidTokenException;
 import net.dv8tion.jda.api.entities.Activity;
 import net.dv8tion.jda.api.requests.GatewayIntent;
 import org.slf4j.Logger;
@@ -64,6 +65,11 @@ public class App {
                         .setMaxReconnectDelay(60)
                         .build();
                 logger.info("Discord бот успешно инициализирован");
+                return;
+            } catch (InvalidTokenException e) {
+                // Повтор с тем же токеном бессмыслен — падаем, чтобы systemd и smoke-тест деплоя это увидели
+                logger.error("Неверный токен Discord (BCHGRP_DISCORD_TOKEN)", e);
+                System.exit(1);
                 return;
             } catch (Exception e) {
                 logger.warn("Не удалось подключиться к Discord ({}), повтор через {} сек", e.getMessage(), delaySec);

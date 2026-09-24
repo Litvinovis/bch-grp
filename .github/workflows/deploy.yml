@@ -56,10 +56,13 @@ jobs:
         if: github.event_name != 'pull_request'
         run: |
           echo "Waiting for bot to start..."
+          RESTARTS_BEFORE=$(systemctl show -p NRestarts --value bot-bchgrp)
           sleep 15
           STATUS=$(sudo systemctl is-active bot-bchgrp)
-          if [ "$STATUS" != "active" ]; then
-            echo "❌ Bot failed to start, rolling back..."
+          RESTARTS_AFTER=$(systemctl show -p NRestarts --value bot-bchgrp)
+          # Restart=always: падающий в цикле сервис может попасть на момент "active"
+          if [ "$STATUS" != "active" ] || [ "$RESTARTS_AFTER" != "$RESTARTS_BEFORE" ]; then
+            echo "❌ Bot failed to start (status=$STATUS, restarts $RESTARTS_BEFORE→$RESTARTS_AFTER), rolling back..."
             # Самый свежий бэкап — это jar, работавший до деплоя (бэкап делается ДО копирования
             # нового). '2p' откатывало на две версии назад.
             LATEST_BACKUP=$(ls -t /opt/BCHGRP/bchgrp.jar.backup.* 2>/dev/null | head -1)

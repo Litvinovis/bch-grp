@@ -2,6 +2,7 @@ package ru.chebe.litvinov.eventHandlers;
 
 import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
+import net.dv8tion.jda.api.events.session.ReadyEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import org.jetbrains.annotations.NotNull;
 import javax.sql.DataSource;
@@ -20,6 +21,7 @@ import java.util.Set;
 import java.util.HashSet;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Обработчик Discord-сообщений.
@@ -45,6 +47,15 @@ public class MessageHandler extends ListenerAdapter {
 	private final IdeasManager ideasManager;
 	private final RaidManager raidManager;
 	private final CommandRegistry commandRegistry;
+	private final WorldEventManager worldEventManager;
+
+	/**
+	 * Команды одного игрока выполняются строго по очереди. Каждое сообщение обрабатывается
+	 * в своём виртуальном потоке, и два быстрых «+использовать зелье» или «+крепость строить»
+	 * успевали оба пройти проверку до записи результата. Отдельный домен блокировок
+	 * (не данные игрока) и ровно одна блокировка на поток — дедлок невозможен.
+	 */
+	private final PlayerLocks commandLocks = new PlayerLocks();
 
 	private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
 
@@ -71,15 +82,15 @@ public class MessageHandler extends ListenerAdapter {
 
 		// New managers (items 85-150)
 		PetManager petManager = new PetManager(playerRepository);
-		ProfessionManager professionManager = new ProfessionManager(playerRepository);
+		ProfessionManager professionManager = new ProfessionManager(playerRepository, playersManager.getPlayerLocks());
 		TerritoryRepository territoryRepository = new TerritoryRepository(dataSource);
 		TerritoryManager territoryManager = new TerritoryManager(territoryRepository, playerRepository, clanManager, locationManager);
-		WorldEventManager worldEventManager = new WorldEventManager(playerRepository);
+		this.worldEventManager = new WorldEventManager(playerRepository);
 		worldEventManager.setAllowedChannelIds(this.allowedChannelIds);
-		FactionManager factionManager = new FactionManager(playerRepository);
+		FactionManager factionManager = new FactionManager(playerRepository, playersManager.getPlayerLocks());
 		BountyRepository bountyRepository = new BountyRepository(dataSource);
-		BountyManager bountyManager = new BountyManager(bountyRepository, playerRepository);
-		ArenaManager arenaManager = new ArenaManager(playerRepository, battleManager);
+		BountyManager bountyManager = new BountyManager(bountyRepository, playerRepository, playersManager.getPlayerLocks());
+		ArenaManager arenaManager = new ArenaManager(playerRepository, battleManager, playersManager.getPlayerLocks());
 		TournamentRepository tournamentRepository = new TournamentRepository(dataSource);
 		TournamentManager tournamentManager = new TournamentManager(tournamentRepository, playerRepository, battleManager);
 
@@ -107,7 +118,26 @@ public class MessageHandler extends ListenerAdapter {
 
 	@Override
 	public void onMessageReceived(@NotNull MessageReceivedEvent event) {
-		executor.submit(() -> chooseAction(event));
+		executor.submit(() -> {
+			ReentrantLock lock = commandLocks.get(event.getAuthor().getId());
+			lock.lock();
+			try {
+				chooseAction(event);
+			} finally {
+				lock.unlock();
+			}
+		});
+	}
+
+	/**
+	 * JDA появляется только после подключения. Без этой передачи анонсы редких достижений,
+	 * наград активности и мировых событий (босс, кризис) молча не отправлялись: jda оставался null.
+	 */
+	@Override
+	public void onReady(@NotNull ReadyEvent event) {
+		playersManager.setJda(event.getJDA());
+		worldEventManager.setJda(event.getJDA());
+		log.info("JDA передан сервисам анонсов");
 	}
 
 	private void chooseAction(MessageReceivedEvent event) {
@@ -323,7 +353,7 @@ public class MessageHandler extends ListenerAdapter {
 
 						Мировые события:
 						+мировой босс - атаковать мирового босса
-						+нашествие - статус нашествия
+						+нашествие - отразить нашествие в модерской (раз в сутки)
 						+кризис статус - статус экономического кризиса
 						+сезон - текущий сезонный предмет
 

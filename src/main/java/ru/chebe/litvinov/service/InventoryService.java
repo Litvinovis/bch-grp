@@ -156,11 +156,27 @@ public class InventoryService {
 
 	public void useItem(MessageReceivedEvent event) {
 		String playerId = event.getAuthor().getId();
+		// Проверка наличия, применение эффекта и списание — под одной блокировкой (она реентерабельна
+		// для вложенных changeHp/deleteItem): иначе параллельные команды применяли одно зелье дважды
+		ReentrantLock useLock = playerLocks.get(playerId);
+		useLock.lock();
+		try {
+			useItemLocked(event, playerId);
+		} finally {
+			useLock.unlock();
+		}
+	}
+
+	private void useItemLocked(MessageReceivedEvent event, String playerId) {
 		removeExpiredBuffs(playerId);
 		var player = playerCache.get(playerId);
 		String message = event.getMessage().getContentDisplay().substring(13).trim().toLowerCase();
 		if (player.getInventory().containsKey(message.toLowerCase())) {
 			Item item = itemsManager.getItem(message);
+			if (item == null) {
+				event.getChannel().sendMessage("Этот предмет нельзя использовать").submit();
+				return;
+			}
 			if (item.getExpireTime() != 0 && item.getExpireTime() < System.currentTimeMillis()) {
 				deleteItem(playerId, item.getName());
 				event.getChannel().sendMessage("Предмет **" + item.getName() + "** истёк и был удалён из инвентаря").submit();
@@ -285,7 +301,11 @@ public class InventoryService {
 			String message = event.getMessage().getContentDisplay().substring(8).trim().toLowerCase();
 			if (player.getInventory().containsKey(message.toLowerCase())) {
 				Item item = itemsManager.getItem(message);
-				int money = stats.changeMoney(player.getId(), item.getPrice() / (2 - player.getReputation() / 10), true);
+				if (item == null) {
+					event.getChannel().sendMessage("Этот предмет нельзя продать").submit();
+					return;
+				}
+				int money = stats.changeMoney(player.getId(), sellPrice(item, player), true);
 				deleteItem(player.getId(), item.getName());
 				event.getChannel().sendMessage("Теперь у тебя " + money + " денег").submit();
 			} else {
@@ -301,6 +321,16 @@ public class InventoryService {
 	 *
 	 * @param event событие Discord-сообщения с названием предмета
 	 */
+	/**
+	 * Цена продажи: половина цены, с репутацией от 10 — полная. Раньше делитель
+	 * {@code 2 - репутация / 10} обнулялся при репутации 20–29 (ArithmeticException)
+	 * и становился отрицательным от 30 — продажа отнимала деньги.
+	 */
+	static int sellPrice(Item item, Player player) {
+		int divisor = Math.max(1, 2 - player.getReputation() / 10);
+		return item.getPrice() / divisor;
+	}
+
 	public void buyItem(MessageReceivedEvent event) {
 		String message = event.getMessage().getContentDisplay().substring(7).trim().toLowerCase();
 		Player player = playerCache.get(event.getAuthor().getId());
@@ -313,6 +343,8 @@ public class InventoryService {
 				event.getChannel().sendMessage("Этот предмет нельзя купить").submit();
 			} else {
 				int price = item.getPrice();
+				// +торговец показывает скидку 50% на сезонный товар — применяем её и при покупке
+				if (item.getName().equals(itemsManager.getSeasonalDiscountItem())) price = price / 2;
 				ReentrantLock lock = playerLocks.get(player.getId());
 				lock.lock();
 				try {
@@ -469,6 +501,13 @@ public class InventoryService {
 				}
 				Map<String, Integer> receiverInv = receiver.getInventory();
 				receiverInv.put(itemName, receiverInv.getOrDefault(itemName, 0) + quantity);
+				// Бонусы экипировки уходят вместе с предметом: раньше отправитель сохранял их навсегда,
+				// а у получателя при продаже вычитались статы, которых он не получал
+				Item traded = itemsManager.getItem(itemName);
+				if (traded != null && !traded.isAction()) {
+					applyPassiveStats(sender, traded, -quantity);
+					applyPassiveStats(receiver, traded, quantity);
+				}
 				achievements.unlock(sender, "торговец");
 				// Обе стороны сохраняются одной транзакцией: иначе предмет исчезал
 				// у отправителя, не появившись у получателя
@@ -554,6 +593,15 @@ public class InventoryService {
 	}
 
 	/** Удаляет истёкшие предметы из инвентаря игрока. */
+	/** Прибавляет (times > 0) или снимает (times < 0) постоянные бонусы предмета — как addNewItem/deleteItem. */
+	private static void applyPassiveStats(Player player, Item item, int times) {
+		if (item.getReputation() > 0) player.setReputation(player.getReputation() + item.getReputation() * times);
+		if (item.getHealth() > 0) player.setHp(player.getHp() + item.getHealth() * times);
+		if (item.getArmor() > 0) player.setArmor(player.getArmor() + item.getArmor() * times);
+		if (item.getLuck() > 0) player.setLuck(player.getLuck() + item.getLuck() * times);
+		if (item.getStrength() > 0) player.setStrength(player.getStrength() + item.getStrength() * times);
+	}
+
 	private void purgeExpiredItems(String playerId, Player player) {
 		if (player == null || player.getInventory() == null) return;
 		long now = System.currentTimeMillis();

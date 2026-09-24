@@ -16,16 +16,23 @@ import java.util.concurrent.ConcurrentHashMap;
 public class FactionManager {
 
     private final PlayerRepository playerRepository;
-    private final ConcurrentHashMap<String, ReentrantLock> locks = new ConcurrentHashMap<>();
+    // Общие с остальными сервисами блокировки игроков: собственная карта не защищала
+    // от одновременной записи того же игрока из другой подсистемы (потерянные обновления)
+    private final PlayerLocks locks;
 
     private static final int REP_FOR_BONUS = 100;
 
     public FactionManager(PlayerRepository playerRepository) {
+        this(playerRepository, new PlayerLocks());
+    }
+
+    public FactionManager(PlayerRepository playerRepository, PlayerLocks locks) {
         this.playerRepository = playerRepository;
+        this.locks = locks;
     }
 
     private ReentrantLock getLock(String id) {
-        return locks.computeIfAbsent(id, k -> new ReentrantLock());
+        return locks.get(id);
     }
 
     /** +фракции — показать репутацию у фракций */

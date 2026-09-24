@@ -18,7 +18,9 @@ public class ProfessionManager {
     private static final long GATHER_COOLDOWN_MS = 30 * 60 * 1000L; // 30 минут
 
     private final PlayerRepository playerRepository;
-    private final ConcurrentHashMap<String, ReentrantLock> locks = new ConcurrentHashMap<>();
+    // Общие с остальными сервисами блокировки игроков: собственная карта не защищала
+    // от одновременной записи того же игрока из другой подсистемы (потерянные обновления)
+    private final PlayerLocks locks;
 
     // Хранит время последней добычи: playerId -> lastGatherTime
     private final ConcurrentHashMap<String, Long> lastGatherTime = new ConcurrentHashMap<>();
@@ -47,11 +49,16 @@ public class ProfessionManager {
     private static final Set<String> PROFESSIONS = Set.of("кузнец", "алхимик", "повар", "ювелир");
 
     public ProfessionManager(PlayerRepository playerRepository) {
+        this(playerRepository, new PlayerLocks());
+    }
+
+    public ProfessionManager(PlayerRepository playerRepository, PlayerLocks locks) {
         this.playerRepository = playerRepository;
+        this.locks = locks;
     }
 
     private ReentrantLock getLock(String id) {
-        return locks.computeIfAbsent(id, k -> new ReentrantLock());
+        return locks.get(id);
     }
 
     /** +профессия выбрать [профессия] / +профессия инфо */
@@ -250,6 +257,62 @@ public class ProfessionManager {
     }
 
     /** +биржа ресурсов — список цен на ресурсы */
+    /** Является ли название ресурсом профессий (руда, древесина, травы, камень). */
+    public static boolean isProfessionResource(String name) {
+        return name != null && RESOURCE_BASE_PRICES.containsKey(name.trim().toLowerCase());
+    }
+
+    /**
+     * +продать ресурс [ресурс] [количество] — продажа добытых ресурсов по ценам биржи.
+     * Раньше команда вела только в продажу предметов инвентаря, и добытые ресурсы
+     * было некуда девать.
+     */
+    public void sellResource(MessageReceivedEvent event) {
+        String id = event.getAuthor().getId();
+        String raw = event.getMessage().getContentDisplay().substring("+продать ресурс".length()).trim().toLowerCase();
+        String[] parts = raw.split("\\s+");
+        if (parts.length < 2) {
+            event.getChannel().sendMessage("Использование: **+продать ресурс [ресурс] [количество]**").submit();
+            return;
+        }
+        int qty;
+        try {
+            qty = Integer.parseInt(parts[parts.length - 1]);
+        } catch (NumberFormatException e) {
+            event.getChannel().sendMessage("Укажите количество.").submit();
+            return;
+        }
+        if (qty <= 0) {
+            event.getChannel().sendMessage("Количество должно быть больше нуля.").submit();
+            return;
+        }
+        String resource = raw.substring(0, raw.lastIndexOf(parts[parts.length - 1])).trim();
+        Integer price = RESOURCE_BASE_PRICES.get(resource);
+        if (price == null) {
+            event.getChannel().sendMessage("Неизвестный ресурс. Доступны: " + RESOURCE_BASE_PRICES.keySet()).submit();
+            return;
+        }
+        ReentrantLock lock = getLock(id);
+        lock.lock();
+        try {
+            Player p = playerRepository.get(id);
+            if (p.getResources() == null) p.setResources(new java.util.HashMap<>());
+            int have = p.getResources().getOrDefault(resource, 0);
+            if (have < qty) {
+                event.getChannel().sendMessage("Недостаточно **" + resource + "** (есть: " + have + ").").submit();
+                return;
+            }
+            if (have == qty) p.getResources().remove(resource);
+            else p.getResources().put(resource, have - qty);
+            int total = price * qty;
+            p.setMoney(p.getMoney() + total);
+            playerRepository.put(id, p);
+            event.getChannel().sendMessage("💱 Продано **" + qty + "x " + resource + "** за **" + total + "** монет.").submit();
+        } finally {
+            lock.unlock();
+        }
+    }
+
     public void resourceMarket(MessageReceivedEvent event) {
         String id = event.getAuthor().getId();
         Player player = playerRepository.get(id);

@@ -121,6 +121,11 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		achievements.setAllowedChannelIds(allowedChannelIds);
 	}
 
+	/** Общие блокировки игроков — передаются менеджерам, создаваемым вне фасада. */
+	public PlayerLocks getPlayerLocks() {
+		return playerLocks;
+	}
+
 	private ReentrantLock getPlayerLock(String id) {
 		return playerLocks.get(id);
 	}
@@ -431,7 +436,16 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 
 	/** {@inheritDoc} */
 	@Override
-	public void sellResource(MessageReceivedEvent event) { economy.sellResource(event); }
+	public void sellResource(MessageReceivedEvent event) {
+		// Ресурсы профессий хранятся отдельно от инвентаря — у них своя продажа
+		String rest = event.getMessage().getContentDisplay().substring("+продать ресурс".length()).trim().toLowerCase();
+		String first = rest.isEmpty() ? "" : rest.split("\\s+")[0];
+		if (professionManager != null && ProfessionManager.isProfessionResource(first)) {
+			professionManager.sellResource(event);
+		} else {
+			economy.sellResource(event);
+		}
+	}
 
 	/** {@inheritDoc} */
 	@Override
@@ -941,6 +955,12 @@ public class PlayersManager implements ru.chebe.litvinov.service.interfaces.IPla
 		else event.getChannel().sendMessage("Система профессий недоступна.").submit();
 	}
 
+	/** +создать [рецепт] — создать предмет по рецепту профессии */
+	@Override
+	public void craftProfessionItem(MessageReceivedEvent event) {
+		if (professionManager != null) professionManager.craftItem(event);
+		else event.getChannel().sendMessage("Система профессий недоступна.").submit();
+	}
 
 	/** +рецепты — список рецептов профессии */
 	public void showProfessionRecipes(MessageReceivedEvent event) {

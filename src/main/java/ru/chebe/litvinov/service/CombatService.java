@@ -293,7 +293,10 @@ public class CombatService {
 			return;
 		}
 		List<java.util.concurrent.locks.ReentrantLock> locks = new ArrayList<>();
+		// getPlayersByClan включает самого игрока — без фильтра он шёл в бой дважды,
+		// получал двойную награду, а проверка «нет других членов клана» не срабатывала
 		List<Player> clanPlayers = getPlayersByClan(player);
+		clanPlayers.removeIf(p -> p.getId().equals(playerId));
 		if (clanPlayers.isEmpty()) {
 			event.getChannel().sendMessage("Нет других членов клана в этой локации.").submit();
 			return;

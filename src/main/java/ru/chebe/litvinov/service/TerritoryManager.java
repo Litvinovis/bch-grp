@@ -136,17 +136,20 @@ public class TerritoryManager {
         if (clan == null) return;
 
         if (arg.equals("строить")) {
+            if (clan.getFortressUpgrades() != null && clan.getFortressUpgrades().contains("крепость")) {
+                // Раньше 1000 монет списывались при каждом вызове, даже если крепость уже стояла
+                event.getChannel().sendMessage("🏰 Крепость клана уже построена. Улучшения: **+крепость улучшить [кузня/таверна/башня]**").submit();
+                return;
+            }
             if (player.getMoney() < 1000) {
                 event.getChannel().sendMessage("Строительство крепости стоит **1000 монет**.").submit();
                 return;
             }
+            if (clan.getFortressUpgrades() == null) clan.setFortressUpgrades(new java.util.ArrayList<>());
+            clan.getFortressUpgrades().add("крепость");
+            clanManager.saveClan(clan);
             player.setMoney(player.getMoney() - 1000);
             playerRepository.put(id, player);
-            if (clan.getFortressUpgrades() == null) clan.setFortressUpgrades(new java.util.ArrayList<>());
-            if (!clan.getFortressUpgrades().contains("крепость")) {
-                clan.getFortressUpgrades().add("крепость");
-                clanManager.saveClan(clan);
-            }
             event.getChannel().sendMessage("🏰 Крепость клана **" + player.getClanName() + "** построена в **" + player.getLocation() + "**!").submit();
         } else if (arg.startsWith("улучшить ")) {
             buildUpgrade(event, player, clan, arg.substring(9).trim());
@@ -171,6 +174,10 @@ public class TerritoryManager {
             return;
         }
         if (clan.getFortressUpgrades() == null) clan.setFortressUpgrades(new java.util.ArrayList<>());
+        if (!clan.getFortressUpgrades().contains("крепость")) {
+            event.getChannel().sendMessage("Сначала постройте крепость: **+крепость строить**").submit();
+            return;
+        }
         if (clan.getFortressUpgrades().contains(upgrade)) {
             event.getChannel().sendMessage("Улучшение **" + upgrade + "** уже построено.").submit();
             return;

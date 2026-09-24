@@ -57,6 +57,9 @@ public class WorldEventManager {
         new WaveData("Предводитель Хаоса",  350, 35, 150)
     );
 
+    // Нашествие давало до ~950 монет и ~1250 XP за вызов и повторялось без ограничений
+    private final Cooldowns invasionCooldown = new Cooldowns(24 * 60 * 60 * 1000L);
+
     private Set<String> allowedChannelIds;
     private net.dv8tion.jda.api.JDA jda;
 
@@ -129,6 +132,11 @@ public class WorldEventManager {
         }
         String id = event.getAuthor().getId();
         Player player = playerRepository.get(id);
+        if (player.getHp() <= 0) {
+            // С HP ≤ 0 игрок бил босса бесконечно, уходя в отрицательное здоровье
+            event.getChannel().sendMessage("💀 У тебя нет здоровья для боя. Восстановись и возвращайся!").submit();
+            return;
+        }
         if (!player.getLocation().equals(worldBossLocation)) {
             event.getChannel().sendMessage("Мировой босс **" + currentWorldBossData.name() + "** находится в **" + worldBossLocation + "**. Переместись туда!").submit();
             return;
@@ -176,6 +184,16 @@ public class WorldEventManager {
 
         if (!"модерская".equals(player.getLocation())) {
             event.getChannel().sendMessage("🌊 **Нашествие** проходит в **модерской**! Переместись туда командой **+идти модерская**.").submit();
+            return;
+        }
+        if (player.getHp() <= 0) {
+            // При HP ≤ 0 цикл боя не выполнялся, и каждая волна засчитывалась как пройденная
+            event.getChannel().sendMessage("💀 У тебя нет здоровья для боя. Восстановись и возвращайся!").submit();
+            return;
+        }
+        long wait = invasionCooldown.tryAcquire(id);
+        if (wait > 0) {
+            event.getChannel().sendMessage("⏳ Нашествие можно отражать раз в сутки. Следующее через **" + Cooldowns.format(wait) + "**.").submit();
             return;
         }
 

@@ -19,19 +19,29 @@ public class ArenaManager {
 
     private final PlayerRepository playerRepository;
     private final BattleManager battleManager;
-    private final ConcurrentHashMap<String, ReentrantLock> locks = new ConcurrentHashMap<>();
+    // Общие с остальными сервисами блокировки игроков: собственная карта не защищала
+    // от одновременной записи того же игрока из другой подсистемы (потерянные обновления)
+    private final PlayerLocks locks;
+    // Пул выживания и награда чемпиона создавали монеты без взноса — без кулдауна это бесконечный фарм
+    private final Cooldowns survivalCooldown = new Cooldowns(60 * 60 * 1000L);
+    private final Cooldowns championCooldown = new Cooldowns(24 * 60 * 60 * 1000L);
 
     // Дневной чемпион
     private static volatile String dailyChampionId = null;
     private static volatile long championSetTime = 0;
 
     public ArenaManager(PlayerRepository playerRepository, BattleManager battleManager) {
+        this(playerRepository, battleManager, new PlayerLocks());
+    }
+
+    public ArenaManager(PlayerRepository playerRepository, BattleManager battleManager, PlayerLocks locks) {
         this.playerRepository = playerRepository;
         this.battleManager = battleManager;
+        this.locks = locks;
     }
 
     private ReentrantLock getLock(String id) {
-        return locks.computeIfAbsent(id, k -> new ReentrantLock());
+        return locks.get(id);
     }
 
     /** +арена — найти соперника с близким ELO и сразиться */
@@ -181,6 +191,12 @@ public class ArenaManager {
             return;
         }
 
+        long wait = survivalCooldown.tryAcquire(id);
+        if (wait > 0) {
+            event.getChannel().sendMessage("⏳ Выживание доступно раз в час. Следующее через **" + Cooldowns.format(wait) + "**.").submit();
+            return;
+        }
+
         int totalPot = 50;
         event.getChannel().sendMessage("⚔️ **ВЫЖИВАНИЕ** начинается в **" + player.getLocation() + "**!\nУчастников: " + (pvpPlayers.size() + 1) + " | Пул: " + totalPot + " монет").submit();
 
@@ -261,6 +277,11 @@ public class ArenaManager {
         Player champion = playerRepository.get(dailyChampionId);
         if (champion == null) {
             event.getChannel().sendMessage("Чемпион не найден.").submit();
+            return;
+        }
+        long wait = championCooldown.tryAcquire(id);
+        if (wait > 0) {
+            event.getChannel().sendMessage("⏳ Вызывать чемпиона можно раз в сутки. Следующий вызов через **" + Cooldowns.format(wait) + "**.").submit();
             return;
         }
 

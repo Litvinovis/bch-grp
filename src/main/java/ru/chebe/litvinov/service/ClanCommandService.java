@@ -50,6 +50,11 @@ public class ClanCommandService {
 			event.getChannel().sendMessage("Вы уже состоите в клане, сначала покиньте его").submit();
 		} else {
 			String clanName = event.getMessage().getContentDisplay().substring(11).trim().toLowerCase();
+			if (clanName.isEmpty()) {
+				// Клан с пустым именем неотличим от «не в клане»
+				event.getChannel().sendMessage("Укажите название клана: +новый клан (название)").submit();
+				return;
+			}
 			String result = clanManager.registerClan(clanName, player.getId());
 			if (!result.isEmpty()) {
 				event.getChannel().sendMessage(result).submit();
@@ -71,8 +76,22 @@ public class ClanCommandService {
 		if (player.getClanName() == null || player.getClanName().isEmpty()) {
 			event.getChannel().sendMessage("Вы не состоите в клане").submit();
 		} else {
-			clanManager.leaveClan(player.getClanName(), player.getId());
-			event.getChannel().sendMessage("Вы покинули клан " + player.getClanName()).submit();
+			String clanName = player.getClanName();
+			if (clanManager.getClan(clanName) != null) {
+				clanManager.leaveClan(clanName, player.getId());
+			}
+			// Раньше клан у игрока не сбрасывался: он не мог вступить в другой клан,
+			// а после удаления клана оставался привязан к несуществующему
+			ReentrantLock lock = playerLocks.get(player.getId());
+			lock.lock();
+			try {
+				Player fresh = playerCache.get(player.getId());
+				fresh.setClanName("");
+				playerCache.put(fresh.getId(), fresh);
+			} finally {
+				lock.unlock();
+			}
+			event.getChannel().sendMessage("Вы покинули клан " + clanName).submit();
 		}
 	}
 

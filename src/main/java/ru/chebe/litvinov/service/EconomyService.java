@@ -168,17 +168,27 @@ public class EconomyService {
 	}
 
 	/** +биржа — текущие цены на ресурсы (69); +продать ресурс [предмет] [qty] */
+	/** Товары биржи — расходники, которые продаются в магазине. */
+	static final List<String> EXCHANGE_ITEMS = List.of("кружка цикория", "вино лаба", "медовуха база", "протеин ябыса");
+
+	/**
+	 * Дневная цена биржи: половина цены магазина ±20%. Одна функция для показа и продажи —
+	 * раньше они считались разными генераторами и не совпадали. База «полная цена ±20%»
+	 * позволяла купить в магазине и продать дороже, бесконечно.
+	 */
+	static int exchangePrice(ru.chebe.litvinov.data.Item item, long nowMs) {
+		long day = nowMs / GameBalance.ONE_DAY_MS;
+		double factor = 0.8 + new Random(day * 31 + item.getName().hashCode()).nextDouble() * 0.4;
+		return Math.max(1, (int) (item.getPrice() / 2.0 * factor));
+	}
+
 	public void exchangeInfo(MessageReceivedEvent event) {
-		var sb = new StringBuilder("📊 **Биржа ресурсов** (цены меняются ±20% каждый день)\n\n");
-		int seed = (int)(System.currentTimeMillis() / GameBalance.ONE_DAY_MS);
-		Random rng = new Random(seed);
-		String[] resources = {"кружка цикория", "вино лаба", "медовуха база", "протеин ябыса"};
-		for (String res : resources) {
+		var sb = new StringBuilder("📊 **Биржа** (цены меняются ±20% каждый день)\n\n");
+		long now = System.currentTimeMillis();
+		for (String res : EXCHANGE_ITEMS) {
 			ru.chebe.litvinov.data.Item item = itemsManager.getItem(res);
 			if (item == null) continue;
-			double factor = 0.8 + rng.nextDouble() * 0.4;
-			int price = Math.max(1, (int)(item.getPrice() * factor));
-			sb.append("• **").append(res).append("** — ").append(price).append(" монет\n");
+			sb.append("• **").append(res).append("** — ").append(exchangePrice(item, now)).append(" монет\n");
 		}
 		sb.append("\nПродать: +продать ресурс [предмет] [количество]");
 		event.getChannel().sendMessage(sb.toString()).submit();
@@ -214,13 +224,14 @@ public class EconomyService {
 				return;
 			}
 			ru.chebe.litvinov.data.Item item = itemsManager.getItem(itemName);
-			if (item == null) {
-				event.getChannel().sendMessage("Предмет не найден на бирже.").submit();
+			// Только товары биржи: любой предмет продавался дороже, чем через +продать,
+			// а у экипировки при этом не снимались бонусы к статам
+			if (item == null || !EXCHANGE_ITEMS.contains(itemName)) {
+				event.getChannel().sendMessage("Предмет не торгуется на бирже. Доступны: " + String.join(", ", EXCHANGE_ITEMS)
+						+ ". Остальное продаётся через +продать").submit();
 				return;
 			}
-			int seed = (int)(System.currentTimeMillis() / GameBalance.ONE_DAY_MS);
-			double factor = 0.8 + new Random(seed + itemName.hashCode()).nextDouble() * 0.4;
-			int price = Math.max(1, (int)(item.getPrice() * factor));
+			int price = exchangePrice(item, System.currentTimeMillis());
 			int total = price * qty;
 			if (have == qty) player.getInventory().remove(itemName);
 			else player.getInventory().put(itemName, have - qty);

@@ -4,6 +4,7 @@ import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import ru.chebe.litvinov.data.Player;
 import ru.chebe.litvinov.repository.PlayerRepository;
 
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
@@ -18,6 +19,9 @@ public class MiniGamesService {
 	private final PlayerLocks playerLocks;
 	private final AchievementService achievements;
 	private final QuestProgressTracker quests;
+	private final java.util.Random random = new java.util.Random();
+	// Гонка давала +200 монет без ограничений и выигрывалась всегда
+	private final Cooldowns mountRaceCooldown = new Cooldowns(60 * 60 * 1000L);
 
 	public MiniGamesService(PlayerRepository playerCache, Tavern tavern, PlayerLocks playerLocks,
 	                        AchievementService achievements, QuestProgressTracker quests) {
@@ -231,12 +235,16 @@ public class MiniGamesService {
 			event.getChannel().sendMessage("Для участия нужен маунт. Добудь **маунт ветра** из редкого дропа.").submit();
 			return;
 		}
+		long wait = mountRaceCooldown.tryAcquire(id);
+		if (wait > 0) {
+			event.getChannel().sendMessage("⏳ Маунт отдыхает. Следующая гонка через **" + Cooldowns.format(wait) + "**.").submit();
+			return;
+		}
 		String[] path = {"респаун", "мейн", "деградач", "кушетка", "олимп"};
 		int totalSteps = path.length - 1; // 4 steps to finish
 
 		int playerPos = 0;
 		int[] npcPos = {0, 0, 0};
-		int[] npcSpeeds = {1, 2, 1};
 		String[] npcNames = {"Быстрец", "Гончий", "Летун"};
 
 		var sb = new StringBuilder("🏇 **Гонка маунтов** началась! Маршрут: " + String.join(" → ", path) + "\n\n");
@@ -245,9 +253,10 @@ public class MiniGamesService {
 
 		while (winner == null && round < 20) {
 			round++;
-			playerPos = Math.min(totalSteps, playerPos + 2);
+			// Случайный шаг 1–2: при фиксированных скоростях игрок всегда финишировал первым
+			playerPos = Math.min(totalSteps, playerPos + 1 + random.nextInt(2));
 			for (int i = 0; i < npcPos.length; i++) {
-				npcPos[i] = Math.min(totalSteps, npcPos[i] + npcSpeeds[i]);
+				npcPos[i] = Math.min(totalSteps, npcPos[i] + 1 + random.nextInt(2));
 			}
 			if (playerPos >= totalSteps) { winner = player.getNickName(); break; }
 			for (int i = 0; i < npcPos.length; i++) {
@@ -272,7 +281,25 @@ public class MiniGamesService {
 
 
 	/** +покер @игрок [ставка] (65) */
+	/** Приглашение в покер: кто вызвал, ставка и срок действия. */
+	private record PokerInvite(String challengerId, int bet, long expiresAt) {}
+
+	private static final long POKER_INVITE_TTL_MS = 10 * 60 * 1000L;
+	// Ключ — id приглашённого. Раньше ставка списывалась с соперника без его согласия,
+	// что позволяло раз за разом отбирать деньги у любого игрока
+	private final ConcurrentHashMap<String, PokerInvite> pokerInvites = new ConcurrentHashMap<>();
+
 	public void playPoker(MessageReceivedEvent event) {
+		String rawDisplay = event.getMessage().getContentDisplay().trim().toLowerCase();
+		if (rawDisplay.startsWith("+покер принять")) {
+			acceptPoker(event);
+			return;
+		}
+		if (rawDisplay.startsWith("+покер отказать")) {
+			PokerInvite removed = pokerInvites.remove(event.getAuthor().getId());
+			event.getChannel().sendMessage(removed != null ? "Вы отказались от игры в покер." : "У вас нет приглашений в покер.").submit();
+			return;
+		}
 		var mentions = event.getMessage().getMentions().getUsers();
 		if (mentions.isEmpty()) {
 			event.getChannel().sendMessage("Укажите оппонента: +покер @игрок [ставка]").submit();
@@ -302,9 +329,42 @@ public class MiniGamesService {
 			event.getChannel().sendMessage("Ставка должна быть больше нуля.").submit();
 			return;
 		}
-		Player challenger = playerCache.get(senderId);
-		Player opponent = playerCache.get(opponentId);
-		tavern.playPoker(event, challenger, opponent, bet);
-		playerCache.putBoth(senderId, challenger, opponentId, opponent);
+		if (playerCache.get(senderId).getMoney() < bet) {
+			event.getChannel().sendMessage("У вас недостаточно монет!").submit();
+			return;
+		}
+		pokerInvites.put(opponentId, new PokerInvite(senderId, bet, System.currentTimeMillis() + POKER_INVITE_TTL_MS));
+		event.getChannel().sendMessage(mentions.get(0).getAsMention() + ", вас вызывают на покер со ставкой **" + bet
+				+ "** монет! Напишите `+покер принять` или `+покер отказать` (10 минут).").submit();
+	}
+
+	private void acceptPoker(MessageReceivedEvent event) {
+		String opponentId = event.getAuthor().getId();
+		PokerInvite invite = pokerInvites.remove(opponentId);
+		if (invite == null || invite.expiresAt() < System.currentTimeMillis()) {
+			event.getChannel().sendMessage("У вас нет активных приглашений в покер.").submit();
+			return;
+		}
+		String challengerId = invite.challengerId();
+		ReentrantLock[] ordered = playerLocks.getOrdered(challengerId, opponentId);
+		ordered[0].lock();
+		try {
+			ordered[1].lock();
+			try {
+				// Перечитываем обоих под блокировками: иначе сохранялись устаревшие объекты
+				Player challenger = playerCache.get(challengerId);
+				Player opponent = playerCache.get(opponentId);
+				if (challenger == null || opponent == null) {
+					event.getChannel().sendMessage("Игрок больше не в игре.").submit();
+					return;
+				}
+				tavern.playPoker(event, challenger, opponent, invite.bet());
+				playerCache.putBoth(challengerId, challenger, opponentId, opponent);
+			} finally {
+				ordered[1].unlock();
+			}
+		} finally {
+			ordered[0].unlock();
+		}
 	}
 }
