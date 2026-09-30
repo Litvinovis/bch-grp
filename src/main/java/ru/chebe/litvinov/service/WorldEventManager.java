@@ -138,7 +138,7 @@ public class WorldEventManager {
         // До подключения к Discord анонс не уйдёт — босс появился бы молча
         if (worldEvents != null && jda == null) return;
         long lastSpawn = worldEvents != null ? worldEvents.lastBossSpawnAt() : lastSpawnInMemory;
-        if (worldBossHp > 0 && now - lastSpawn >= WORLD_BOSS_PERIOD_MS) {
+        if (worldBossHp > 0 && now - lastSpawn >= WORLD_BOSS_PERIOD_MS && !raidInProgress()) {
             // Не добили за 72 ч — уходит, место следующему
             worldBossHp = 0;
             broadcastMessage("🌫 Мировой босс **" + (currentWorldBossData != null ? currentWorldBossData.name() : "") + "** ушёл непобеждённым.");
@@ -179,18 +179,44 @@ public class WorldEventManager {
         }
     }
 
-    /** +мировой босс — атака мирового босса. synchronized: два одновременных удара теряли урон друг друга. */
+    // ── Рейд на мирового босса ──
+    // Бой идёт сам до конца: каждый раунд все участники бьют вместе, босс — один удар по
+    // случайному участнику (ограничение ударов в единицу времени). Раньше одна команда давала
+    // один удар, и на босса в 6000 HP нужно было ~90 команд.
+    static final long ROUND_MS = 10_000;
+    /** Сводка в канал раз в столько раундов (и на каждом выбывании) — иначе сообщение каждые 10 с. */
+    static final int ROUNDS_PER_REPORT = 3;
+    static final int KILL_XP_POOL = 1000;
+    static final int KILL_MONEY_POOL = 400;
+
+    private final java.util.Map<String, Integer> raidDamage = new java.util.LinkedHashMap<>();
+    private final java.util.Set<String> raidFighters = new java.util.LinkedHashSet<>();
+    private net.dv8tion.jda.api.entities.channel.middleman.MessageChannel raidChannel;
+    private java.util.concurrent.ScheduledFuture<?> raidTask;
+    private int raidRound;
+    Random raidRandom = new Random();
+    private PlayerLocks playerLocks;
+
+    public void setPlayerLocks(PlayerLocks playerLocks) {
+        this.playerLocks = playerLocks;
+    }
+
+    boolean raidInProgress() {
+        return raidTask != null || !raidFighters.isEmpty();
+    }
+
+    /** +мировой босс — вступить в бой (или начать его). */
     public synchronized void worldBossAttack(MessageReceivedEvent event) {
         if (worldBossHp <= 0) {
             event.getChannel().sendMessage("🌍 Мировой босс сейчас не активен. Следите за объявлениями!").submit();
             return;
         }
-        // Fallback boss data if currentWorldBossData is null (e.g. set via reflection in tests)
         if (currentWorldBossData == null) {
             currentWorldBossData = BOSS_ROSTER.get(0);
         }
         String id = event.getAuthor().getId();
         Player player = playerRepository.get(id);
+        if (player == null) return;
         if (player.getHp() <= 0) {
             // С HP ≤ 0 игрок бил босса бесконечно, уходя в отрицательное здоровье
             event.getChannel().sendMessage("💀 У тебя нет здоровья для боя. Восстановись и возвращайся!").submit();
@@ -200,34 +226,154 @@ public class WorldEventManager {
             event.getChannel().sendMessage("Мировой босс **" + currentWorldBossData.name() + "** находится в **" + worldBossLocation + "**. Переместись туда!").submit();
             return;
         }
-        int damage = Math.max(1, player.getStrength() - 5);
-        worldBossHp = Math.max(0, worldBossHp - damage);
+        if (raidFighters.contains(id)) {
+            event.getChannel().sendMessage("⚔️ Ты уже в бою с **" + currentWorldBossData.name() + "** — он идёт сам, жди сводку.").submit();
+            return;
+        }
+        raidFighters.add(id);
+        raidDamage.putIfAbsent(id, 0);
+        if (raidTask == null) {
+            raidChannel = event.getChannel();
+            raidRound = 0;
+            raidTask = scheduler.scheduleAtFixedRate(this::raidTick, ROUND_MS, ROUND_MS, TimeUnit.MILLISECONDS);
+            event.getChannel().sendMessage("⚔️ **" + player.getNickName() + "** вступил в бой с **" + currentWorldBossData.name()
+                + "** [❤️ " + worldBossHp + "]! Бой идёт сам до конца, раунд каждые " + (ROUND_MS / 1000) + " с.\n"
+                + "Присоединяйтесь: **+мировой босс** в **" + worldBossLocation + "** — бьём вместе.").submit();
+            broadcastMessage("⚔️ Начался бой с мировым боссом **" + currentWorldBossData.name() + "** в **" + worldBossLocation
+                + "**! Присоединяйтесь: **+мировой босс**.");
+        } else {
+            sendRaid("➕ **" + player.getNickName() + "** присоединился к бою! Бойцов: " + raidFighters.size());
+            if (raidChannel != null && !raidChannel.getId().equals(event.getChannel().getId())) {
+                event.getChannel().sendMessage("➕ Ты в бою с **" + currentWorldBossData.name() + "**, сводки — в канале, где он начался.").submit();
+            }
+        }
+    }
+
+    private void raidTick() {
+        try {
+            playRound();
+        } catch (Exception e) {
+            log.error("Ошибка раунда боя с мировым боссом", e);
+        }
+    }
+
+    /** Один раунд: все бьют, босс отвечает одним ударом по случайному участнику. */
+    synchronized void playRound() {
+        if (currentWorldBossData == null || worldBossHp <= 0) {
+            endRaid();
+            return;
+        }
+        raidRound++;
+        StringBuilder events = new StringBuilder();
+
+        int roundDamage = 0;
+        for (String id : List.copyOf(raidFighters)) {
+            Player p = playerRepository.get(id);
+            if (p == null || p.getHp() <= 0 || !worldBossLocation.equals(p.getLocation())) {
+                raidFighters.remove(id);
+                events.append("🚶 ").append(p != null ? p.getNickName() : id).append(" покинул бой\n");
+                continue;
+            }
+            int dmg = Math.max(1, p.getStrength() - 5);
+            roundDamage += dmg;
+            raidDamage.merge(id, dmg, Integer::sum);
+            worldBossHp = Math.max(0, worldBossHp - dmg);
+            if (worldBossHp <= 0) break;
+        }
         if (worldEvents != null && worldBossRowId > 0) {
             worldEvents.updateBossHp(worldBossRowId, currentWorldBossData.name(), worldBossLocation, worldBossHp);
         }
-
-        // Boss counter-damages player
-        int counterDmg = Math.max(1, currentWorldBossData.str() - player.getArmor());
-        player.setHp(player.getHp() - counterDmg);
-        playerRepository.put(id, player);
-
         if (worldBossHp <= 0) {
-            // Give boss loot to player
-            Player freshPlayer = playerRepository.get(id);
-            if (freshPlayer != null) {
-                freshPlayer.setMoney(freshPlayer.getMoney() + 200);
-                freshPlayer.setExp(freshPlayer.getExp() + 500);
-                freshPlayer.getInventory().merge(currentWorldBossData.loot(), 1, Integer::sum);
-                playerRepository.put(id, freshPlayer);
-            }
-            event.getChannel().sendMessage("💀 **" + player.getNickName() + "** нанёс финальный удар **" + currentWorldBossData.name() + "**!\n" +
-                "⭐ Получено: +500 XP, +200 монет, предмет: **" + currentWorldBossData.loot() + "**!").submit();
-            broadcastMessage("🎉 **" + currentWorldBossData.name() + "** повержен благодаря **" + player.getNickName() + "**!");
-            currentWorldBossData = null;
-        } else {
-            event.getChannel().sendMessage("⚔️ Ты атаковал мирового босса **" + currentWorldBossData.name() + "**! Урон: **" + damage + "**. Осталось HP: **" + worldBossHp + "**\n" +
-                "💥 Босс ударил в ответ: **" + counterDmg + "** урона! Твоё HP: **" + Math.max(0, player.getHp()) + "**").submit();
+            rewardRaid();
+            return;
         }
+        if (raidFighters.isEmpty()) {
+            sendRaid(events + "🏳 Все бойцы выбыли. **" + currentWorldBossData.name() + "** остался с ❤️ " + worldBossHp + " HP.");
+            endRaid();
+            return;
+        }
+
+        // Босс бьёт один раз за раунд — по случайному участнику
+        List<String> fighters = List.copyOf(raidFighters);
+        String targetId = fighters.get(raidRandom.nextInt(fighters.size()));
+        String knockout = hitFighter(targetId);
+        if (knockout != null) events.append(knockout);
+
+        if (raidFighters.isEmpty()) {
+            sendRaid(events + "🏳 Все бойцы выбыли. **" + currentWorldBossData.name() + "** остался с ❤️ " + worldBossHp + " HP.");
+            endRaid();
+            return;
+        }
+        if (events.length() > 0 || raidRound % ROUNDS_PER_REPORT == 0) {
+            sendRaid(events + "⚔️ Раунд " + raidRound + ": бойцы нанесли **" + roundDamage + "**, у **" + currentWorldBossData.name()
+                + "** ❤️ " + worldBossHp + ". Бойцов: " + raidFighters.size());
+        }
+    }
+
+    /** Удар босса по игроку; при HP ≤ 0 игрок выбывает. Возвращает строку о выбывании или null. */
+    private String hitFighter(String targetId) {
+        java.util.concurrent.locks.ReentrantLock lock = playerLocks != null ? playerLocks.get(targetId) : null;
+        if (lock != null) lock.lock();
+        try {
+            Player target = playerRepository.get(targetId);
+            if (target == null) {
+                raidFighters.remove(targetId);
+                return null;
+            }
+            int dmg = Math.max(1, currentWorldBossData.str() - target.getArmor());
+            target.setHp(Math.max(0, target.getHp() - dmg));
+            playerRepository.put(targetId, target);
+            if (target.getHp() <= 0) {
+                raidFighters.remove(targetId);
+                return "💀 **" + target.getNickName() + "** получил " + dmg + " урона и выбыл из боя\n";
+            }
+            return null;
+        } finally {
+            if (lock != null) lock.unlock();
+        }
+    }
+
+    /** Босс повержен: опыт и монеты — по доле урона, предмет — лучшему по урону. */
+    private void rewardRaid() {
+        int total = Math.max(1, raidDamage.values().stream().mapToInt(Integer::intValue).sum());
+        String topId = raidDamage.entrySet().stream().max(java.util.Map.Entry.comparingByValue()).map(java.util.Map.Entry::getKey).orElse(null);
+        StringBuilder msg = new StringBuilder("💀 **" + currentWorldBossData.name() + "** повержен за " + raidRound + " раундов!\n");
+        for (var e : raidDamage.entrySet()) {
+            double share = e.getValue() / (double) total;
+            int xp = Math.max(50, (int) Math.round(KILL_XP_POOL * share));
+            int money = Math.max(20, (int) Math.round(KILL_MONEY_POOL * share));
+            java.util.concurrent.locks.ReentrantLock lock = playerLocks != null ? playerLocks.get(e.getKey()) : null;
+            if (lock != null) lock.lock();
+            try {
+                Player p = playerRepository.get(e.getKey());
+                if (p == null) continue;
+                p.setExp(p.getExp() + xp);
+                p.setMoney(p.getMoney() + money);
+                if (e.getKey().equals(topId)) p.getInventory().merge(currentWorldBossData.loot(), 1, Integer::sum);
+                playerRepository.put(e.getKey(), p);
+                msg.append("• **").append(p.getNickName()).append("** — урон ").append(e.getValue())
+                   .append(": +").append(xp).append(" XP, +").append(money).append(" монет")
+                   .append(e.getKey().equals(topId) ? ", предмет **" + currentWorldBossData.loot() + "**" : "").append("\n");
+            } finally {
+                if (lock != null) lock.unlock();
+            }
+        }
+        sendRaid(msg.toString());
+        broadcastMessage("🎉 Мировой босс **" + currentWorldBossData.name() + "** повержен! Бойцов: " + raidDamage.size());
+        currentWorldBossData = null;
+        endRaid();
+    }
+
+    private void endRaid() {
+        if (raidTask != null) raidTask.cancel(false);
+        raidTask = null;
+        raidFighters.clear();
+        raidDamage.clear();
+        raidChannel = null;
+    }
+
+    private void sendRaid(String msg) {
+        if (raidChannel != null) raidChannel.sendMessage(msg).submit();
     }
 
     /** +нашествие — волновой бой с мобами */
