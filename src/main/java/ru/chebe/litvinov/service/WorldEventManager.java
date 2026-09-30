@@ -63,9 +63,38 @@ public class WorldEventManager {
     private Set<String> allowedChannelIds;
     private net.dv8tion.jda.api.JDA jda;
 
+    // Мировой босс переживает рестарт: состояние в world_events (WorldEventRepository)
+    static final long WORLD_BOSS_PERIOD_MS = 72L * 60 * 60 * 1000;
+    static final java.time.ZoneId GAME_ZONE = java.time.ZoneId.of("Europe/Moscow");
+    // Появляется только днём по Москве: раньше таймер шёл от запуска бота, и босс выходил в 02:13
+    static final int SPAWN_FROM_HOUR = 10;
+    static final int SPAWN_TO_HOUR = 22;
+    private final ru.chebe.litvinov.repository.WorldEventRepository worldEvents;
+    private static volatile long worldBossRowId = -1;
+    /** Без базы (тесты) время последнего спавна держим в памяти. */
+    private volatile long lastSpawnInMemory = 0;
+
     public WorldEventManager(PlayerRepository playerRepository) {
+        this(playerRepository, null);
+    }
+
+    public WorldEventManager(PlayerRepository playerRepository, ru.chebe.litvinov.repository.WorldEventRepository worldEvents) {
         this.playerRepository = playerRepository;
+        this.worldEvents = worldEvents;
+        restoreWorldBoss();
         scheduleEvents();
+    }
+
+    /** Поднять живого босса из базы после рестарта. */
+    private void restoreWorldBoss() {
+        if (worldEvents == null) return;
+        worldEvents.activeBoss(System.currentTimeMillis()).ifPresent(b -> {
+            currentWorldBossData = BOSS_ROSTER.stream().filter(d -> d.name().equals(b.name())).findFirst().orElse(BOSS_ROSTER.get(0));
+            worldBossLocation = b.location();
+            worldBossHp = b.hp();
+            worldBossRowId = b.id();
+            log.info("Мировой босс {} восстановлен: {} HP в {}", b.name(), b.hp(), b.location());
+        });
     }
 
     public void setJda(net.dv8tion.jda.api.JDA jda) {
@@ -79,8 +108,9 @@ public class WorldEventManager {
     private void scheduleEvents() {
         // Проверка экономического кризиса каждый день
         scheduler.scheduleAtFixedRate(this::checkDailyCrisis, 1, 24, TimeUnit.HOURS);
-        // Спавн мирового босса каждые 3 дня
-        scheduler.scheduleAtFixedRate(this::spawnWorldBoss, 3, 72, TimeUnit.HOURS);
+        // Раз в 72 ч, но проверяем каждые 10 минут: срок считается от прошлого спавна в базе,
+        // а не от запуска бота, и босс ждёт дневного окна
+        scheduler.scheduleAtFixedRate(this::checkWorldBoss, 1, 10, TimeUnit.MINUTES);
     }
 
     private void checkDailyCrisis() {
@@ -95,11 +125,40 @@ public class WorldEventManager {
         }
     }
 
-    private void spawnWorldBoss() {
+    /** Тик: снять просроченного босса и выпустить нового, если пора и сейчас день по Москве. */
+    void checkWorldBoss() {
+        try {
+            checkWorldBoss(System.currentTimeMillis());
+        } catch (Exception e) {
+            log.error("Ошибка проверки мирового босса", e);
+        }
+    }
+
+    synchronized void checkWorldBoss(long now) {
+        // До подключения к Discord анонс не уйдёт — босс появился бы молча
+        if (worldEvents != null && jda == null) return;
+        long lastSpawn = worldEvents != null ? worldEvents.lastBossSpawnAt() : lastSpawnInMemory;
+        if (worldBossHp > 0 && now - lastSpawn >= WORLD_BOSS_PERIOD_MS) {
+            // Не добили за 72 ч — уходит, место следующему
+            worldBossHp = 0;
+            broadcastMessage("🌫 Мировой босс **" + (currentWorldBossData != null ? currentWorldBossData.name() : "") + "** ушёл непобеждённым.");
+        }
+        if (worldBossHp > 0 || now - lastSpawn < WORLD_BOSS_PERIOD_MS) return;
+        int hour = java.time.Instant.ofEpochMilli(now).atZone(GAME_ZONE).getHour();
+        if (hour < SPAWN_FROM_HOUR || hour >= SPAWN_TO_HOUR) return;
+        spawnWorldBoss(now);
+    }
+
+    private void spawnWorldBoss(long now) {
         List<String> locs = LocationManager.locationList;
         worldBossLocation = locs.isEmpty() ? "мейн" : locs.get(random.nextInt(locs.size()));
         currentWorldBossData = BOSS_ROSTER.get(random.nextInt(BOSS_ROSTER.size()));
         worldBossHp = currentWorldBossData.hp();
+        lastSpawnInMemory = now;
+        if (worldEvents != null) {
+            worldBossRowId = worldEvents.spawnBoss(currentWorldBossData.name(), worldBossLocation, worldBossHp,
+                now, now + WORLD_BOSS_PERIOD_MS);
+        }
         broadcastMessage("🌍 **МИРОВОЙ БОСС — " + currentWorldBossData.name() + "** появился в **" + worldBossLocation +
             "**! [❤️ HP: " + currentWorldBossData.hp() + " | ⚔️ Сила: " + currentWorldBossData.str() + "]\nАтакуйте командой **+мировой босс**!");
     }
@@ -120,8 +179,8 @@ public class WorldEventManager {
         }
     }
 
-    /** +мировой босс — атака мирового босса */
-    public void worldBossAttack(MessageReceivedEvent event) {
+    /** +мировой босс — атака мирового босса. synchronized: два одновременных удара теряли урон друг друга. */
+    public synchronized void worldBossAttack(MessageReceivedEvent event) {
         if (worldBossHp <= 0) {
             event.getChannel().sendMessage("🌍 Мировой босс сейчас не активен. Следите за объявлениями!").submit();
             return;
@@ -143,6 +202,9 @@ public class WorldEventManager {
         }
         int damage = Math.max(1, player.getStrength() - 5);
         worldBossHp = Math.max(0, worldBossHp - damage);
+        if (worldEvents != null && worldBossRowId > 0) {
+            worldEvents.updateBossHp(worldBossRowId, currentWorldBossData.name(), worldBossLocation, worldBossHp);
+        }
 
         // Boss counter-damages player
         int counterDmg = Math.max(1, currentWorldBossData.str() - player.getArmor());
