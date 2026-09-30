@@ -216,6 +216,45 @@ public class PlayersManagerMoveTest {
         assertEquals(100, player.getHp(), "HP must be restored to maxHp on death");
     }
 
+    // ---- автомаршрут: локация не соседняя ------------------------------------
+
+    @Test
+    public void move_farLocation_walksWholeRouteStepByStep_withEventsOnEachStep() {
+        Player player = player("Hero", "p1", "мейн", 100, 100, 10, 50);
+        when(playerRepository.get("p1")).thenReturn(player);
+        when(locationManager.getLocation("мейн")).thenReturn(locationWithPaths("мейн", List.of("дом")));
+        when(locationManager.getLocation("лес")).thenReturn(locationWithPaths("лес", List.of("дом")));
+        when(locationManager.findPath("мейн", "лес")).thenReturn(List.of("дом", "лес"));
+        when(eventsManager.transferEvent(any(), any())).thenReturn(true);
+        when(battleManager.mobBattle(any(), any())).thenReturn(90);
+
+        playersManager.move(event);
+
+        assertEquals("лес", player.getLocation());
+        verify(eventsManager, times(2)).transferEvent(any(), any());
+        verify(battleManager, times(2)).mobBattle(any(), any());
+        verify(channel).sendMessage(contains("Маршрут до **лес** (2 перехода): дом → лес"));
+        verify(channel).sendMessage("➡️ дом");
+        verify(channel).sendMessage(contains("Ты успешно переместился в локацию - лес"));
+    }
+
+    @Test
+    public void move_farLocation_deathOnTheWay_stopsRoute() {
+        Player player = player("Hero", "p1", "мейн", 100, 100, 10, 50);
+        when(playerRepository.get("p1")).thenReturn(player);
+        when(locationManager.getLocation("мейн")).thenReturn(locationWithPaths("мейн", List.of("дом")));
+        when(locationManager.getLocation("лес")).thenReturn(locationWithPaths("лес", List.of("дом")));
+        when(locationManager.findPath("мейн", "лес")).thenReturn(List.of("дом", "поле", "лес"));
+        when(eventsManager.transferEvent(any(), any())).thenReturn(true);
+        when(battleManager.mobBattle(any(), any())).thenReturn(-1);
+
+        playersManager.move(event);
+
+        assertEquals("респаун", player.getLocation());
+        verify(battleManager, times(1)).mobBattle(any(), any());
+        verify(channel).sendMessage(contains("прерван на **дом**"));
+    }
+
     // ---- helpers -----------------------------------------------------------
 
     private Player player(String nick, String id, String location,
