@@ -97,6 +97,11 @@ public class WorldEventManager {
         });
     }
 
+    /** Где мировой босс, если он жив, иначе null — для отметки на карте. */
+    public static String activeBossLocation() {
+        return worldBossHp > 0 && !worldBossLocation.isEmpty() ? worldBossLocation : null;
+    }
+
     public void setJda(net.dv8tion.jda.api.JDA jda) {
         this.jda = jda;
     }
