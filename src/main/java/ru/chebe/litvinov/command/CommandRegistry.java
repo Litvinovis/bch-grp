@@ -107,6 +107,11 @@ public class CommandRegistry {
         registry.register("+локация", event -> locationManager.locationInfo(event, null));
         registry.register("+карта", locationManager::map);
 
+        // Шуточные команды одного игрока (ID — в BCHGRP_LAB_USER_ID); в +помощь не добавлять
+        LabCommand lab = LabCommand.fromEnv();
+        registry.register("+проиграть", lab);
+        registry.register("+победить", lab);
+
         // --- Инвентарь и предметы ---
         registry.register("+инвентарь", playersManager::getInventoryInfo);
         registry.register("+предмет", itemsManager::getItemInfo);
