@@ -85,7 +85,8 @@ public class MessageHandler extends ListenerAdapter {
 		ProfessionManager professionManager = new ProfessionManager(playerRepository, playersManager.getPlayerLocks());
 		TerritoryRepository territoryRepository = new TerritoryRepository(dataSource);
 		TerritoryManager territoryManager = new TerritoryManager(territoryRepository, playerRepository, clanManager, locationManager);
-		this.worldEventManager = new WorldEventManager(playerRepository);
+		this.worldEventManager = new WorldEventManager(playerRepository,
+				new ru.chebe.litvinov.repository.WorldEventRepository(dataSource));
 		worldEventManager.setAllowedChannelIds(this.allowedChannelIds);
 		FactionManager factionManager = new FactionManager(playerRepository, playersManager.getPlayerLocks());
 		BountyRepository bountyRepository = new BountyRepository(dataSource);
