@@ -169,6 +169,34 @@ public class LocationManager implements ru.chebe.litvinov.service.interfaces.ILo
 	private static volatile byte[] mapImageCache;
 
 	/**
+	 * Кратчайший маршрут из from в to (BFS): список локаций без стартовой, последняя — to.
+	 * Пустой — уже на месте; null — пути нет.
+	 */
+	public List<String> findPath(String from, String to) {
+		if (from.equals(to)) return List.of();
+		Map<String, String> parent = new HashMap<>();
+		Queue<String> queue = new LinkedList<>();
+		queue.add(from);
+		parent.put(from, null);
+		while (!queue.isEmpty()) {
+			String current = queue.poll();
+			Location loc = locationCache.get(current);
+			if (loc == null) continue;
+			for (String neighbor : loc.getPaths()) {
+				if (parent.containsKey(neighbor)) continue;
+				parent.put(neighbor, current);
+				if (neighbor.equals(to)) {
+					LinkedList<String> path = new LinkedList<>();
+					for (String step = to; step != null && !step.equals(from); step = parent.get(step)) path.addFirst(step);
+					return path;
+				}
+				queue.add(neighbor);
+			}
+		}
+		return null;
+	}
+
+	/**
 	 * BFS: находит следующую локацию на пути из from в to.
 	 * Возвращает null если путь не найден.
 	 */

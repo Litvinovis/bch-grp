@@ -71,4 +71,24 @@ public class LocationManagerBfsTest {
         Location мейн = locationManager.getLocation("мейн");
         assertTrue(мейн.getPaths().contains(next));
     }
+
+    @Test
+    public void findPath_returnsWholeRoute_consistentWithNextStep() {
+        java.util.List<String> path = locationManager.findPath("мейн", "кушетка");
+        assertNotNull(path);
+        assertEquals("кушетка", path.get(path.size() - 1));
+        assertEquals(locationManager.findNextStep("мейн", "кушетка"), path.get(0));
+        // каждый шаг — сосед предыдущего
+        String prev = "мейн";
+        for (String step : path) {
+            assertTrue(locationManager.getLocation(prev).getPaths().contains(step), prev + " → " + step);
+            prev = step;
+        }
+    }
+
+    @Test
+    public void findPath_sameLocation_empty_unknown_null() {
+        assertEquals(java.util.List.of(), locationManager.findPath("мейн", "мейн"));
+        assertNull(locationManager.findPath("мейн", "несуществующая"));
+    }
 }

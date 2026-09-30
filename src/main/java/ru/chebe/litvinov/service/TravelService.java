@@ -86,12 +86,59 @@ public class TravelService {
 					player.getInventory().remove("токен телепорта");
 				}
 			} else {
-				event.getChannel().sendMessage("Ты не можешь переместится в эту локацию, выбери что-нибудь из доступных путей: \n" + currentLocation.getPaths().toString()).submit();
+				autoRoute(event, player, currentLocation, nextLocation.getName());
 				return;
 			}
 		}
+		step(event, player, nextLocation.getName(), isTeleport, true);
+	}
+
+	/**
+	 * Локация не соседняя — ведём игрока по кратчайшему маршруту сами, как если бы он
+	 * набирал «+идти» на каждом шаге: с событиями, боями с мобами и квестовыми счётчиками.
+	 * Смерть в бою обрывает маршрут — игрок оказывается на респауне.
+	 */
+	private void autoRoute(MessageReceivedEvent event, Player player, Location currentLocation, String destination) {
+		List<String> path = locationManager.findPath(currentLocation.getName(), destination);
+		if (path == null || path.isEmpty()) {
+			event.getChannel().sendMessage("Ты не можешь переместится в эту локацию, выбери что-нибудь из доступных путей: \n" + currentLocation.getPaths().toString()).submit();
+			return;
+		}
+		event.getChannel().sendMessage("🧭 Маршрут до **" + destination + "** (" + path.size() + " " + transitions(path.size()) + "): "
+			+ String.join(" → ", path)).submit();
+		String id = player.getId();
+		for (int i = 0; i < path.size(); i++) {
+			boolean last = i == path.size() - 1;
+			Player current = i == 0 ? player : playerCache.get(id);
+			if (current == null || current.getHp() <= 0) break;
+			if (!step(event, current, path.get(i), false, last)) {
+				if (!last) {
+					event.getChannel().sendMessage("⛔ Маршрут до **" + destination + "** прерван на **" + path.get(i) + "**.").submit();
+				}
+				return;
+			}
+		}
+	}
+
+	static String transitions(int n) {
+		int mod100 = n % 100, mod10 = n % 10;
+		if (mod100 >= 11 && mod100 <= 14) return "переходов";
+		if (mod10 == 1) return "переход";
+		if (mod10 >= 2 && mod10 <= 4) return "перехода";
+		return "переходов";
+	}
+
+	/**
+	 * Один переход в соседнюю (или телепортом) локацию со всем, что на нём происходит.
+	 *
+	 * @param fullMessage полный отчёт о прибытии (игроки в локации, подсказка квеста); на
+	 *                    промежуточных шагах автомаршрута — короткая строка, чтобы не заваливать канал
+	 * @return false — игрок погиб в бою по пути
+	 */
+	private boolean step(MessageReceivedEvent event, Player player, String targetName, boolean isTeleport, boolean fullMessage) {
+		Location nextLocation;
 		String prevLocation = player.getLocation();
-		nextLocation = locationManager.movePlayerInPopulation(player, nextLocation.getName());
+		nextLocation = locationManager.movePlayerInPopulation(player, targetName);
 		player.setLocation(nextLocation.getName());
 
 		// История перемещений (27)
@@ -122,7 +169,7 @@ public class TravelService {
 			}
 		}
 
-		event.getChannel().sendMessage(msg.toString()).submit();
+		event.getChannel().sendMessage(fullMessage ? msg.toString() : "➡️ " + nextLocation.getName()).submit();
 
 		if (eventsManager.transferEvent(event, nextLocation)) {
 			int battleResult = battleManager.mobBattle(player, event.getChannel());
@@ -167,9 +214,12 @@ public class TravelService {
 				}
 			} else {
 				stats.deathOfPlayer(player);
+				return false;
 			}
 		}
+		return true;
 	}
+
 
 	/** +путь — история перемещений (27) / поиск пути (41) */
 	public void locationPath(MessageReceivedEvent event) {
