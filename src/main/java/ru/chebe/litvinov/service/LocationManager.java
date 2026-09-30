@@ -8,7 +8,8 @@ import ru.chebe.litvinov.data.Location;
 import ru.chebe.litvinov.data.Player;
 import ru.chebe.litvinov.repository.LocationRepository;
 
-import java.io.File;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.util.*;
 import java.util.LinkedList;
 import java.util.Queue;
@@ -19,6 +20,8 @@ import java.util.Queue;
  * и предоставляет информацию о локациях.
  */
 public class LocationManager implements ru.chebe.litvinov.service.interfaces.ILocationManager {
+
+	private static final Logger log = LoggerFactory.getLogger(LocationManager.class);
 
 	private final LocationRepository locationCache;
 	public static final List<String> locationList = new ArrayList<>(50);
@@ -126,7 +129,12 @@ public class LocationManager implements ru.chebe.litvinov.service.interfaces.ILo
 	 * @param event событие Discord-сообщения
 	 */
 	public void map(MessageReceivedEvent event) {
-		FileUpload file = FileUpload.fromData(new File("src/main/resources/map.png"), "map.png");
+		byte[] png = mapImage();
+		if (png == null) {
+			event.getChannel().sendMessage("Карта сейчас недоступна, попробуй позже").submit();
+			return;
+		}
+		FileUpload file = FileUpload.fromData(png, "map.png");
 
 		MessageEmbed embed = new EmbedBuilder()
 						.setDescription("Карта БЧ-РПГ")
@@ -136,6 +144,29 @@ public class LocationManager implements ru.chebe.litvinov.service.interfaces.ILo
 						.addFiles(file)
 						.queue();
 	}
+
+	/**
+	 * Картинка карты из classpath. Раньше читалась файлом по пути src/main/resources/map.png —
+	 * он есть только в исходниках, а в проде бот запущен из jar в /opt/BCHGRP, и +карта падала
+	 * с FileNotFoundException. Читаем один раз и держим в памяти: картинка не меняется.
+	 */
+	static byte[] mapImage() {
+		byte[] cached = mapImageCache;
+		if (cached != null) return cached;
+		try (var in = LocationManager.class.getResourceAsStream("/map.png")) {
+			if (in == null) {
+				log.error("map.png не найден в classpath");
+				return null;
+			}
+			mapImageCache = in.readAllBytes();
+			return mapImageCache;
+		} catch (java.io.IOException e) {
+			log.error("Не удалось прочитать map.png", e);
+			return null;
+		}
+	}
+
+	private static volatile byte[] mapImageCache;
 
 	/**
 	 * BFS: находит следующую локацию на пути из from в to.
