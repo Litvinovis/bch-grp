@@ -88,6 +88,7 @@ public class MessageHandler extends ListenerAdapter {
 		this.worldEventManager = new WorldEventManager(playerRepository,
 				new ru.chebe.litvinov.repository.WorldEventRepository(dataSource));
 		worldEventManager.setAllowedChannelIds(this.allowedChannelIds);
+		worldEventManager.setPlayerLocks(playersManager.getPlayerLocks());
 		FactionManager factionManager = new FactionManager(playerRepository, playersManager.getPlayerLocks());
 		BountyRepository bountyRepository = new BountyRepository(dataSource);
 		BountyManager bountyManager = new BountyManager(bountyRepository, playerRepository, playersManager.getPlayerLocks());
@@ -353,7 +354,7 @@ public class MessageHandler extends ListenerAdapter {
 						+альянс (клан) - заключить альянс с другим кланом
 
 						Мировые события:
-						+мировой босс - атаковать мирового босса
+						+мировой босс - вступить в бой с мировым боссом: бой идёт сам до конца, кто вступил — бьют вместе
 						+нашествие - отразить нашествие в модерской (раз в сутки)
 						+кризис статус - статус экономического кризиса
 						+сезон - текущий сезонный предмет

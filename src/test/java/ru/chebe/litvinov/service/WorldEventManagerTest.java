@@ -82,7 +82,7 @@ public class WorldEventManagerTest {
 
         worldEventManager.worldBossAttack(event);
 
-        verify(channel).sendMessage(contains("атаковал мирового босса"));
+        verify(channel).sendMessage(contains("вступил в бой"));
 
         setStaticField("worldBossHp", 0);
     }
