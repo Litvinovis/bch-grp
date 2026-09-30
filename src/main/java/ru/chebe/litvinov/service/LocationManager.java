@@ -1,7 +1,5 @@
 package ru.chebe.litvinov.service;
 
-import net.dv8tion.jda.api.EmbedBuilder;
-import net.dv8tion.jda.api.entities.MessageEmbed;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.utils.FileUpload;
 import ru.chebe.litvinov.data.Location;
@@ -129,42 +127,16 @@ public class LocationManager implements ru.chebe.litvinov.service.interfaces.ILo
 	 * @param event событие Discord-сообщения
 	 */
 	public void map(MessageReceivedEvent event) {
-		byte[] png = renderMap(event.getAuthor().getId());
-		if (png == null) png = mapImage();   // запасной вариант — прежняя картинка из jar
+		byte[] png = mapImage();
 		if (png == null) {
 			event.getChannel().sendMessage("Карта сейчас недоступна, попробуй позже").submit();
 			return;
 		}
-		FileUpload file = FileUpload.fromData(png, "map.png");
-
-		MessageEmbed embed = new EmbedBuilder()
-						.setDescription("Карта БЧ-РПГ")
-						.setImage("attachment://map.png")
-						.build();
-		event.getChannel().sendMessageEmbeds(embed) // send the embed
-						.addFiles(file)
+		// Файлом, а не картинкой в embed: embed Discord показывает уменьшенной и пережатой,
+		// а на иллюстрированной карте мелкие подписи тогда не читаются
+		event.getChannel().sendMessage("🗺 **Карта БЧ-РПГ**")
+						.addFiles(FileUpload.fromData(png, "map_bchgrp.png"))
 						.queue();
-	}
-
-	/**
-	 * Карта из актуальных локаций (MapRenderer) с отметками «ты здесь» и мирового босса.
-	 * Где игрок — по населению локаций. null — не получилось, тогда шлём старую картинку.
-	 */
-	byte[] renderMap(String playerId) {
-		try {
-			List<Location> all = new ArrayList<>();
-			String here = null;
-			for (String name : locationList) {
-				Location loc = locationCache.get(name);
-				if (loc == null) continue;
-				all.add(loc);
-				if (loc.getPopulationById() != null && loc.getPopulationById().contains(playerId)) here = name;
-			}
-			return MapRenderer.render(all, here, WorldEventManager.activeBossLocation());
-		} catch (Exception e) {
-			log.error("Не удалось нарисовать карту", e);
-			return null;
-		}
 	}
 
 	/**
