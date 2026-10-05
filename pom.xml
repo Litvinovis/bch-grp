@@ -22,7 +22,7 @@
     <lombok.version>1.18.48</lombok.version>
     <snakeyaml.version>2.7</snakeyaml.version>
     <jackson.version>2.22.3</jackson.version>
-    <logback.version>1.6.4</logback.version>
+    <logback.version>1.6.5</logback.version>
     <slf4j.version>2.0.20</slf4j.version>
 
     <!-- Plugin versions -->
