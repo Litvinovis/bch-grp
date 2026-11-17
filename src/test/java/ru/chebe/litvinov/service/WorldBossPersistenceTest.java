@@ -84,13 +84,14 @@ class WorldBossPersistenceTest {
     }
 
     @Test
-    void notSpawnedBeforeDiscordIsConnected() {
+    void spawnsWithoutDiscordConnection() throws Exception {
         FakeWorldEvents repo = new FakeWorldEvents();
         WorldEventManager m = new WorldEventManager(mock(PlayerRepository.class), repo);
 
         m.checkWorldBoss(msk("2026-10-01T12:00:00"));
 
-        assertTrue(repo.spawned.isEmpty(), "без JDA анонс не уйдёт — босс появился бы молча");
+        assertEquals(1, repo.spawned.size(), "босс появляется без подключения к Discord и без анонса");
+        assertTrue(bossHp() > 0);
     }
 
     @Test
