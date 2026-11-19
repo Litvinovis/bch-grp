@@ -118,10 +118,8 @@ public class WorldEventManager {
         if (!economicCrisisActive && random.nextInt(100) < 10) {
             economicCrisisActive = true;
             crisisEndsAt = System.currentTimeMillis() + 24 * 60 * 60 * 1000L;
-            broadcastMessage("💸 **ЭКОНОМИЧЕСКИЙ КРИЗИС!** Цены в магазине удвоены на 24 часа!");
         } else if (economicCrisisActive && System.currentTimeMillis() > crisisEndsAt) {
             economicCrisisActive = false;
-            broadcastMessage("✅ Экономический кризис завершился. Цены вернулись в норму.");
         }
     }
 
@@ -135,13 +133,11 @@ public class WorldEventManager {
     }
 
     synchronized void checkWorldBoss(long now) {
-        // До подключения к Discord анонс не уйдёт — босс появился бы молча
-        if (worldEvents != null && jda == null) return;
+        // Событие работает без рассылки: появление босса не зависит от подключения к Discord.
         long lastSpawn = worldEvents != null ? worldEvents.lastBossSpawnAt() : lastSpawnInMemory;
         if (worldBossHp > 0 && now - lastSpawn >= WORLD_BOSS_PERIOD_MS && !raidInProgress()) {
             // Не добили за 72 ч — уходит, место следующему
             worldBossHp = 0;
-            broadcastMessage("🌫 Мировой босс **" + (currentWorldBossData != null ? currentWorldBossData.name() : "") + "** ушёл непобеждённым.");
         }
         if (worldBossHp > 0 || now - lastSpawn < WORLD_BOSS_PERIOD_MS) return;
         int hour = java.time.Instant.ofEpochMilli(now).atZone(GAME_ZONE).getHour();
@@ -159,8 +155,6 @@ public class WorldEventManager {
             worldBossRowId = worldEvents.spawnBoss(currentWorldBossData.name(), worldBossLocation, worldBossHp,
                 now, now + WORLD_BOSS_PERIOD_MS);
         }
-        broadcastMessage("🌍 **МИРОВОЙ БОСС — " + currentWorldBossData.name() + "** появился в **" + worldBossLocation +
-            "**! [❤️ HP: " + currentWorldBossData.hp() + " | ⚔️ Сила: " + currentWorldBossData.str() + "]\nАтакуйте командой **+мировой босс**!");
     }
 
     private void broadcastMessage(String msg) {
@@ -208,7 +202,7 @@ public class WorldEventManager {
     /** +мировой босс — вступить в бой (или начать его). */
     public synchronized void worldBossAttack(MessageReceivedEvent event) {
         if (worldBossHp <= 0) {
-            event.getChannel().sendMessage("🌍 Мировой босс сейчас не активен. Следите за объявлениями!").submit();
+            event.getChannel().sendMessage("🌍 Мировой босс сейчас не активен. Проверьте позже командой **+мировой босс**.").submit();
             return;
         }
         if (currentWorldBossData == null) {
@@ -239,8 +233,6 @@ public class WorldEventManager {
             event.getChannel().sendMessage("⚔️ **" + player.getNickName() + "** вступил в бой с **" + currentWorldBossData.name()
                 + "** [❤️ " + worldBossHp + "]! Бой идёт сам до конца, раунд каждые " + (ROUND_MS / 1000) + " с.\n"
                 + "Присоединяйтесь: **+мировой босс** в **" + worldBossLocation + "** — бьём вместе.").submit();
-            broadcastMessage("⚔️ Начался бой с мировым боссом **" + currentWorldBossData.name() + "** в **" + worldBossLocation
-                + "**! Присоединяйтесь: **+мировой босс**.");
         } else {
             sendRaid("➕ **" + player.getNickName() + "** присоединился к бою! Бойцов: " + raidFighters.size());
             if (raidChannel != null && !raidChannel.getId().equals(event.getChannel().getId())) {
@@ -359,7 +351,6 @@ public class WorldEventManager {
             }
         }
         sendRaid(msg.toString());
-        broadcastMessage("🎉 Мировой босс **" + currentWorldBossData.name() + "** повержен! Бойцов: " + raidDamage.size());
         currentWorldBossData = null;
         endRaid();
     }
